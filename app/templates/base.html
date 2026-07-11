@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>3DPMS - Print Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    {% set ep = request.endpoint or '' %}
+    <div class="app-layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-icon">3D</div>
+          <div class="brand-text">3DPMS</div>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-section-title">Main</div>
+          <a href="{{ url_for('main.index') }}" class="nav-item{% if ep == 'main.index' %} active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard</span>
+          </a>
+          <a href="{{ url_for('main.quotes') }}" class="nav-item{% if ep.startswith('main.quote') or ep == 'main.new_quote' %} active{% endif %}">
+            <span class="nav-icon">📄</span>
+            <span class="nav-label">Quotes</span>
+          </a>
+          <a href="{{ url_for('main.invoices') }}" class="nav-item{% if ep.startswith('main.invoice') %} active{% endif %}">
+            <span class="nav-icon">💰</span>
+            <span class="nav-label">Invoices</span>
+          </a>
+          <a href="{{ url_for('main.jobs') }}" class="nav-item{% if ep.startswith('main.job') %} active{% endif %}">
+            <span class="nav-icon">🎯</span>
+            <span class="nav-label">Jobs</span>
+          </a>
+          <div class="nav-section-title">Manage</div>
+          <a href="{{ url_for('filament.index') }}" class="nav-item{% if ep.startswith('filament.') %} active{% endif %}">
+            <span class="nav-icon">🎨</span>
+            <span class="nav-label">Filament</span>
+          </a>
+          <a href="{{ url_for('main.clients') }}" class="nav-item{% if ep.startswith('main.client') %} active{% endif %}">
+            <span class="nav-icon">👥</span>
+            <span class="nav-label">Clients</span>
+          </a>
+          <a href="{{ url_for('settings.settings') }}" class="nav-item{% if ep.startswith('settings.') %} active{% endif %}">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings</span>
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="{{ url_for('auth.logout') }}" class="nav-item">
+            <span class="nav-icon">🚪</span>
+            <span class="nav-label">Logout</span>
+          </a>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+        </header>
+        <div class="content-area">
+          {% with messages = get_flashed_messages() %}
+            {% if messages %}
+              <ul class="flash-list">
+                {% for message in messages %}
+                  <li class="flash-message">{{ message }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% endwith %}
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

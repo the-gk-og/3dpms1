@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ quote.display_number }}{% endblock %}
+{% block content %}
+<div class="layout-split-wide">
+  <div>
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h2 style="margin: 0;">{{ quote.display_number }}</h2>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ quote.created_at.strftime('%d %b %Y') if quote.created_at else '—' }}</div>
+        </div>
+        <span class="badge badge-accent">{{ quote.status }}</span>
+      </div>
+
+      <div class="detail-grid">
+        <div>
+          <div class="detail-label">Client</div>
+          <div class="detail-value">{{ quote.client.name }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Subtotal</div>
+          <div class="detail-value">${{ "%.2f"|format(quote.subtotal) }}</div>
+        </div>
+        {% if quote.surcharge_percent %}
+        <div>
+          <div class="detail-label">Surcharge</div>
+          <div class="detail-value">{{ quote.surcharge_percent }}%</div>
+        </div>
+        {% endif %}
+        <div>
+          <div class="detail-label">Total</div>
+          <div class="detail-value accent">${{ "%.2f"|format(quote.total) }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Payment</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ quote.payment_method }}</div>
+        </div>
+      </div>
+
+      {% if quote.notes %}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div class="detail-label">Notes</div>
+        <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ quote.notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="panel" style="margin-top: 1.25rem;">
+      <h3 style="margin-top: 0;">Line Items</h3>
+      {% if quote.items %}
+        {% for item in quote.items %}
+        <div class="item-row">
+          <div class="item-row-header">
+            <strong>{{ item.description }}</strong>
+            <span style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(item.unit_price) }}</span>
+          </div>
+          <div class="item-meta">
+            <div>{{ item.weight_g }}g{% if item.filament %} · {{ item.filament.name }}{% endif %}</div>
+            <div>{{ item.print_time_hours }}h print</div>
+            <div>${{ item.hardware_cost }} hardware</div>
+          </div>
+          <div class="item-actions">
+            <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('item-edit-{{ item.id }}')">Edit</button>
+            <form method="post" action="{{ url_for('main.delete_quote_item', quote_id=quote.id, item_id=item.id) }}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
+              <button type="submit" class="btn-sm btn-danger">Delete</button>
+            </form>
+          </div>
+          <div id="item-edit-{{ item.id }}" class="collapsible-form">
+            <form method="post" action="{{ url_for('main.edit_quote_item', quote_id=quote.id, item_id=item.id) }}">
+              <label>Description<input type="text" name="description" value="{{ item.description }}"></label>
+              <div class="form-grid-2">
+                <label>Weight (g)<input type="number" step="0.01" name="weight_g" value="{{ item.weight_g }}"></label>
+                <label>Print Time (h)<input type="number" step="0.01" name="print_time_hours" value="{{ item.print_time_hours }}"></label>
+                <label>Hardware ($)<input type="number" step="0.01" name="hardware_cost" value="{{ item.hardware_cost }}"></label>
+                <label>Filament
+                  <select name="filament_id">
+                    <option value="">None</option>
+                    {% for f in filaments %}
+                    <option value="{{ f.id }}"{% if item.filament_id == f.id %} selected{% endif %}>{{ f.name }} (${{ "%.2f"|format(f.sell_price_per_kg) }}/kg)</option>
+                    {% endfor %}
+                  </select>
+                </label>
+              </div>
+              <button type="submit" class="btn-sm">Save Item</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color: var(--text-muted);">No line items yet. Add one using the form.</p>
+      {% endif %}
+    </div>
+
+    <div class="panel" style="margin-top: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">Edit Quote</h3>
+        <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('quote-edit-form')">Toggle</button>
+      </div>
+      <div id="quote-edit-form" class="collapsible-form open">
+        <form method="post" action="{{ url_for('main.edit_quote', quote_id=quote.id) }}">
+          <label>Status
+            <select name="status">
+              {% for s in ['Draft','Sent','Accepted','In Production','Invoiced','Completed','Cancelled'] %}
+              <option value="{{ s }}"{% if quote.status == s %} selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="{{ quote.surcharge_percent }}"></label>
+          <label>Notes<textarea name="notes" rows="3">{{ quote.notes or '' }}</textarea></label>
+          <label style="font-weight: 600; margin-bottom: 0.25rem;">Payment Methods</label>
+          <div class="checkbox-grid">
+            {% set methods = quote.payment_method.split(', ') %}
+            {% for key, label in [('payment_bank_transfer','Bank Transfer'),('payment_pay_id','Pay ID'),('payment_cash','Cash'),('payment_eft','EFT'),('payment_credit_card','Credit Card'),('payment_stripe','Stripe')] %}
+            <label class="checkbox-item">
+              <input type="checkbox" name="{{ key }}"{% if label in methods %} checked{% endif %}> {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+          <label class="checkbox-item" style="background: transparent; padding: 0;">
+            <input type="checkbox" name="digital_signature_enabled"{% if quote.digital_signature_enabled %} checked{% endif %}> Include signature area on PDF
+          </label>
+          <button type="submit">Save Quote</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Add Line Item</h3>
+      <form method="post" action="{{ url_for('main.add_quote_item', quote_id=quote.id) }}">
+        <label>Description<input type="text" name="description" placeholder="Custom bracket, vase, etc."></label>
+        <div class="form-grid-2">
+          <label>Weight (g)<input type="number" step="0.01" name="weight_g" value="0"></label>
+          <label>Print Time (h)<input type="number" step="0.01" name="print_time_hours" value="0"></label>
+        </div>
+        <label>Hardware Cost ($)<input type="number" step="0.01" name="hardware_cost" value="0"></label>
+        <label>Filament
+          <select name="filament_id">
+            <option value="">Select filament...</option>
+            {% for f in filaments %}
+            <option value="{{ f.id }}">{{ f.name }} — ${{ "%.2f"|format(f.sell_price_per_kg) }}/kg</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% if business.hourly_rate %}
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Print time billed at ${{ business.hourly_rate }}/hr</p>
+        {% endif %}
+        <button type="submit">Add Item</button>
+      </form>
+    </div>
+
+    <div class="panel" style="margin-top: 1rem;">
+      <h3 style="margin-top: 0;">Actions</h3>
+      <div class="actions-stack">
+        <form method="post" action="{{ url_for('main.generate_quote_pdf', quote_id=quote.id) }}">
+          <button type="submit" class="btn-block btn-secondary">Download PDF</button>
+        </form>
+        {% if existing_invoice %}
+        <a href="{{ url_for('main.invoice_detail', invoice_id=existing_invoice.id) }}" class="btn btn-block btn-success">View Invoice</a>
+        {% else %}
+        <form method="post" action="{{ url_for('main.convert_quote_to_invoice', quote_id=quote.id) }}">
+          <button type="submit" class="btn-block btn-success">Create Invoice</button>
+        </form>
+        {% endif %}
+        {% if existing_job %}
+        <a href="{{ url_for('main.jobs') }}" class="btn btn-block btn-purple">View Job</a>
+        {% else %}
+        <form method="post" action="{{ url_for('main.create_job_from_quote', quote_id=quote.id) }}">
+          <button type="submit" class="btn-block btn-purple">Create Job</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('main.generate_quote_email', quote_id=quote.id) }}">
+          <button type="submit" class="btn-block btn-secondary">Send Email</button>
+        </form>
+        <form method="post" action="{{ url_for('main.delete_quote', quote_id=quote.id) }}" onsubmit="return confirm('Delete this quote permanently?')">
+          <button type="submit" class="btn-block btn-danger">Delete Quote</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
+{% endblock %}

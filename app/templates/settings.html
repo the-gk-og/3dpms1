@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Settings</h2>
+</div>
+
+<div class="tabs">
+  <a href="{{ url_for('settings.settings', tab='business') }}" class="tab-link{% if active_tab == 'business' %} active{% endif %}">Business</a>
+  <a href="{{ url_for('settings.settings', tab='payment') }}" class="tab-link{% if active_tab == 'payment' %} active{% endif %}">Payment Details</a>
+  <a href="{{ url_for('settings.settings', tab='templates') }}" class="tab-link{% if active_tab == 'templates' %} active{% endif %}">PDF Templates</a>
+  <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
+</div>
+
+{% if active_tab == 'business' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" enctype="multipart/form-data" class="panel">
+  <input type="hidden" name="tab" value="business">
+  <h3 style="margin-top: 0;">Business Details</h3>
+  <div class="form-grid-2">
+    <label>Business Name<input type="text" name="name" value="{{ business.name }}" required></label>
+    <label>Contact Email<input type="email" name="contact_email" value="{{ business.contact_email or '' }}"></label>
+    <label>Phone<input type="text" name="phone" value="{{ business.phone or '' }}"></label>
+    <label>Website<input type="text" name="website" value="{{ business.website or '' }}"></label>
+    <label style="grid-column: 1 / -1;">Address<textarea name="address" rows="2">{{ business.address or '' }}</textarea></label>
+    <label>Hourly Print Rate ($)<input type="number" step="0.01" name="hourly_rate" value="{{ business.hourly_rate or 0 }}" placeholder="Used in quote pricing"></label>
+  </div>
+  <div class="form-section">
+    <h3>Logo</h3>
+    {% if business.logo_path %}
+    <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="Logo" class="logo-preview">
+    {% endif %}
+    <label>Upload Logo<input type="file" name="logo" accept="image/*"></label>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Used on PDF quotes and invoices</p>
+  </div>
+  <button type="submit">Save Business Settings</button>
+</form>
+
+{% elif active_tab == 'payment' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+  <input type="hidden" name="tab" value="payment">
+  <h3 style="margin-top: 0;">Payment Details</h3>
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">These details appear on quotes, invoices, and PDF exports.</p>
+
+  <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
+    <h3>PayID</h3>
+    <label>PayID (email or phone)<input type="text" name="pay_id" value="{{ business.pay_id or '' }}" placeholder="your@email.com or 0412 345 678"></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Bank Transfer</h3>
+    <div class="form-grid-2">
+      <label>Bank Name<input type="text" name="bank_name" value="{{ business.bank_name or '' }}" placeholder="Commonwealth Bank"></label>
+      <label>Account Name<input type="text" name="bank_account_name" value="{{ business.bank_account_name or '' }}"></label>
+      <label>BSB<input type="text" name="bank_bsb" value="{{ business.bank_bsb or '' }}" placeholder="062-000"></label>
+      <label>Account Number<input type="text" name="bank_account_number" value="{{ business.bank_account_number or '' }}"></label>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3>Other Payment Methods</h3>
+    <div class="form-grid-2">
+      <label>PayPal Email<input type="email" name="paypal_email" value="{{ business.paypal_email or '' }}"></label>
+      <label>Stripe Payment Link<input type="url" name="stripe_link" value="{{ business.stripe_link or '' }}" placeholder="https://buy.stripe.com/..."></label>
+    </div>
+  </div>
+
+  <button type="submit">Save Payment Details</button>
+</form>
+
+{% elif active_tab == 'templates' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+  <input type="hidden" name="tab" value="templates">
+  <h3 style="margin-top: 0;">PDF Templates</h3>
+
+  <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
+    <h3>Quote Templates</h3>
+    <label>Quote Header<textarea name="quote_header" rows="3" placeholder="Text shown at the top of quote PDFs">{{ business.quote_header or '' }}</textarea></label>
+    <label>Quote Footer<textarea name="quote_footer" rows="3" placeholder="Text shown at the bottom of quote PDFs">{{ business.quote_footer or '' }}</textarea></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Invoice Templates</h3>
+    <label>Invoice Header<textarea name="invoice_header" rows="3">{{ business.invoice_header or '' }}</textarea></label>
+    <label>Invoice Footer<textarea name="invoice_footer" rows="3">{{ business.invoice_footer or '' }}</textarea></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Terms & Conditions</h3>
+    <label>Payment Terms<textarea name="payment_terms" rows="3" placeholder="e.g. 50% deposit required. Balance due on completion.">{{ business.payment_terms or '' }}</textarea></label>
+    <label>Terms of Service / Agreement<textarea name="terms_of_service" rows="5" placeholder="Agreement text shown on PDF with signature area">{{ business.terms_of_service or '' }}</textarea></label>
+  </div>
+
+  <button type="submit">Save Templates</button>
+</form>
+
+{% elif active_tab == 'email' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+  <input type="hidden" name="tab" value="email">
+  <h3 style="margin-top: 0;">Email / SMTP Settings</h3>
+  <div class="form-grid-2">
+    <label>SMTP Host<input type="text" name="smtp_host" value="{{ business.smtp_host or '' }}"></label>
+    <label>Port<input type="number" name="smtp_port" value="{{ business.smtp_port or 587 }}"></label>
+    <label>Username<input type="text" name="smtp_username" value="{{ business.smtp_username or '' }}"></label>
+    <label>Password<input type="password" name="smtp_password" placeholder="Leave blank to keep current"></label>
+    <label>From Email<input type="email" name="smtp_from_email" value="{{ business.smtp_from_email or '' }}"></label>
+  </div>
+  <button type="submit">Save Email Settings</button>
+</form>
+{% endif %}
+{% endblock %}

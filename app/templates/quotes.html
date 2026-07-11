@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block page_title %}Quotes{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Quotes</h2>
+  <a href="{{ url_for('main.new_quote') }}" class="btn">+ New Quote</a>
+</div>
+
+{% if quotes %}
+<div class="panel" style="padding: 0; overflow: hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Quote</th>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Items</th>
+        <th>Total</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for quote in quotes %}
+      <tr>
+        <td><strong>{{ quote.display_number }}</strong></td>
+        <td>{{ quote.client.name }}</td>
+        <td><span class="badge badge-accent">{{ quote.status }}</span></td>
+        <td>{{ quote.items|length }}</td>
+        <td style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(quote.total) }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ quote.created_at.strftime('%d %b %Y') if quote.created_at else '—' }}</td>
+        <td><a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-state">
+  <p>No quotes yet.</p>
+  <a href="{{ url_for('main.new_quote') }}" class="btn" style="margin-top: 1rem;">Create your first quote</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block page_title %}Invoices{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Invoices</h2>
+</div>
+
+{% if invoices %}
+<div class="panel" style="padding: 0; overflow: hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Invoice</th>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Total</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for invoice in invoices %}
+      <tr>
+        <td><strong>{{ invoice.display_number }}</strong></td>
+        <td>{{ invoice.client.name }}</td>
+        <td><span class="badge badge-success">{{ invoice.status }}</span></td>
+        <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</td>
+        <td><a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-state">
+  <p>No invoices yet.</p>
+  <p style="font-size: 0.85rem;">Convert a quote to create your first invoice.</p>
+  <a href="{{ url_for('main.quotes') }}" class="btn" style="margin-top: 1rem;">Go to Quotes</a>
+</div>
+{% endif %}
+{% endblock %}

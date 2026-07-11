@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block page_title %}Clients{% endblock %}
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem;">
+  <div>
+    <h2 style="margin-top: 0;">Client Directory</h2>
+    <div class="cards" style="grid-template-columns: 1fr;">
+      {% for client in clients %}
+      <div class="card">
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">{{ client.name }}</h3>
+        {% if client.email %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">{{ client.email }}</div>
+        {% endif %}
+        {% if client.phone %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ client.phone }}</div>
+        {% endif %}
+        {% if client.notes %}
+        <div style="font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem;">{{ client.notes }}</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="card">
+        <p>No clients yet. Add one to get started.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Add Client</h3>
+      <form method="post">
+        <label>Name
+          <input type="text" name="name" required>
+        </label>
+        <label>Email
+          <input type="email" name="email">
+        </label>
+        <label>Phone
+          <input type="text" name="phone">
+        </label>
+        <label>Notes
+          <textarea name="notes" rows="3"></textarea>
+        </label>
+        <button type="submit">Save client</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

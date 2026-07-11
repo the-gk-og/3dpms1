@@ -1,0 +1,250 @@
+from io import BytesIO
+import os
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+)
+
+
+def _money(value):
+    return f'${value:,.2f}'
+
+
+def build_pdf(document_title, business, client, items, total, footer_text,
+              header_text='', payment_method='', payment_details=None,
+              payment_terms='', terms_of_service='', signature_enabled=False,
+              document_number='', subtotal=0, surcharge_percent=0,
+              notes='', logo_path=None):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        rightMargin=0.65 * inch, leftMargin=0.65 * inch,
+        topMargin=0.55 * inch, bottomMargin=0.55 * inch,
+    )
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        'DocTitle', parent=styles['Title'], fontSize=22, spaceAfter=4,
+        textColor=colors.HexColor('#1e293b'),
+    ))
+    styles.add(ParagraphStyle(
+        'BizName', parent=styles['Heading2'], fontSize=14,
+        textColor=colors.HexColor('#2563eb'), spaceAfter=2,
+    ))
+    styles.add(ParagraphStyle(
+        'Muted', parent=styles['BodyText'], fontSize=9,
+        textColor=colors.HexColor('#64748b'), leading=12,
+    ))
+    styles.add(ParagraphStyle(
+        'SectionHead', parent=styles['Heading3'], fontSize=11,
+        textColor=colors.HexColor('#334155'), spaceBefore=8, spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        'TOS', parent=styles['BodyText'], fontSize=8,
+        textColor=colors.HexColor('#475569'), leading=11,
+    ))
+    styles.add(ParagraphStyle(
+        'SigLine', parent=styles['BodyText'], fontSize=9,
+        textColor=colors.HexColor('#94a3b8'), spaceBefore=20,
+    ))
+
+    story = []
+
+    # Header row: logo + business info | document info
+    logo_cell = ''
+    if logo_path and os.path.isfile(logo_path):
+        try:
+            logo_cell = Image(logo_path, width=1.2 * inch, height=0.6 * inch, kind='proportional')
+        except Exception:
+            logo_cell = ''
+
+    biz_lines = [Paragraph(f'<b>{business.name or "Business"}</b>', styles['BizName'])]
+    if business.address:
+        biz_lines.append(Paragraph(business.address.replace('\n', '<br/>'), styles['Muted']))
+    contact_parts = []
+    if business.contact_email:
+        contact_parts.append(business.contact_email)
+    if getattr(business, 'phone', None):
+        contact_parts.append(business.phone)
+    if business.website:
+        contact_parts.append(business.website)
+    if contact_parts:
+        biz_lines.append(Paragraph(' &nbsp;|&nbsp; '.join(contact_parts), styles['Muted']))
+
+    doc_info = [
+        Paragraph(document_title.upper(), styles['DocTitle']),
+    ]
+    if document_number:
+        doc_info.append(Paragraph(f'<b>{document_number}</b>', styles['Muted']))
+    from datetime import datetime
+    doc_info.append(Paragraph(f'Date: {datetime.utcnow().strftime("%d %B %Y")}', styles['Muted']))
+
+    left_content = [[logo_cell, biz_lines[0]]] if logo_cell else [[biz_lines[0]]]
+    if len(biz_lines) > 1:
+        for line in biz_lines[1:]:
+            left_content.append([line])
+
+    header_table = Table(
+        [[Table(left_content, colWidths=[4.2 * inch]), doc_info]],
+        colWidths=[4.5 * inch, 2.5 * inch],
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.15 * inch))
+    story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#e2e8f0')))
+    story.append(Spacer(1, 0.15 * inch))
+
+    if header_text:
+        story.append(Paragraph(header_text.replace('\n', '<br/>'), styles['Muted']))
+        story.append(Spacer(1, 0.15 * inch))
+
+    # Client block
+    client_lines = [Paragraph('<b>Prepared For</b>', styles['SectionHead'])]
+    client_lines.append(Paragraph(f'<b>{client.name}</b>', styles['BodyText']))
+    if client.email:
+        client_lines.append(Paragraph(client.email, styles['Muted']))
+    if client.phone:
+        client_lines.append(Paragraph(client.phone, styles['Muted']))
+
+    story.append(Table([[client_lines]], colWidths=[7 * inch]))
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Line items table
+    data = [['#', 'Description', 'Weight', 'Material', 'Hardware', 'Print Time', 'Amount']]
+    for i, item in enumerate(items, 1):
+        filament_label = item.get('filament', '') or '—'
+        data.append([
+            str(i),
+            item['description'],
+            f"{item['weight_g']:.0f}g",
+            filament_label,
+            _money(item['hardware_cost']),
+            f"{item['print_time_hours']:.1f}h",
+            _money(item['line_total']),
+        ])
+
+    col_widths = [0.35 * inch, 2.2 * inch, 0.65 * inch, 1.1 * inch, 0.75 * inch, 0.7 * inch, 0.85 * inch]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('ALIGN', (6, 1), (6, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#e2e8f0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('PADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Totals
+    totals_data = []
+    if subtotal and surcharge_percent:
+        totals_data.append(['', '', '', '', '', 'Subtotal:', _money(subtotal)])
+        totals_data.append(['', '', '', '', '', f'Surcharge ({surcharge_percent:.1f}%):', _money(total - subtotal)])
+    totals_data.append(['', '', '', '', '', 'Total:', _money(total)])
+
+    totals_table = Table(totals_data, colWidths=col_widths)
+    totals_table.setStyle(TableStyle([
+        ('ALIGN', (5, 0), (5, -1), 'RIGHT'),
+        ('ALIGN', (6, 0), (6, -1), 'RIGHT'),
+        ('FONTNAME', (5, -1), (6, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (6, -1), (6, -1), colors.HexColor('#2563eb')),
+        ('LINEABOVE', (5, -1), (6, -1), 1, colors.HexColor('#2563eb')),
+        ('PADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(totals_table)
+
+    if notes:
+        story.append(Spacer(1, 0.15 * inch))
+        story.append(Paragraph('<b>Notes</b>', styles['SectionHead']))
+        story.append(Paragraph(notes.replace('\n', '<br/>'), styles['Muted']))
+
+    # Payment details
+    if payment_method or payment_details:
+        story.append(Spacer(1, 0.2 * inch))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph('<b>Payment Information</b>', styles['SectionHead']))
+        if payment_method:
+            story.append(Paragraph(f'Accepted methods: {payment_method}', styles['Muted']))
+        if payment_details:
+            for line in payment_details:
+                if line:
+                    story.append(Paragraph(line, styles['Muted']))
+
+    if payment_terms:
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph('<b>Payment Terms</b>', styles['SectionHead']))
+        story.append(Paragraph(payment_terms.replace('\n', '<br/>'), styles['Muted']))
+
+    # Agreement / TOS section
+    story.append(Spacer(1, 0.25 * inch))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+    story.append(Spacer(1, 0.1 * inch))
+    story.append(Paragraph('<b>Agreement &amp; Terms of Service</b>', styles['SectionHead']))
+
+    tos_text = terms_of_service or (
+        'By signing below, the client agrees to the quoted pricing, payment terms, '
+        'and conditions outlined in this document. Work will commence upon acceptance '
+        'and/or receipt of deposit as specified.'
+    )
+    story.append(Paragraph(tos_text.replace('\n', '<br/>'), styles['TOS']))
+
+    if signature_enabled:
+        story.append(Spacer(1, 0.3 * inch))
+        sig_table = Table([
+            ['_' * 40, '', '_' * 20],
+            ['Client Signature', '', 'Date'],
+        ], colWidths=[3 * inch, 0.5 * inch, 2 * inch])
+        sig_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#64748b')),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ]))
+        story.append(sig_table)
+
+    if footer_text:
+        story.append(Spacer(1, 0.2 * inch))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+        story.append(Spacer(1, 0.08 * inch))
+        story.append(Paragraph(footer_text.replace('\n', '<br/>'), styles['TOS']))
+
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    return pdf
+
+
+def build_payment_details(business):
+    lines = []
+    if business.pay_id:
+        lines.append(f'PayID: {business.pay_id}')
+    if business.bank_account_name or business.bank_bsb or business.bank_account_number:
+        bank_parts = []
+        if business.bank_name:
+            bank_parts.append(business.bank_name)
+        if business.bank_account_name:
+            bank_parts.append(business.bank_account_name)
+        if business.bank_bsb:
+            bank_parts.append(f'BSB: {business.bank_bsb}')
+        if business.bank_account_number:
+            bank_parts.append(f'Acc: {business.bank_account_number}')
+        lines.append('Bank Transfer: ' + ' | '.join(bank_parts))
+    if business.paypal_email:
+        lines.append(f'PayPal: {business.paypal_email}')
+    if business.stripe_link:
+        lines.append(f'Stripe: {business.stripe_link}')
+    return lines

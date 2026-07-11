@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block page_title %}Jobs{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Job Board</h2>
+    <p style="color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem;">Track print jobs from quote to completion</p>
+  </div>
+</div>
+
+{% if jobs %}
+<div class="cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+  {% for job in jobs %}
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ job.display_number }}</div>
+        <h3 style="margin: 0.25rem 0 0; font-size: 1rem;">{{ job.title }}</h3>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">{{ job.client.name }}</div>
+      </div>
+      <span class="badge badge-accent">{{ job.status }}</span>
+    </div>
+
+    {% if job.notes %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
+    {% endif %}
+
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+      Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}
+      {% if job.quote %} · <a href="{{ url_for('main.quote_detail', quote_id=job.quote_id) }}" style="color: var(--accent);">View Quote</a>{% endif %}
+    </div>
+
+    <div class="item-actions">
+      <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
+      <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Delete this job?')">
+        <button type="submit" class="btn-sm btn-danger">Delete</button>
+      </form>
+    </div>
+
+    <div id="job-edit-{{ job.id }}" class="collapsible-form">
+      <form method="post" action="{{ url_for('main.edit_job', job_id=job.id) }}">
+        <label>Title<input type="text" name="title" value="{{ job.title }}"></label>
+        <label>Status
+          <select name="status">
+            {% for s in ['Queued','Printing','Post-Processing','Complete','Cancelled'] %}
+            <option value="{{ s }}"{% if job.status == s %} selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Notes<textarea name="notes" rows="2">{{ job.notes or '' }}</textarea></label>
+        <button type="submit" class="btn-sm">Save</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state">
+  <div class="empty-state-icon">🎯</div>
+  <p>No jobs yet.</p>
+  <p style="font-size: 0.85rem;">Create a job from an existing quote to start tracking production.</p>
+  <a href="{{ url_for('main.quotes') }}" class="btn" style="margin-top: 1rem;">Go to Quotes</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) { document.getElementById(id).classList.toggle('open'); }
+</script>
+{% endblock %}

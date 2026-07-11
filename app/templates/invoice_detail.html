@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ invoice.display_number }}{% endblock %}
+{% block content %}
+<div class="layout-split-wide">
+  <div>
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="margin: 0;">{{ invoice.display_number }}</h2>
+        <span class="badge badge-success">{{ invoice.status }}</span>
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div class="detail-label">Client</div>
+          <div class="detail-value">{{ invoice.client.name }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Amount Due</div>
+          <div class="detail-value accent">${{ "%.2f"|format(invoice.total) }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Payment</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ invoice.payment_method }}</div>
+        </div>
+        {% if invoice.quote %}
+        <div>
+          <div class="detail-label">From Quote</div>
+          <div class="detail-value"><a href="{{ url_for('main.quote_detail', quote_id=invoice.quote_id) }}" style="color: var(--accent);">{{ invoice.quote.display_number }}</a></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if invoice.items %}
+    <div class="panel" style="margin-top: 1.25rem;">
+      <h3 style="margin-top: 0;">Line Items</h3>
+      <table class="data-table">
+        <thead>
+          <tr><th>Description</th><th>Weight</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for item in invoice.items %}
+          <tr>
+            <td>{{ item.description }}</td>
+            <td>{{ item.weight_g }}g</td>
+            <td style="font-weight: 600;">${{ "%.2f"|format(item.unit_price) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="panel" style="margin-top: 1.25rem;">
+      <h3 style="margin-top: 0;">Edit Invoice</h3>
+      <form method="post" action="{{ url_for('main.edit_invoice', invoice_id=invoice.id) }}">
+        <label>Status
+          <select name="status">
+            {% for s in ['Draft','Sent','Paid','Overdue','Cancelled'] %}
+            <option value="{{ s }}"{% if invoice.status == s %} selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Payment Method<input type="text" name="payment_method" value="{{ invoice.payment_method }}"></label>
+        <label>Notes<textarea name="notes" rows="2">{{ invoice.notes or '' }}</textarea></label>
+        <button type="submit">Save Invoice</button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Actions</h3>
+      <div class="actions-stack">
+        <form method="post" action="{{ url_for('main.generate_invoice_pdf', invoice_id=invoice.id) }}">
+          <button type="submit" class="btn-block btn-secondary">Download PDF</button>
+        </form>
+        <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}">
+          <button type="submit" class="btn-block btn-secondary">Send Email</button>
+        </form>
+        <form method="post" action="{{ url_for('main.delete_invoice', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?')">
+          <button type="submit" class="btn-block btn-danger">Delete Invoice</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
