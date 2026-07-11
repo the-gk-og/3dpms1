@@ -3,6 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h2>Invoices</h2>
+  <a href="{{ url_for('main.new_invoice') }}" class="btn">New Invoice</a>
 </div>
 
 {% if invoices %}
@@ -14,6 +15,7 @@
         <th>Client</th>
         <th>Status</th>
         <th>Total</th>
+        <th>Due</th>
         <th>Date</th>
         <th></th>
       </tr>
@@ -23,8 +25,15 @@
       <tr>
         <td><strong>{{ invoice.display_number }}</strong></td>
         <td>{{ invoice.client.name }}</td>
-        <td><span class="badge badge-success">{{ invoice.status }}</span></td>
+        <td>
+          {% if invoice.is_overdue %}
+          <span class="badge badge-danger">Overdue</span>
+          {% else %}
+          <span class="badge badge-success">{{ invoice.status }}</span>
+          {% endif %}
+        </td>
         <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}</td>
         <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</td>
         <td><a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a></td>
       </tr>
@@ -35,8 +44,8 @@
 {% else %}
 <div class="card empty-state">
   <p>No invoices yet.</p>
-  <p style="font-size: 0.85rem;">Convert a quote to create your first invoice.</p>
-  <a href="{{ url_for('main.quotes') }}" class="btn" style="margin-top: 1rem;">Go to Quotes</a>
+  <p style="font-size: 0.85rem;">Create one directly, or convert a quote once it's accepted.</p>
+  <a href="{{ url_for('main.new_invoice') }}" class="btn" style="margin-top: 1rem;">New Invoice</a>
 </div>
 {% endif %}
 {% endblock %}

@@ -27,6 +27,21 @@ def run_migrations(db):
         },
         'invoice': {
             'notes': 'TEXT',
+            'due_date': 'DATE',
+            'paid_at': 'DATETIME',
+        },
+        'quote': {
+            'valid_until': 'DATE',
+        },
+        'quote_item': {
+            'item_type': "VARCHAR(20) DEFAULT 'print'",
+            'quantity': 'FLOAT DEFAULT 1',
+            'rate': 'FLOAT DEFAULT 0',
+        },
+        'invoice_item': {
+            'item_type': "VARCHAR(20) DEFAULT 'print'",
+            'quantity': 'FLOAT DEFAULT 1',
+            'rate': 'FLOAT DEFAULT 0',
         },
     }
 

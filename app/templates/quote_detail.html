@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_item_form_fields.html' import item_type_fields %}
 {% block page_title %}{{ quote.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
@@ -9,7 +10,12 @@
           <h2 style="margin: 0;">{{ quote.display_number }}</h2>
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ quote.created_at.strftime('%d %b %Y') if quote.created_at else '—' }}</div>
         </div>
-        <span class="badge badge-accent">{{ quote.status }}</span>
+        <div>
+          <span class="badge badge-accent">{{ quote.status }}</span>
+          {% if quote.is_expired %}
+          <span class="badge badge-danger" style="margin-left: 0.4rem;">Expired</span>
+          {% endif %}
+        </div>
       </div>
 
       <div class="detail-grid">
@@ -35,6 +41,10 @@
           <div class="detail-label">Payment</div>
           <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ quote.payment_method }}</div>
         </div>
+        <div>
+          <div class="detail-label">Valid Until</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ quote.valid_until.strftime('%d %b %Y') if quote.valid_until else 'Not set' }}</div>
+        </div>
       </div>
 
       {% if quote.notes %}
@@ -55,9 +65,10 @@
             <span style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(item.unit_price) }}</span>
           </div>
           <div class="item-meta">
-            <div>{{ item.weight_g }}g{% if item.filament %} · {{ item.filament.name }}{% endif %}</div>
-            <div>{{ item.print_time_hours }}h print</div>
-            <div>${{ item.hardware_cost }} hardware</div>
+            <div>{{ item.detail_line }}</div>
+            {% if item.item_type != 'print' %}
+            <div><span class="badge badge-muted">{{ 'Flat Fee' if item.item_type == 'flat' else 'Hourly' }}</span></div>
+            {% endif %}
           </div>
           <div class="item-actions">
             <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('item-edit-{{ item.id }}')">Edit</button>
@@ -67,20 +78,7 @@
           </div>
           <div id="item-edit-{{ item.id }}" class="collapsible-form">
             <form method="post" action="{{ url_for('main.edit_quote_item', quote_id=quote.id, item_id=item.id) }}">
-              <label>Description<input type="text" name="description" value="{{ item.description }}"></label>
-              <div class="form-grid-2">
-                <label>Weight (g)<input type="number" step="0.01" name="weight_g" value="{{ item.weight_g }}"></label>
-                <label>Print Time (h)<input type="number" step="0.01" name="print_time_hours" value="{{ item.print_time_hours }}"></label>
-                <label>Hardware ($)<input type="number" step="0.01" name="hardware_cost" value="{{ item.hardware_cost }}"></label>
-                <label>Filament
-                  <select name="filament_id">
-                    <option value="">None</option>
-                    {% for f in filaments %}
-                    <option value="{{ f.id }}"{% if item.filament_id == f.id %} selected{% endif %}>{{ f.name }} (${{ "%.2f"|format(f.sell_price_per_kg) }}/kg)</option>
-                    {% endfor %}
-                  </select>
-                </label>
-              </div>
+              {{ item_type_fields(filaments, business, item) }}
               <button type="submit" class="btn-sm">Save Item</button>
             </form>
           </div>
@@ -106,6 +104,7 @@
             </select>
           </label>
           <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="{{ quote.surcharge_percent }}"></label>
+          <label>Valid Until<input type="date" name="valid_until" value="{{ quote.valid_until.isoformat() if quote.valid_until else '' }}"></label>
           <label>Notes<textarea name="notes" rows="3">{{ quote.notes or '' }}</textarea></label>
           <label style="font-weight: 600; margin-bottom: 0.25rem;">Payment Methods</label>
           <div class="checkbox-grid">
@@ -129,23 +128,7 @@
     <div class="panel">
       <h3 style="margin-top: 0;">Add Line Item</h3>
       <form method="post" action="{{ url_for('main.add_quote_item', quote_id=quote.id) }}">
-        <label>Description<input type="text" name="description" placeholder="Custom bracket, vase, etc."></label>
-        <div class="form-grid-2">
-          <label>Weight (g)<input type="number" step="0.01" name="weight_g" value="0"></label>
-          <label>Print Time (h)<input type="number" step="0.01" name="print_time_hours" value="0"></label>
-        </div>
-        <label>Hardware Cost ($)<input type="number" step="0.01" name="hardware_cost" value="0"></label>
-        <label>Filament
-          <select name="filament_id">
-            <option value="">Select filament...</option>
-            {% for f in filaments %}
-            <option value="{{ f.id }}">{{ f.name }} — ${{ "%.2f"|format(f.sell_price_per_kg) }}/kg</option>
-            {% endfor %}
-          </select>
-        </label>
-        {% if business.hourly_rate %}
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Print time billed at ${{ business.hourly_rate }}/hr</p>
-        {% endif %}
+        {{ item_type_fields(filaments, business) }}
         <button type="submit">Add Item</button>
       </form>
     </div>

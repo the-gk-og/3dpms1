@@ -71,6 +71,25 @@
         </div>
       </main>
     </div>
+    <script>
+      // Toggles the Print / Flat Fee / Hourly field groups on any line-item form.
+      // Disables inputs in hidden groups so only the relevant fields get submitted.
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.item-type-select').forEach(function(select) {
+          var form = select.closest('.item-form');
+          if (!form) return;
+          function update() {
+            form.querySelectorAll('.field-group').forEach(function(group) {
+              var show = group.dataset.type === select.value;
+              group.style.display = show ? '' : 'none';
+              group.querySelectorAll('input, select').forEach(function(inp) { inp.disabled = !show; });
+            });
+          }
+          select.addEventListener('change', update);
+          update();
+        });
+      });
+    </script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

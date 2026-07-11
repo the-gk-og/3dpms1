@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% block page_title %}Create Quote{% endblock %}
+{% block page_title %}Create Invoice{% endblock %}
 {% block content %}
 <div style="max-width: 780px;">
   <div class="page-header">
-    <h2>New Quote</h2>
+    <h2>New Invoice</h2>
   </div>
 
   <form method="post" class="panel">
@@ -27,29 +27,19 @@
     </div>
 
     <div class="form-section">
-      <h3>Quote Settings</h3>
+      <h3>Invoice Settings</h3>
       <div class="form-grid-2">
+        <label>Due Date<input type="date" name="due_date" value="{{ default_due_date.isoformat() }}"></label>
         <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="0"></label>
-        <label>Valid Until<input type="date" name="valid_until"></label>
       </div>
-      <label style="font-weight: 600;">Payment Methods Accepted</label>
-      <div class="checkbox-grid">
-        <label class="checkbox-item"><input type="checkbox" name="payment_bank_transfer" checked> Bank Transfer</label>
-        <label class="checkbox-item"><input type="checkbox" name="payment_pay_id"> Pay ID</label>
-        <label class="checkbox-item"><input type="checkbox" name="payment_cash"> Cash</label>
-        <label class="checkbox-item"><input type="checkbox" name="payment_eft"> EFT</label>
-        <label class="checkbox-item"><input type="checkbox" name="payment_credit_card"> Credit Card</label>
-        <label class="checkbox-item"><input type="checkbox" name="payment_stripe"> Stripe</label>
-      </div>
+      <label>Payment Method<input type="text" name="payment_method" value="Bank Transfer"></label>
       <label>Notes<textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></label>
-      <label class="checkbox-item" style="background: transparent; padding: 0;">
-        <input type="checkbox" name="digital_signature_enabled"> Include signature area on PDF
-      </label>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">You'll add line items on the next screen.</p>
     </div>
 
     <div style="display: flex; gap: 0.75rem;">
-      <button type="submit" style="flex: 1;">Create Quote</button>
-      <a href="{{ url_for('main.quotes') }}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" style="flex: 1;">Create Invoice</button>
+      <a href="{{ url_for('main.invoices') }}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
 </div>

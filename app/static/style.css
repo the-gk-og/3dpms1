@@ -304,6 +304,7 @@ button:hover, .btn:hover { background: var(--accent-hover); }
 .badge-accent { background: var(--accent); color: white; }
 .badge-success { background: var(--success); color: white; }
 .badge-warning { background: var(--warning); color: #1a1d27; }
+.badge-danger { background: var(--danger); color: white; }
 .badge-muted { background: #252836; color: var(--text-muted); }
 
 .status-draft { background: #374151; color: #d1d5db; }

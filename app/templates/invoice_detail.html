@@ -1,12 +1,20 @@
 {% extends 'base.html' %}
+{% from '_item_form_fields.html' import item_type_fields %}
 {% block page_title %}{{ invoice.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
   <div>
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h2 style="margin: 0;">{{ invoice.display_number }}</h2>
+        <div>
+          <h2 style="margin: 0;">{{ invoice.display_number }}</h2>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</div>
+        </div>
+        {% if invoice.is_overdue %}
+        <span class="badge badge-danger">Overdue</span>
+        {% else %}
         <span class="badge badge-success">{{ invoice.status }}</span>
+        {% endif %}
       </div>
       <div class="detail-grid">
         <div>
@@ -14,13 +22,33 @@
           <div class="detail-value">{{ invoice.client.name }}</div>
         </div>
         <div>
+          <div class="detail-label">Subtotal</div>
+          <div class="detail-value">${{ "%.2f"|format(invoice.subtotal) }}</div>
+        </div>
+        {% if invoice.surcharge_percent %}
+        <div>
+          <div class="detail-label">Surcharge</div>
+          <div class="detail-value">{{ invoice.surcharge_percent }}%</div>
+        </div>
+        {% endif %}
+        <div>
           <div class="detail-label">Amount Due</div>
           <div class="detail-value accent">${{ "%.2f"|format(invoice.total) }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Due Date</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else 'Not set' }}</div>
         </div>
         <div>
           <div class="detail-label">Payment</div>
           <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ invoice.payment_method }}</div>
         </div>
+        {% if invoice.paid_at %}
+        <div>
+          <div class="detail-label">Paid On</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ invoice.paid_at.strftime('%d %b %Y') }}</div>
+        </div>
+        {% endif %}
         {% if invoice.quote %}
         <div>
           <div class="detail-label">From Quote</div>
@@ -28,39 +56,65 @@
         </div>
         {% endif %}
       </div>
+      {% if invoice.notes %}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div class="detail-label">Notes</div>
+        <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ invoice.notes }}</p>
+      </div>
+      {% endif %}
     </div>
 
-    {% if invoice.items %}
     <div class="panel" style="margin-top: 1.25rem;">
       <h3 style="margin-top: 0;">Line Items</h3>
-      <table class="data-table">
-        <thead>
-          <tr><th>Description</th><th>Weight</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-          {% for item in invoice.items %}
-          <tr>
-            <td>{{ item.description }}</td>
-            <td>{{ item.weight_g }}g</td>
-            <td style="font-weight: 600;">${{ "%.2f"|format(item.unit_price) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      {% if invoice.items %}
+        {% for item in invoice.items %}
+        <div class="item-row">
+          <div class="item-row-header">
+            <strong>{{ item.description }}</strong>
+            <span style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(item.unit_price) }}</span>
+          </div>
+          <div class="item-meta">
+            <div>{{ item.detail_line }}</div>
+            {% if item.item_type != 'print' %}
+            <div><span class="badge badge-muted">{{ 'Flat Fee' if item.item_type == 'flat' else 'Hourly' }}</span></div>
+            {% endif %}
+          </div>
+          <div class="item-actions">
+            <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('inv-item-edit-{{ item.id }}')">Edit</button>
+            <form method="post" action="{{ url_for('main.delete_invoice_item', invoice_id=invoice.id, item_id=item.id) }}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
+              <button type="submit" class="btn-sm btn-danger">Delete</button>
+            </form>
+          </div>
+          <div id="inv-item-edit-{{ item.id }}" class="collapsible-form">
+            <form method="post" action="{{ url_for('main.edit_invoice_item', invoice_id=invoice.id, item_id=item.id) }}">
+              {{ item_type_fields(filaments, business, item) }}
+              <button type="submit" class="btn-sm">Save Item</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color: var(--text-muted);">No line items yet. Add one using the form.</p>
+      {% endif %}
     </div>
-    {% endif %}
 
     <div class="panel" style="margin-top: 1.25rem;">
       <h3 style="margin-top: 0;">Edit Invoice</h3>
       <form method="post" action="{{ url_for('main.edit_invoice', invoice_id=invoice.id) }}">
-        <label>Status
-          <select name="status">
-            {% for s in ['Draft','Sent','Paid','Overdue','Cancelled'] %}
-            <option value="{{ s }}"{% if invoice.status == s %} selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Payment Method<input type="text" name="payment_method" value="{{ invoice.payment_method }}"></label>
+        <div class="form-grid-2">
+          <label>Status
+            <select name="status">
+              {% for s in ['Draft','Sent','Paid','Overdue','Cancelled'] %}
+              <option value="{{ s }}"{% if invoice.status == s %} selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Due Date<input type="date" name="due_date" value="{{ invoice.due_date.isoformat() if invoice.due_date else '' }}"></label>
+        </div>
+        <div class="form-grid-2">
+          <label>Payment Method<input type="text" name="payment_method" value="{{ invoice.payment_method }}"></label>
+          <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="{{ invoice.surcharge_percent }}"></label>
+        </div>
         <label>Notes<textarea name="notes" rows="2">{{ invoice.notes or '' }}</textarea></label>
         <button type="submit">Save Invoice</button>
       </form>
@@ -69,6 +123,14 @@
 
   <div>
     <div class="panel">
+      <h3 style="margin-top: 0;">Add Line Item</h3>
+      <form method="post" action="{{ url_for('main.add_invoice_item', invoice_id=invoice.id) }}">
+        {{ item_type_fields(filaments, business) }}
+        <button type="submit">Add Item</button>
+      </form>
+    </div>
+
+    <div class="panel" style="margin-top: 1rem;">
       <h3 style="margin-top: 0;">Actions</h3>
       <div class="actions-stack">
         <form method="post" action="{{ url_for('main.generate_invoice_pdf', invoice_id=invoice.id) }}">
@@ -84,4 +146,12 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
 {% endblock %}

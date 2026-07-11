@@ -126,6 +126,7 @@ class Quote(db.Model):
     digital_signature_enabled = db.Column(db.Boolean, default=False)
     payment_method = db.Column(db.String(200), default='Bank Transfer')
     surcharge_percent = db.Column(db.Float, default=0.0)
+    valid_until = db.Column(db.Date)
     items = db.relationship('QuoteItem', backref='quote', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -136,17 +137,50 @@ class Quote(db.Model):
     def subtotal(self):
         return sum(item.unit_price for item in self.items)
 
+    @property
+    def is_expired(self):
+        from datetime import date
+        return bool(self.valid_until) and self.valid_until < date.today() and self.status in ('Draft', 'Sent')
+
+
+def _line_item_detail(item):
+    """Human-readable summary of a line item, used in both the UI and the PDF."""
+    if item.item_type == 'flat':
+        qty = item.quantity if item.quantity is not None else 1
+        return f'Qty {qty:g} × ${item.rate or 0:,.2f}'
+    if item.item_type == 'hourly':
+        hrs = item.quantity if item.quantity is not None else 0
+        return f'{hrs:g}h × ${item.rate or 0:,.2f}/hr'
+    parts = []
+    if item.weight_g:
+        label = f'{item.weight_g:.0f}g'
+        if item.filament:
+            label += f' {item.filament.name}'
+        parts.append(label)
+    if item.print_time_hours:
+        parts.append(f'{item.print_time_hours:.1f}h print')
+    if item.hardware_cost:
+        parts.append(f'${item.hardware_cost:,.2f} hardware')
+    return ' · '.join(parts) if parts else '—'
+
 
 class QuoteItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
     description = db.Column(db.String(200))
+    item_type = db.Column(db.String(20), default='print')  # 'print', 'flat', 'hourly'
     weight_g = db.Column(db.Float, default=0.0)
     filament_id = db.Column(db.Integer, db.ForeignKey('filament.id'))
     filament = db.relationship('Filament')
     hardware_cost = db.Column(db.Float, default=0.0)
     print_time_hours = db.Column(db.Float, default=0.0)
+    quantity = db.Column(db.Float, default=1.0)
+    rate = db.Column(db.Float, default=0.0)
     unit_price = db.Column(db.Float, default=0.0)
+
+    @property
+    def detail_line(self):
+        return _line_item_detail(self)
 
 
 class Invoice(db.Model):
@@ -162,23 +196,41 @@ class Invoice(db.Model):
     surcharge_percent = db.Column(db.Float, default=0.0)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    due_date = db.Column(db.Date)
+    paid_at = db.Column(db.DateTime)
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 
     @property
     def display_number(self):
         return self.invoice_number or f'INV-{self.id:04d}'
 
+    @property
+    def subtotal(self):
+        return sum(item.unit_price for item in self.items)
+
+    @property
+    def is_overdue(self):
+        from datetime import date
+        return bool(self.due_date) and self.due_date < date.today() and self.status not in ('Paid', 'Cancelled')
+
 
 class InvoiceItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))
     description = db.Column(db.String(200))
+    item_type = db.Column(db.String(20), default='print')  # 'print', 'flat', 'hourly'
     weight_g = db.Column(db.Float, default=0.0)
     filament_id = db.Column(db.Integer, db.ForeignKey('filament.id'))
     filament = db.relationship('Filament')
     hardware_cost = db.Column(db.Float, default=0.0)
     print_time_hours = db.Column(db.Float, default=0.0)
+    quantity = db.Column(db.Float, default=1.0)
+    rate = db.Column(db.Float, default=0.0)
     unit_price = db.Column(db.Float, default=0.0)
+
+    @property
+    def detail_line(self):
+        return _line_item_detail(self)
 
 
 class Job(db.Model):
