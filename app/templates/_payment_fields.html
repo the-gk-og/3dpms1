@@ -1,0 +1,23 @@
+{% macro payment_surcharge_fields(business, doc=None) %}
+{% set method_defs = [('bank_transfer','Bank Transfer'),('pay_id','Pay ID'),('cash','Cash'),('eft','EFT'),('credit_card','Credit Card'),('stripe','Stripe')] %}
+{% set selected = doc.payment_method.split(', ') if doc and doc.payment_method else ['Bank Transfer'] %}
+{% set overrides = doc.surcharge_map if doc else {} %}
+<label style="font-weight: 600;">Payment Methods Accepted</label>
+<p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.35rem 0 0.5rem;">Each method can carry its own surcharge % — e.g. EFT costs more to process than cash.</p>
+<div class="payment-method-grid">
+  {% for key, label in method_defs %}
+  <div class="payment-method-row">
+    <label class="checkbox-item">
+      <input type="checkbox" name="payment_{{ key }}" class="payment-method-toggle"
+        data-surcharge-target="surcharge_field_{{ key }}_{{ doc.id if doc else 'new' }}"
+        {% if label in selected %}checked{% endif %}> {{ label }}
+    </label>
+    <label class="surcharge-input">
+      <input type="number" step="0.01" name="surcharge_{{ key }}" id="surcharge_field_{{ key }}_{{ doc.id if doc else 'new' }}"
+        value="{{ overrides.get(label, business|attr('surcharge_' ~ key)) }}"
+        {% if label not in selected %}disabled{% endif %}> %
+    </label>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

@@ -18,6 +18,18 @@ def run_migrations(db):
             'bank_account_number': 'VARCHAR(50)',
             'paypal_email': 'VARCHAR(200)',
             'stripe_link': 'VARCHAR(500)',
+            'surcharge_bank_transfer': 'FLOAT DEFAULT 0',
+            'surcharge_pay_id': 'FLOAT DEFAULT 0',
+            'surcharge_cash': 'FLOAT DEFAULT 0',
+            'surcharge_eft': 'FLOAT DEFAULT 0',
+            'surcharge_credit_card': 'FLOAT DEFAULT 0',
+            'surcharge_stripe': 'FLOAT DEFAULT 0',
+            'quote_email_subject': 'VARCHAR(300)',
+            'quote_email_body_html': 'TEXT',
+            'invoice_email_subject': 'VARCHAR(300)',
+            'invoice_email_body_html': 'TEXT',
+            'turnstile_site_key': 'VARCHAR(200)',
+            'turnstile_secret_key': 'VARCHAR(200)',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -29,9 +41,28 @@ def run_migrations(db):
             'notes': 'TEXT',
             'due_date': 'DATE',
             'paid_at': 'DATETIME',
+            'surcharge_overrides': "TEXT DEFAULT '{}'",
+            'markup_percent': 'FLOAT DEFAULT 0',
+            'show_markup_to_client': 'BOOLEAN DEFAULT 0',
+            'notify_me': 'BOOLEAN DEFAULT 0',
         },
         'quote': {
             'valid_until': 'DATE',
+            'surcharge_overrides': "TEXT DEFAULT '{}'",
+            'markup_percent': 'FLOAT DEFAULT 0',
+            'show_markup_to_client': 'BOOLEAN DEFAULT 0',
+            'version': "VARCHAR(20) DEFAULT '1'",
+            'version_history': 'TEXT',
+            'upload_token': 'VARCHAR(64)',
+            'signed_copy_filename': 'VARCHAR(300)',
+            'signed_copy_uploaded_at': 'DATETIME',
+            'notify_me': 'BOOLEAN DEFAULT 0',
+        },
+        'job': {
+            'notify_me': 'BOOLEAN DEFAULT 0',
+            'notify_sent_at': 'DATETIME',
+            'model_source': 'VARCHAR(20)',
+            'order_details': 'TEXT',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",
@@ -60,4 +91,14 @@ def run_migrations(db):
             'UPDATE filament SET price_per_kg = charge_per_gram * 1000 '
             'WHERE (price_per_kg IS NULL OR price_per_kg = 0) AND charge_per_gram > 0'
         ))
+        db.session.commit()
+
+    # Backfill upload tokens for existing quotes so the signed-copy link works retroactively
+    if 'quote' in existing_tables:
+        import secrets
+        from app.models import Quote
+        for quote in Quote.query.filter(
+            (Quote.upload_token.is_(None)) | (Quote.upload_token == '')
+        ).all():
+            quote.upload_token = secrets.token_hex(32)
         db.session.commit()

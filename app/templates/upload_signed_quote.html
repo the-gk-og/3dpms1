@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Upload Signed {{ quote.display_number }} — {{ business.name or 'Quote' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+      body.public-page {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 3rem 1.25rem;
+      }
+      .upload-card {
+        width: 100%;
+        max-width: 460px;
+      }
+      .upload-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .upload-brand img {
+        max-height: 44px;
+        max-width: 120px;
+      }
+      .upload-brand-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+      .quote-summary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+      }
+      .quote-summary div { margin-bottom: 0.25rem; }
+      .quote-summary div:last-child { margin-bottom: 0; }
+      .success-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--success);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body class="public-page">
+    <div class="upload-card">
+      <div class="upload-brand">
+        {% if business.logo_path %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+        {% endif %}
+        <span class="upload-brand-name">{{ business.name or 'Quote Upload' }}</span>
+      </div>
+
+      <div class="panel">
+        {% if uploaded %}
+          <div class="success-icon">✓</div>
+          <h2 style="margin-top: 0;">Signed copy received</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            Thanks — we've received your signed copy of quote {{ quote.display_number }}.
+            {{ business.name or 'We' }} will be in touch shortly to confirm next steps.
+          </p>
+          {% if quote.signed_copy_uploaded_at %}
+          <p style="color: var(--text-muted); font-size: 0.8rem;">Uploaded {{ quote.signed_copy_uploaded_at.strftime('%d %B %Y, %I:%M %p') }} UTC</p>
+          {% endif %}
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Need to send a different file? Just upload again below.</p>
+          <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data" style="margin-top: 1rem;">
+            <label>Replace file<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
+            <label class="checkbox-item" style="background: transparent; padding: 0;">
+              <input type="checkbox" name="notify_me"{% if quote.notify_me %} checked{% endif %}> Notify me about my order status
+            </label>
+            <button type="submit">Upload New Copy</button>
+          </form>
+        {% else %}
+          <h2 style="margin-top: 0;">Upload your signed quote</h2>
+          <div class="quote-summary">
+            <div><strong>Quote:</strong> {{ quote.display_number }} · v{{ quote.version or '1' }}</div>
+            <div><strong>Client:</strong> {{ quote.client.name }}</div>
+            <div><strong>Total:</strong> ${{ '%.2f'|format(quote.total) }}</div>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            If you'd like to proceed with this quote, sign it and upload a copy here (PDF, PNG, or JPG, up to 15MB).
+          </p>
+          <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data">
+            <label>Signed copy<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
+            <label class="checkbox-item" style="background: transparent; padding: 0;">
+              <input type="checkbox" name="notify_me" checked> Notify me about my order status
+            </label>
+            <button type="submit">Upload Signed Copy</button>
+          </form>
+        {% endif %}
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flash-list" style="margin-top: 1rem;">
+          {% for message in messages %}
+          <li class="flash-message">{{ message }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </body>
+</html>

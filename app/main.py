@@ -1,6 +1,9 @@
 from datetime import datetime
+import json
+import os
+import re
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, abort
 from flask_login import login_required
 
 from app import db
@@ -10,10 +13,13 @@ from app.helpers import (
     generate_quote_number, generate_invoice_number, generate_job_number,
     copy_quote_items_to_invoice, get_business_settings, default_due_date,
     send_document_email, EmailNotConfiguredError,
+    parse_payment_methods_and_surcharges, compute_marked_items,
+    generate_upload_token, render_email_template, html_to_text,
+    signed_uploads_dir, job_should_notify, send_job_complete_notification,
 )
 from app.pdf_utils import build_pdf, build_payment_details
 
-main_bp = Blueprint('main', __name__)
+main_bp = Blueprint('main', __name__, url_prefix='/dash')
 
 
 def _parse_date(value):
@@ -23,6 +29,10 @@ def _parse_date(value):
         return datetime.strptime(value, '%Y-%m-%d').date()
     except ValueError:
         return None
+
+
+def _safe_filename_part(value):
+    return re.sub(r'[^A-Za-z0-9_.-]+', '-', value or '').strip('-')
 
 
 def _item_fields_from_form(form, business):
@@ -68,17 +78,55 @@ def _item_fields_from_form(form, business):
     return fields
 
 
+def _items_and_totals_for_pdf(doc):
+    """Build the (items, subtotal, markup_percent_shown, markup_amount_shown) used for
+    PDF rendering. If show_markup_to_client is off, the markup is baked invisibly into
+    each line's displayed amount so the numbers still add up without revealing it. If
+    it's on, items show their raw price and an explicit 'Markup' line is added.
+    """
+    display_amounts, marked_subtotal = compute_marked_items(doc.items, doc.markup_percent)
+    show_markup = bool(doc.show_markup_to_client and doc.markup_percent)
+    if show_markup:
+        items = [{'description': it.description, 'detail': it.detail_line, 'line_total': it.unit_price}
+                 for it in doc.items]
+        raw_subtotal = sum(it.unit_price for it in doc.items)
+        markup_amount = round(marked_subtotal - raw_subtotal, 2)
+        subtotal = raw_subtotal
+    else:
+        items = [{'description': it.description, 'detail': it.detail_line, 'line_total': amt}
+                 for it, amt in zip(doc.items, display_amounts)]
+        subtotal = marked_subtotal
+        markup_amount = 0
+    return items, subtotal, (doc.markup_percent if show_markup else 0), markup_amount
+
+
+def _surcharge_notes(doc):
+    """When more than one payment method is offered, the surcharge isn't baked into a
+    single total (since it depends on how the client ends up paying) — instead list
+    each method's surcharge as an advisory note on the PDF.
+    """
+    methods = [m.strip() for m in (doc.payment_method or '').split(',') if m.strip()]
+    if len(methods) <= 1:
+        return []
+    smap = doc.surcharge_map
+    notes = []
+    for m in methods:
+        pct = smap.get(m, 0) or 0
+        notes.append(f'{m}: +{pct:.1f}% surcharge applies' if pct else f'{m}: no surcharge')
+    return notes
+
+
 def _quote_pdf_bytes(quote):
     business = get_business_settings()
-    items = [{
-        'description': item.description,
-        'detail': item.detail_line,
-        'line_total': item.unit_price,
-    } for item in quote.items]
+    items, subtotal, markup_percent, markup_amount = _items_and_totals_for_pdf(quote)
     logo_path = None
     if business.logo_path:
         from flask import current_app
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
+
+    document_number = quote.display_number
+    if quote.version:
+        document_number = f'{document_number} · v{quote.version}'
 
     return build_pdf(
         'Quote', business, quote.client, items, quote.total,
@@ -89,9 +137,12 @@ def _quote_pdf_bytes(quote):
         payment_terms=business.payment_terms or '',
         terms_of_service=business.terms_of_service or '',
         signature_enabled=quote.digital_signature_enabled,
-        document_number=quote.display_number,
-        subtotal=quote.subtotal,
+        document_number=document_number,
+        subtotal=subtotal,
         surcharge_percent=quote.surcharge_percent or 0,
+        markup_percent=markup_percent,
+        markup_amount=markup_amount,
+        surcharge_notes=_surcharge_notes(quote),
         notes=quote.notes or '',
         logo_path=logo_path,
         valid_until=quote.valid_until,
@@ -100,20 +151,16 @@ def _quote_pdf_bytes(quote):
 
 def _invoice_pdf_bytes(invoice):
     business = get_business_settings()
-    items = [{
-        'description': item.description,
-        'detail': item.detail_line,
-        'line_total': item.unit_price,
-    } for item in invoice.items]
+    items, subtotal, markup_percent, markup_amount = _items_and_totals_for_pdf(invoice)
     if not items:
         items = [{'description': 'Invoice total', 'detail': '—', 'line_total': invoice.total}]
+        subtotal = invoice.total
 
     logo_path = None
     if business.logo_path:
         from flask import current_app
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
 
-    subtotal = sum(i['line_total'] for i in items)
     return build_pdf(
         'Invoice', business, invoice.client, items, invoice.total,
         business.invoice_footer or '',
@@ -124,6 +171,9 @@ def _invoice_pdf_bytes(invoice):
         document_number=invoice.display_number,
         subtotal=subtotal,
         surcharge_percent=invoice.surcharge_percent or 0,
+        markup_percent=markup_percent,
+        markup_amount=markup_amount,
+        surcharge_notes=_surcharge_notes(invoice),
         notes=invoice.notes or '',
         logo_path=logo_path,
         due_date=invoice.due_date,
@@ -154,6 +204,7 @@ def quotes():
 @main_bp.route('/quotes/new', methods=['GET', 'POST'])
 @login_required
 def new_quote():
+    business = get_business_settings()
     if request.method == 'POST':
         client = Client.query.get(request.form.get('client_id'))
         if not client:
@@ -165,33 +216,29 @@ def new_quote():
             db.session.add(client)
             db.session.commit()
 
-        payment_methods = []
-        for key, label in [
-            ('payment_bank_transfer', 'Bank Transfer'),
-            ('payment_pay_id', 'Pay ID'),
-            ('payment_cash', 'Cash'),
-            ('payment_eft', 'EFT'),
-            ('payment_credit_card', 'Credit Card'),
-            ('payment_stripe', 'Stripe'),
-        ]:
-            if request.form.get(key):
-                payment_methods.append(label)
+        payment_method_str, overrides, effective_surcharge = parse_payment_methods_and_surcharges(
+            request.form, business,
+        )
 
         quote = Quote(
             quote_number=generate_quote_number(),
             client=client,
             notes=request.form.get('notes', ''),
-            payment_method=', '.join(payment_methods) if payment_methods else 'Bank Transfer',
-            surcharge_percent=float(request.form.get('surcharge_percent', 0) or 0),
+            payment_method=payment_method_str,
+            surcharge_overrides=json.dumps(overrides),
+            surcharge_percent=effective_surcharge,
+            markup_percent=float(request.form.get('markup_percent', 0) or 0),
+            show_markup_to_client=request.form.get('show_markup_to_client') == 'on',
             digital_signature_enabled=request.form.get('digital_signature_enabled') == 'on',
             valid_until=_parse_date(request.form.get('valid_until')),
+            upload_token=generate_upload_token(),
         )
         db.session.add(quote)
         db.session.commit()
         flash('Quote created')
         return redirect(url_for('main.quote_detail', quote_id=quote.id))
     clients = Client.query.order_by(Client.name).all()
-    return render_template('new_quote.html', clients=clients)
+    return render_template('new_quote.html', clients=clients, business=business)
 
 
 @main_bp.route('/quotes/<int:quote_id>')
@@ -212,30 +259,43 @@ def quote_detail(quote_id):
 @login_required
 def edit_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
+    business = get_business_settings()
     quote.notes = request.form.get('notes', '')
     quote.status = request.form.get('status', quote.status)
-    quote.surcharge_percent = float(request.form.get('surcharge_percent', 0) or 0)
     quote.digital_signature_enabled = request.form.get('digital_signature_enabled') == 'on'
+    quote.markup_percent = float(request.form.get('markup_percent', 0) or 0)
+    quote.show_markup_to_client = request.form.get('show_markup_to_client') == 'on'
     if 'valid_until' in request.form:
         quote.valid_until = _parse_date(request.form.get('valid_until'))
 
-    payment_methods = []
-    for key, label in [
-        ('payment_bank_transfer', 'Bank Transfer'),
-        ('payment_pay_id', 'Pay ID'),
-        ('payment_cash', 'Cash'),
-        ('payment_eft', 'EFT'),
-        ('payment_credit_card', 'Credit Card'),
-        ('payment_stripe', 'Stripe'),
-    ]:
-        if request.form.get(key):
-            payment_methods.append(label)
-    if payment_methods:
-        quote.payment_method = ', '.join(payment_methods)
+    payment_method_str, overrides, effective_surcharge = parse_payment_methods_and_surcharges(
+        request.form, business,
+    )
+    quote.payment_method = payment_method_str
+    quote.surcharge_overrides = json.dumps(overrides)
+    quote.surcharge_percent = effective_surcharge
 
     recalculate_quote_total(quote)
     db.session.commit()
     flash('Quote updated')
+    return redirect(url_for('main.quote_detail', quote_id=quote.id))
+
+
+@main_bp.route('/quotes/<int:quote_id>/set-version', methods=['POST'])
+@login_required
+def set_quote_version(quote_id):
+    quote = Quote.query.get_or_404(quote_id)
+    new_version = (request.form.get('version') or '').strip()
+    if not new_version:
+        flash('Enter a version number')
+        return redirect(url_for('main.quote_detail', quote_id=quote.id))
+
+    old_version = quote.version or '1'
+    quote.version = new_version
+    log_line = f'{datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC: v{old_version} \u2192 v{new_version}'
+    quote.version_history = f'{quote.version_history}\n{log_line}' if quote.version_history else log_line
+    db.session.commit()
+    flash(f'Quote updated to version {new_version}')
     return redirect(url_for('main.quote_detail', quote_id=quote.id))
 
 
@@ -295,9 +355,12 @@ def delete_quote_item(quote_id, item_id):
 def generate_quote_pdf(quote_id):
     quote = Quote.query.get_or_404(quote_id)
     pdf = _quote_pdf_bytes(quote)
+    filename = _safe_filename_part(quote.display_number)
+    if quote.version:
+        filename += f'-v{_safe_filename_part(quote.version)}'
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
-        as_attachment=True, download_name=f'{quote.display_number}.pdf',
+        as_attachment=True, download_name=f'{filename}.pdf',
     )
 
 
@@ -308,18 +371,39 @@ def generate_quote_email(quote_id):
     business = get_business_settings()
     try:
         pdf = _quote_pdf_bytes(quote)
-        body = (
+        if not quote.upload_token:
+            quote.upload_token = generate_upload_token()
+            db.session.commit()
+        upload_link = url_for('public.upload_signed_quote', token=quote.upload_token, _external=True)
+
+        default_body = (
             f"Hi {quote.client.name},\n\n"
             f"Please find attached your quote {quote.display_number} "
             f"for ${quote.total:,.2f}.\n\n"
             + (f"This quote is valid until {quote.valid_until.strftime('%d %B %Y')}.\n\n"
                if quote.valid_until else '')
+            + f"If you'd like to proceed, you can upload a signed copy of this quote here:\n{upload_link}\n\n"
             + f"Kind regards,\n{business.name or ''}"
         )
+        default_subject = f'Quote {quote.display_number} from {business.name or "us"}'
+
+        context = {
+            'client_name': quote.client.name,
+            'business_name': business.name or '',
+            'document_number': quote.display_number,
+            'total': f'{quote.total:,.2f}',
+            'valid_until': quote.valid_until.strftime('%d %B %Y') if quote.valid_until else '',
+            'upload_link': upload_link,
+        }
+        subject = render_email_template(business.quote_email_subject, context) or default_subject
+        html_body = render_email_template(business.quote_email_body_html, context)
+        body_text = html_to_text(html_body) if html_body else default_body
+
         send_document_email(
             business, quote.client.email,
-            subject=f'Quote {quote.display_number} from {business.name or "us"}',
-            body_text=body, pdf_bytes=pdf, filename=f'{quote.display_number}.pdf',
+            subject=subject,
+            body_text=body_text, html_body=html_body,
+            pdf_bytes=pdf, filename=f'{quote.display_number}.pdf',
         )
         if quote.status == 'Draft':
             quote.status = 'Sent'
@@ -375,6 +459,7 @@ def create_job_from_quote(quote_id):
         title=title,
         status='Queued',
         notes=quote.notes or '',
+        notify_me=quote.notify_me,
     )
     db.session.add(job)
     quote.status = 'In Production'
@@ -393,6 +478,7 @@ def invoices():
 @main_bp.route('/invoices/new', methods=['GET', 'POST'])
 @login_required
 def new_invoice():
+    business = get_business_settings()
     if request.method == 'POST':
         client = Client.query.get(request.form.get('client_id'))
         if not client:
@@ -405,13 +491,19 @@ def new_invoice():
             db.session.commit()
 
         due_date = _parse_date(request.form.get('due_date')) or default_due_date()
+        payment_method_str, overrides, effective_surcharge = parse_payment_methods_and_surcharges(
+            request.form, business,
+        )
 
         invoice = Invoice(
             invoice_number=generate_invoice_number(),
             client=client,
             notes=request.form.get('notes', ''),
-            payment_method=request.form.get('payment_method') or 'Bank Transfer',
-            surcharge_percent=float(request.form.get('surcharge_percent', 0) or 0),
+            payment_method=payment_method_str,
+            surcharge_overrides=json.dumps(overrides),
+            surcharge_percent=effective_surcharge,
+            markup_percent=float(request.form.get('markup_percent', 0) or 0),
+            show_markup_to_client=request.form.get('show_markup_to_client') == 'on',
             due_date=due_date,
             status='Draft',
         )
@@ -420,7 +512,10 @@ def new_invoice():
         flash('Invoice created')
         return redirect(url_for('main.invoice_detail', invoice_id=invoice.id))
     clients = Client.query.order_by(Client.name).all()
-    return render_template('new_invoice.html', clients=clients, default_due_date=default_due_date())
+    return render_template(
+        'new_invoice.html', clients=clients, business=business,
+        default_due_date=default_due_date(),
+    )
 
 
 @main_bp.route('/invoices/<int:invoice_id>')
@@ -436,12 +531,21 @@ def invoice_detail(invoice_id):
 @login_required
 def edit_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
+    business = get_business_settings()
     new_status = request.form.get('status', invoice.status)
     invoice.notes = request.form.get('notes', '')
-    invoice.payment_method = request.form.get('payment_method', invoice.payment_method)
-    invoice.surcharge_percent = float(request.form.get('surcharge_percent', 0) or 0)
+    invoice.markup_percent = float(request.form.get('markup_percent', 0) or 0)
+    invoice.show_markup_to_client = request.form.get('show_markup_to_client') == 'on'
+    invoice.notify_me = request.form.get('notify_me') == 'on'
     if 'due_date' in request.form:
         invoice.due_date = _parse_date(request.form.get('due_date'))
+
+    payment_method_str, overrides, effective_surcharge = parse_payment_methods_and_surcharges(
+        request.form, business,
+    )
+    invoice.payment_method = payment_method_str
+    invoice.surcharge_overrides = json.dumps(overrides)
+    invoice.surcharge_percent = effective_surcharge
 
     if new_status == 'Paid' and invoice.status != 'Paid':
         invoice.paid_at = datetime.utcnow()
@@ -524,7 +628,7 @@ def generate_invoice_email(invoice_id):
     business = get_business_settings()
     try:
         pdf = _invoice_pdf_bytes(invoice)
-        body = (
+        default_body = (
             f"Hi {invoice.client.name},\n\n"
             f"Please find attached invoice {invoice.display_number} "
             f"for ${invoice.total:,.2f}.\n\n"
@@ -532,10 +636,24 @@ def generate_invoice_email(invoice_id):
                if invoice.due_date else '')
             + f"Kind regards,\n{business.name or ''}"
         )
+        default_subject = f'Invoice {invoice.display_number} from {business.name or "us"}'
+
+        context = {
+            'client_name': invoice.client.name,
+            'business_name': business.name or '',
+            'document_number': invoice.display_number,
+            'total': f'{invoice.total:,.2f}',
+            'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
+        }
+        subject = render_email_template(business.invoice_email_subject, context) or default_subject
+        html_body = render_email_template(business.invoice_email_body_html, context)
+        body_text = html_to_text(html_body) if html_body else default_body
+
         send_document_email(
             business, invoice.client.email,
-            subject=f'Invoice {invoice.display_number} from {business.name or "us"}',
-            body_text=body, pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
+            subject=subject,
+            body_text=body_text, html_body=html_body,
+            pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
         )
         if invoice.status == 'Draft':
             invoice.status = 'Sent'
@@ -601,10 +719,24 @@ def jobs():
 def edit_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.title = request.form.get('title', job.title)
-    job.status = request.form.get('status', job.status)
+    new_status = request.form.get('status', job.status)
+    job.status = new_status
     job.notes = request.form.get('notes', '')
     db.session.commit()
-    flash('Job updated')
+
+    if new_status == 'Complete' and job_should_notify(job):
+        business = get_business_settings()
+        try:
+            if send_job_complete_notification(job, business):
+                flash('Job updated — customer notified by email.')
+            else:
+                flash('Job updated')
+        except EmailNotConfiguredError:
+            flash('Job updated — but email is not configured, so the customer was not notified.')
+        except Exception as e:
+            flash(f'Job updated — but the notification email failed to send: {e}')
+    else:
+        flash('Job updated')
     return redirect(url_for('main.jobs'))
 
 
@@ -616,3 +748,28 @@ def delete_job(job_id):
     db.session.commit()
     flash('Job deleted')
     return redirect(url_for('main.jobs'))
+
+
+@main_bp.route('/jobs/<int:job_id>/files/<path:filename>')
+@login_required
+def download_order_file(job_id, filename):
+    from app.helpers import order_uploads_dir
+    job = Job.query.get_or_404(job_id)
+    directory = os.path.join(order_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
+    file_path = os.path.join(directory, filename)
+    if not os.path.isfile(file_path):
+        abort(404)
+    return send_file(file_path, as_attachment=True)
+
+
+@main_bp.route('/quotes/<int:quote_id>/signed-copy')
+@login_required
+def download_signed_copy(quote_id):
+    quote = Quote.query.get_or_404(quote_id)
+    if not quote.signed_copy_filename:
+        abort(404)
+    ext = os.path.splitext(quote.signed_copy_filename)[1]
+    return send_file(
+        os.path.join(signed_uploads_dir(), quote.signed_copy_filename),
+        as_attachment=True, download_name=f'{quote.display_number}-signed{ext}',
+    )

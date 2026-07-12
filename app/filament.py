@@ -4,7 +4,7 @@ from flask_login import login_required
 from app import db
 from app.models import Filament, FilamentSpool
 
-filament_bp = Blueprint('filament', __name__, url_prefix='/filament')
+filament_bp = Blueprint('filament', __name__, url_prefix='/dash/filament')
 
 
 @filament_bp.route('/')

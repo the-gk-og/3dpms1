@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
+{% from '_turnstile.html' import turnstile_widget, turnstile_script %}
 {% block page_title %}Sign In{% endblock %}
+{% block head %}{{ turnstile_script(business) }}{% endblock %}
 {% block content %}
 <div class="card auth-card">
   <h1 style="text-align: center; margin-top: 0;">Sign In</h1>
@@ -11,10 +13,8 @@
     <label>Password
       <input type="password" name="password" required>
     </label>
+    {{ turnstile_widget(business) }}
     <button type="submit" style="width: 100%;">Login</button>
   </form>
-  <p style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 1.5rem;">
-    Don't have an account? <a href="{{ url_for('auth.register') }}" style="color: var(--accent); text-decoration: none;">Create one</a>
-  </p>
 </div>
 {% endblock %}

@@ -21,9 +21,15 @@ def client():
     os.remove(db_path)
 
 
-def test_home_requires_login(client):
+def test_public_home_is_accessible(client):
     response = client.get('/')
+    assert response.status_code == 200
+
+
+def test_dashboard_requires_login(client):
+    response = client.get('/dash/')
     assert response.status_code == 302
+    assert '/dash/auth/login' in response.headers['Location']
 
 
 def test_filament_and_settings_creation(client):

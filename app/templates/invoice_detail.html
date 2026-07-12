@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% from '_item_form_fields.html' import item_type_fields %}
+{% from '_payment_fields.html' import payment_surcharge_fields %}
 {% block page_title %}{{ invoice.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
@@ -53,6 +54,12 @@
         <div>
           <div class="detail-label">From Quote</div>
           <div class="detail-value"><a href="{{ url_for('main.quote_detail', quote_id=invoice.quote_id) }}" style="color: var(--accent);">{{ invoice.quote.display_number }}</a></div>
+        </div>
+        {% endif %}
+        {% if invoice.markup_percent %}
+        <div>
+          <div class="detail-label">Markup <span style="font-weight: 400;">({{ 'visible to client' if invoice.show_markup_to_client else 'hidden from client' }})</span></div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ invoice.markup_percent }}%</div>
         </div>
         {% endif %}
       </div>
@@ -111,11 +118,29 @@
           </label>
           <label>Due Date<input type="date" name="due_date" value="{{ invoice.due_date.isoformat() if invoice.due_date else '' }}"></label>
         </div>
-        <div class="form-grid-2">
-          <label>Payment Method<input type="text" name="payment_method" value="{{ invoice.payment_method }}"></label>
-          <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="{{ invoice.surcharge_percent }}"></label>
-        </div>
         <label>Notes<textarea name="notes" rows="2">{{ invoice.notes or '' }}</textarea></label>
+        {{ payment_surcharge_fields(business, invoice) }}
+        <div class="form-section">
+          <h3 style="margin-top: 0;">Order Notifications</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.35rem;">
+            The customer already gets this option on the order form and quote upload page. Tick this
+            if you're setting up this job manually and still want them emailed when it's marked complete.
+          </p>
+          <label class="checkbox-item" style="background: transparent; padding: 0;">
+            <input type="checkbox" name="notify_me"{% if invoice.notify_me %} checked{% endif %}> Notify me about my order status
+          </label>
+        </div>
+        <div class="form-section">
+          <h3 style="margin-top: 0;">Internal Markup</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.35rem;">
+            Adds a margin on top of your costs. It's baked into the prices either way — this only
+            controls whether it's disclosed to the client as its own line, or folded invisibly into the total.
+          </p>
+          <label>Markup %<input type="number" step="0.01" name="markup_percent" value="{{ invoice.markup_percent or 0 }}"></label>
+          <label class="checkbox-item" style="background: transparent; padding: 0;">
+            <input type="checkbox" name="show_markup_to_client"{% if invoice.show_markup_to_client %} checked{% endif %}> Show markup as a line item on the PDF
+          </label>
+        </div>
         <button type="submit">Save Invoice</button>
       </form>
     </div>
@@ -136,7 +161,7 @@
         <form method="post" action="{{ url_for('main.generate_invoice_pdf', invoice_id=invoice.id) }}">
           <button type="submit" class="btn-block btn-secondary">Download PDF</button>
         </form>
-        <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}">
+        <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" onsubmit="return confirm('Send this invoice to {{ invoice.client.email }}?')">
           <button type="submit" class="btn-block btn-secondary">Send Email</button>
         </form>
         <form method="post" action="{{ url_for('main.delete_invoice', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?')">

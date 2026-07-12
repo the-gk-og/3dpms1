@@ -48,6 +48,21 @@ class BusinessSettings(db.Model):
     smtp_username = db.Column(db.String(200))
     smtp_password = db.Column(db.String(200))
     smtp_from_email = db.Column(db.String(200))
+    # Default surcharge % applied per payment method (used to prefill new quotes/invoices)
+    surcharge_bank_transfer = db.Column(db.Float, default=0.0)
+    surcharge_pay_id = db.Column(db.Float, default=0.0)
+    surcharge_cash = db.Column(db.Float, default=0.0)
+    surcharge_eft = db.Column(db.Float, default=0.0)
+    surcharge_credit_card = db.Column(db.Float, default=0.0)
+    surcharge_stripe = db.Column(db.Float, default=0.0)
+    # Custom email templates (optional — falls back to a plain-text default when blank)
+    quote_email_subject = db.Column(db.String(300))
+    quote_email_body_html = db.Column(db.Text)
+    invoice_email_subject = db.Column(db.String(300))
+    invoice_email_body_html = db.Column(db.Text)
+    # Cloudflare Turnstile (bot protection) — optional, forms skip verification if unset
+    turnstile_site_key = db.Column(db.String(200))
+    turnstile_secret_key = db.Column(db.String(200))
 
 
 class Filament(db.Model):
@@ -70,6 +85,14 @@ class Filament(db.Model):
         if self.charge_per_gram > 0:
             return self.charge_per_gram * 1000
         return self.cost_per_kg
+
+    @property
+    def total_remaining_g(self):
+        return sum(s.weight_remaining_g for s in self.spools)
+
+    @property
+    def in_stock(self):
+        return self.total_remaining_g > 0
 
     @property
     def total_spools(self):
@@ -126,7 +149,16 @@ class Quote(db.Model):
     digital_signature_enabled = db.Column(db.Boolean, default=False)
     payment_method = db.Column(db.String(200), default='Bank Transfer')
     surcharge_percent = db.Column(db.Float, default=0.0)
+    surcharge_overrides = db.Column(db.Text, default='{}')
+    markup_percent = db.Column(db.Float, default=0.0)
+    show_markup_to_client = db.Column(db.Boolean, default=False)
+    version = db.Column(db.String(20), default='1')
+    version_history = db.Column(db.Text)
     valid_until = db.Column(db.Date)
+    upload_token = db.Column(db.String(64), unique=True, index=True)
+    signed_copy_filename = db.Column(db.String(300))
+    signed_copy_uploaded_at = db.Column(db.DateTime)
+    notify_me = db.Column(db.Boolean, default=False)
     items = db.relationship('QuoteItem', backref='quote', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -141,6 +173,14 @@ class Quote(db.Model):
     def is_expired(self):
         from datetime import date
         return bool(self.valid_until) and self.valid_until < date.today() and self.status in ('Draft', 'Sent')
+
+    @property
+    def surcharge_map(self):
+        import json
+        try:
+            return json.loads(self.surcharge_overrides or '{}')
+        except (ValueError, TypeError):
+            return {}
 
 
 def _line_item_detail(item):
@@ -194,6 +234,10 @@ class Invoice(db.Model):
     total = db.Column(db.Float, default=0.0)
     payment_method = db.Column(db.String(200), default='Bank Transfer')
     surcharge_percent = db.Column(db.Float, default=0.0)
+    surcharge_overrides = db.Column(db.Text, default='{}')
+    markup_percent = db.Column(db.Float, default=0.0)
+    show_markup_to_client = db.Column(db.Boolean, default=False)
+    notify_me = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     due_date = db.Column(db.Date)
@@ -212,6 +256,14 @@ class Invoice(db.Model):
     def is_overdue(self):
         from datetime import date
         return bool(self.due_date) and self.due_date < date.today() and self.status not in ('Paid', 'Cancelled')
+
+    @property
+    def surcharge_map(self):
+        import json
+        try:
+            return json.loads(self.surcharge_overrides or '{}')
+        except (ValueError, TypeError):
+            return {}
 
 
 class InvoiceItem(db.Model):
@@ -244,7 +296,19 @@ class Job(db.Model):
     status = db.Column(db.String(50), default='Queued')
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notify_me = db.Column(db.Boolean, default=False)
+    notify_sent_at = db.Column(db.DateTime)
+    model_source = db.Column(db.String(20))  # 'has_model' | 'need_design' | None (internal job)
+    order_details = db.Column(db.Text)  # JSON blob: files, links, materials, description, shipping address
 
     @property
     def display_number(self):
         return self.job_number or f'JOB-{self.id:04d}'
+
+    @property
+    def order_data(self):
+        import json
+        try:
+            return json.loads(self.order_details or '{}')
+        except (ValueError, TypeError):
+            return {}

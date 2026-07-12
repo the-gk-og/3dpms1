@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>3DPMS - Print Management</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
   </head>
   <body>
     {% set ep = request.endpoint or '' %}
@@ -86,6 +87,15 @@
             });
           }
           select.addEventListener('change', update);
+          update();
+        });
+
+        // Enables/disables a payment method's surcharge % input based on whether
+        // that payment method is currently selected.
+        document.querySelectorAll('.payment-method-toggle').forEach(function(cb) {
+          var target = document.getElementById(cb.dataset.surchargeTarget);
+          function update() { if (target) target.disabled = !cb.checked; }
+          cb.addEventListener('change', update);
           update();
         });
       });

@@ -1,13 +1,35 @@
 # 3DPMS
 
-3DPMS is a Flask + SQLite starter application for managing a 3D printing side hustle.
+3DPMS is a Flask + SQLite application for managing a 3D printing side hustle, with a public
+customer-facing site and a login-protected internal dashboard.
+
+## Site structure
+- `/` — public site: home, about, contact, order form, and order tracking. No login required.
+- `/dash/...` — internal dashboard (quotes, invoices, clients, jobs, filament, settings). Requires login.
+
+## First-time setup
+There is no public sign-up page. Create the first dashboard account from the server with:
+```bash
+. .venv/bin/activate
+export FLASK_APP=run.py
+flask create-admin
+```
+This prompts for a username, email, and password. Additional users can be added later from
+the dashboard under Settings → Users, or by running the command again.
 
 ## Features
-- Business settings and branding
+- Public order form with model upload / design-request flow, order tracking by job number
+  (verified by email or phone)
+- Optional Cloudflare Turnstile bot protection on login, the order form, contact form, and
+  order tracking — configure under Settings → Security; forms work normally if left blank
+- Business settings and branding, with a customer-facing About/Contact page
 - Filament library with cost and charge pricing
-- Quote creation with PDF export and email placeholders
-- Invoice creation with PDF export and email placeholders
-- Client tracking and a simple jobs board
+- Quotes and invoices with PDF export, per-payment-method surcharges, optional hidden markup,
+  quote versioning, and a secure signed-quote upload link sent by email
+- Customizable HTML email templates for quotes and invoices
+- Customer order-status email notifications, opt-in from the order form, quote upload page,
+  or manually per-invoice
+- Client tracking and a jobs board
 
 ## Run locally
 ```bash
@@ -23,3 +45,4 @@ python run.py
 . .venv/bin/activate
 python -m pytest -q
 ```
+

@@ -18,11 +18,44 @@
         <h3 style="margin: 0.25rem 0 0; font-size: 1rem;">{{ job.title }}</h3>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">{{ job.client.name }}</div>
       </div>
-      <span class="badge badge-accent">{{ job.status }}</span>
+      <div style="text-align: right;">
+        <span class="badge badge-accent">{{ job.status }}</span>
+        {% if job.notify_me %}
+        <div style="margin-top: 0.35rem;"><span class="badge badge-muted">🔔 Notify on complete{% if job.notify_sent_at %} · Sent{% endif %}</span></div>
+        {% endif %}
+      </div>
     </div>
 
     {% if job.notes %}
     <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
+    {% endif %}
+
+    {% if job.model_source %}
+    {% set order = job.order_data %}
+    <details style="margin: 0.5rem 0; font-size: 0.85rem;">
+      <summary style="cursor: pointer; color: var(--text-muted);">Order details ({{ 'Has model' if job.model_source == 'has_model' else 'Needs design' }})</summary>
+      <div style="margin-top: 0.5rem; padding: 0.65rem 0.75rem; background: var(--bg-secondary); border-radius: 6px;">
+        {% if order.description %}<div><strong>Description:</strong> {{ order.description }}</div>{% endif %}
+        {% if order.materials %}<div><strong>Materials:</strong> {{ order.materials|join(', ') }}{% if order.other_material %}, {{ order.other_material }}{% endif %}</div>{% endif %}
+        {% if order.model_links %}<div><strong>Model links:</strong> {{ order.model_links }}</div>{% endif %}
+        {% if order.reference_links %}<div><strong>Reference links:</strong> {{ order.reference_links }}</div>{% endif %}
+        {% if order.shipping_address %}<div><strong>Shipping to:</strong> {{ order.shipping_address }}</div>{% endif %}
+        {% if order.model_files %}
+        <div><strong>Files:</strong>
+          {% for f in order.model_files %}
+          <a href="{{ url_for('main.download_order_file', job_id=job.id, filename=f) }}" style="color: var(--accent);">{{ f.split('_', 1)[-1] }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if order.reference_images %}
+        <div><strong>Reference images:</strong>
+          {% for f in order.reference_images %}
+          <a href="{{ url_for('main.download_order_file', job_id=job.id, filename=f) }}" style="color: var(--accent);">{{ f.split('_', 1)[-1] }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
     {% endif %}
 
     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">

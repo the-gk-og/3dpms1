@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_payment_fields.html' import payment_surcharge_fields %}
 {% block page_title %}Create Invoice{% endblock %}
 {% block content %}
 <div style="max-width: 780px;">
@@ -28,13 +29,22 @@
 
     <div class="form-section">
       <h3>Invoice Settings</h3>
-      <div class="form-grid-2">
-        <label>Due Date<input type="date" name="due_date" value="{{ default_due_date.isoformat() }}"></label>
-        <label>Surcharge %<input type="number" step="0.01" name="surcharge_percent" value="0"></label>
-      </div>
-      <label>Payment Method<input type="text" name="payment_method" value="Bank Transfer"></label>
+      <label>Due Date<input type="date" name="due_date" value="{{ default_due_date.isoformat() }}"></label>
+      {{ payment_surcharge_fields(business) }}
       <label>Notes<textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></label>
       <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">You'll add line items on the next screen.</p>
+    </div>
+
+    <div class="form-section">
+      <h3>Internal Markup</h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.35rem;">
+        Adds a margin on top of your costs. It's baked into the prices either way — this only controls
+        whether it's disclosed to the client as its own line, or folded invisibly into the total.
+      </p>
+      <label>Markup %<input type="number" step="0.01" name="markup_percent" value="0"></label>
+      <label class="checkbox-item" style="background: transparent; padding: 0;">
+        <input type="checkbox" name="show_markup_to_client"> Show markup as a line item on the PDF
+      </label>
     </div>
 
     <div style="display: flex; gap: 0.75rem;">

@@ -1,0 +1,24 @@
+{% extends 'public/public_base.html' %}
+{% block title %}Order Received — {{ business.name or '3D Printing' }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+<div class="pub-panel" style="text-align: center;">
+  <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✅</div>
+  <h1 style="margin-top: 0;">Order Received</h1>
+  <p style="color: var(--text-muted);">
+    Thanks{% if job.client %}, {{ job.client.name }}{% endif %} — we've got your order and will follow up with a quote shortly.
+  </p>
+
+  <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0;">
+    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Your Job Number</div>
+    <div style="font-size: 1.6rem; font-weight: 700; margin-top: 0.35rem;">{{ job.display_number }}</div>
+  </div>
+
+  <p style="font-size: 0.85rem; color: var(--text-muted);">
+    Save this number — you can use it to <a href="{{ url_for('public.track_order') }}">track your order</a> at any time
+    (you'll also need the email address you just gave us).
+  </p>
+
+  <a href="{{ url_for('public.home') }}" class="pub-btn pub-btn-secondary" style="margin-top: 1rem;">Back to Home</a>
+</div>
+{% endblock %}

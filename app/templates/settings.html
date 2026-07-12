@@ -10,6 +10,8 @@
   <a href="{{ url_for('settings.settings', tab='payment') }}" class="tab-link{% if active_tab == 'payment' %} active{% endif %}">Payment Details</a>
   <a href="{{ url_for('settings.settings', tab='templates') }}" class="tab-link{% if active_tab == 'templates' %} active{% endif %}">PDF Templates</a>
   <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
+  <a href="{{ url_for('settings.settings', tab='security') }}" class="tab-link{% if active_tab == 'security' %} active{% endif %}">Security</a>
+  <a href="{{ url_for('settings.settings', tab='users') }}" class="tab-link{% if active_tab == 'users' %} active{% endif %}">Users</a>
 </div>
 
 {% if active_tab == 'business' %}
@@ -64,6 +66,22 @@
     </div>
   </div>
 
+  <div class="form-section">
+    <h3>Default Surcharges</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Different payment methods can carry different processing costs. Set a default surcharge % per
+      method here — it'll prefill new quotes and invoices, and can still be adjusted per document.
+    </p>
+    <div class="form-grid-2">
+      <label>Bank Transfer %<input type="number" step="0.01" name="surcharge_bank_transfer" value="{{ business.surcharge_bank_transfer or 0 }}"></label>
+      <label>Pay ID %<input type="number" step="0.01" name="surcharge_pay_id" value="{{ business.surcharge_pay_id or 0 }}"></label>
+      <label>Cash %<input type="number" step="0.01" name="surcharge_cash" value="{{ business.surcharge_cash or 0 }}"></label>
+      <label>EFT %<input type="number" step="0.01" name="surcharge_eft" value="{{ business.surcharge_eft or 0 }}"></label>
+      <label>Credit Card %<input type="number" step="0.01" name="surcharge_credit_card" value="{{ business.surcharge_credit_card or 0 }}"></label>
+      <label>Stripe %<input type="number" step="0.01" name="surcharge_stripe" value="{{ business.surcharge_stripe or 0 }}"></label>
+    </div>
+  </div>
+
   <button type="submit">Save Payment Details</button>
 </form>
 
@@ -104,7 +122,82 @@
     <label>Password<input type="password" name="smtp_password" placeholder="Leave blank to keep current"></label>
     <label>From Email<input type="email" name="smtp_from_email" value="{{ business.smtp_from_email or '' }}"></label>
   </div>
+
+  <div class="form-section">
+    <h3>Custom Email Templates</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Optional. Leave blank to use the plain default message. Custom bodies support raw HTML for
+      branded emails, and both fields accept these placeholders:
+    </p>
+    <p style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace; line-height: 1.6;">
+      {{ '{{client_name}}' }} · {{ '{{business_name}}' }} · {{ '{{document_number}}' }} · {{ '{{total}}' }} ·
+      {{ '{{valid_until}}' }} (quotes) · {{ '{{due_date}}' }} (invoices) · {{ '{{upload_link}}' }} (quotes only)
+    </p>
+
+    <label>Quote Email Subject<input type="text" name="quote_email_subject" value="{{ business.quote_email_subject or '' }}" placeholder="Quote {{ '{{document_number}}' }} from {{ '{{business_name}}' }}"></label>
+    <label>Quote Email Body (HTML)<textarea name="quote_email_body_html" rows="8" style="font-family: monospace; font-size: 0.8rem;" placeholder="<p>Hi {{ '{{client_name}}' }},</p><p>Please find your quote attached...</p>">{{ business.quote_email_body_html or '' }}</textarea></label>
+
+    <label>Invoice Email Subject<input type="text" name="invoice_email_subject" value="{{ business.invoice_email_subject or '' }}" placeholder="Invoice {{ '{{document_number}}' }} from {{ '{{business_name}}' }}"></label>
+    <label>Invoice Email Body (HTML)<textarea name="invoice_email_body_html" rows="8" style="font-family: monospace; font-size: 0.8rem;" placeholder="<p>Hi {{ '{{client_name}}' }},</p><p>Please find your invoice attached...</p>">{{ business.invoice_email_body_html or '' }}</textarea></label>
+  </div>
+
   <button type="submit">Save Email Settings</button>
 </form>
+
+{% elif active_tab == 'security' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+  <input type="hidden" name="tab" value="security">
+  <h3 style="margin-top: 0;">Cloudflare Turnstile</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Optional bot protection for your public login, order form, contact form, and order tracking
+    pages. Get a site key and secret key from your
+    <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener" style="color: var(--accent);">Cloudflare Turnstile dashboard</a>.
+    Leave blank to disable — forms will work as normal without the challenge.
+  </p>
+  <label>Site Key<input type="text" name="turnstile_site_key" value="{{ business.turnstile_site_key or '' }}" placeholder="0x4AAAAAAA..."></label>
+  <label>Secret Key<input type="password" name="turnstile_secret_key" value="{{ business.turnstile_secret_key or '' }}" placeholder="0x4AAAAAAA..."></label>
+  <button type="submit">Save Security Settings</button>
+</form>
+
+{% elif active_tab == 'users' %}
+<div class="panel">
+  <h3 style="margin-top: 0;">Dashboard Users</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    There's no public sign-up — accounts are only created here, or via the <code>flask create-admin</code>
+    CLI command on the server.
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr><th>Username</th><th>Email</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>{{ user.username }}{% if user.id == current_user.id %} <span class="badge badge-muted">You</span>{% endif %}</td>
+        <td>{{ user.email }}</td>
+        <td style="text-align: right;">
+          {% if user.id != current_user.id %}
+          <form method="post" action="{{ url_for('settings.delete_user', user_id=user.id) }}" onsubmit="return confirm('Remove user {{ user.username }}?')" style="display: inline;">
+            <button type="submit" class="btn-sm btn-danger">Remove</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Add User</h3>
+  <form method="post" action="{{ url_for('settings.add_user') }}">
+    <div class="form-grid-2">
+      <label>Username<input type="text" name="username" required></label>
+      <label>Email<input type="email" name="email" required></label>
+    </div>
+    <label>Password <span style="font-weight: 400;">(at least 8 characters)</span><input type="password" name="password" minlength="8" required></label>
+    <button type="submit">Create User</button>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

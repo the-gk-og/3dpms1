@@ -19,7 +19,8 @@ def build_pdf(document_title, business, client, items, total, footer_text,
               header_text='', payment_method='', payment_details=None,
               payment_terms='', terms_of_service='', signature_enabled=False,
               document_number='', subtotal=0, surcharge_percent=0,
-              notes='', logo_path=None, valid_until=None, due_date=None):
+              notes='', logo_path=None, valid_until=None, due_date=None,
+              markup_percent=0, markup_amount=0, surcharge_notes=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
@@ -172,9 +173,13 @@ def build_pdf(document_title, business, client, items, total, footer_text,
 
     # Totals
     totals_data = []
-    if subtotal and surcharge_percent:
+    if subtotal and (surcharge_percent or markup_amount):
         totals_data.append(['', '', 'Subtotal:', _money(subtotal)])
-        totals_data.append(['', '', f'Surcharge ({surcharge_percent:.1f}%):', _money(total - subtotal)])
+        if markup_amount:
+            totals_data.append(['', '', f'Markup ({markup_percent:.1f}%):', _money(markup_amount)])
+        if surcharge_percent:
+            surcharge_amount = total - subtotal - (markup_amount or 0)
+            totals_data.append(['', '', f'Surcharge ({surcharge_percent:.1f}%):', _money(surcharge_amount)])
     totals_data.append(['', '', 'Total:', _money(total)])
 
     totals_table = Table(totals_data, colWidths=col_widths)
@@ -202,6 +207,10 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         story.append(Paragraph('<b>Payment Information</b>', styles['SectionHead']))
         if payment_method:
             story.append(Paragraph(f'Accepted methods: {payment_method}', styles['Muted']))
+        if surcharge_notes:
+            for note in surcharge_notes:
+                if note:
+                    story.append(Paragraph(note, styles['Muted']))
         if payment_details:
             for line in payment_details:
                 if line:
