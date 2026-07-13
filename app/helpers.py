@@ -5,7 +5,7 @@ import secrets
 import smtplib
 from email.message import EmailMessage
 
-from app.models import BusinessSettings, Quote, Invoice, Job
+from app.models import BusinessSettings, Quote, Invoice, Job, Request
 
 
 def get_business_settings():
@@ -105,6 +105,12 @@ def generate_job_number():
     year = datetime.utcnow().year
     count = Job.query.filter(Job.job_number.like(f'JOB-{year}-%')).count() + 1
     return f'JOB-{year}-{count:04d}'
+
+
+def generate_request_number():
+    year = datetime.utcnow().year
+    count = Request.query.filter(Request.request_number.like(f'REQ-{year}-%')).count() + 1
+    return f'REQ-{year}-{count:04d}'
 
 
 def default_due_date(days=14):
@@ -241,6 +247,18 @@ def send_plain_email(business, to_email, subject, body_text, html_body=None):
     """
     msg = _build_email_message(business, to_email, subject, body_text, html_body)
     _smtp_send(business, msg)
+
+
+def notify_admin_new_submission(business, subject, body_text):
+    """Email the business owner about a new public submission (order or enquiry).
+    Best-effort — the caller should swallow failures so a broken SMTP config never
+    blocks the customer's submission from completing.
+    """
+    target = business.contact_email or business.smtp_from_email
+    if not target:
+        return False
+    send_plain_email(business, target, subject, body_text)
+    return True
 
 
 # --- File upload storage -----------------------------------------------------------

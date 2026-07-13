@@ -63,6 +63,8 @@ class BusinessSettings(db.Model):
     # Cloudflare Turnstile (bot protection) — optional, forms skip verification if unset
     turnstile_site_key = db.Column(db.String(200))
     turnstile_secret_key = db.Column(db.String(200))
+    payment_terms_font_size = db.Column(db.Float, default=9.0)
+    tos_font_size = db.Column(db.Float, default=8.0)
 
 
 class Filament(db.Model):
@@ -182,6 +184,11 @@ class Quote(db.Model):
         except (ValueError, TypeError):
             return {}
 
+    @property
+    def originating_request(self):
+        """The public order-form Request this quote was converted from, if any."""
+        return Request.query.filter_by(quote_id=self.id).first()
+
 
 def _line_item_detail(item):
     """Human-readable summary of a line item, used in both the UI and the PDF."""
@@ -242,6 +249,7 @@ class Invoice(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     due_date = db.Column(db.Date)
     paid_at = db.Column(db.DateTime)
+    archived = db.Column(db.Boolean, default=False)
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -300,6 +308,7 @@ class Job(db.Model):
     notify_sent_at = db.Column(db.DateTime)
     model_source = db.Column(db.String(20))  # 'has_model' | 'need_design' | None (internal job)
     order_details = db.Column(db.Text)  # JSON blob: files, links, materials, description, shipping address
+    archived = db.Column(db.Boolean, default=False)
 
     @property
     def display_number(self):
@@ -312,3 +321,60 @@ class Job(db.Model):
             return json.loads(self.order_details or '{}')
         except (ValueError, TypeError):
             return {}
+
+    @property
+    def originating_request(self):
+        """The public order-form Request that led to this job, if any (via its quote)."""
+        if not self.quote_id:
+            return None
+        return Request.query.filter_by(quote_id=self.quote_id).first()
+
+
+class Request(db.Model):
+    """A raw submission from the public order form, awaiting triage. The business
+    reviews it here and converts it into a Quote (which can then flow into a Job and
+    Invoice through the existing pipeline) once they're ready to price it up.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    request_number = db.Column(db.String(50), unique=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
+    client = db.relationship('Client', backref='requests')
+    status = db.Column(db.String(50), default='New')  # New, Reviewed, Converted, Archived
+    model_source = db.Column(db.String(20))  # 'has_model' | 'need_design'
+    order_details = db.Column(db.Text)
+    notify_me = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
+    quote = db.relationship('Quote', foreign_keys=[quote_id])
+
+    @property
+    def display_number(self):
+        return self.request_number or f'REQ-{self.id:04d}'
+
+    @property
+    def title(self):
+        name = self.client.name if self.client else 'a customer'
+        if self.model_source == 'need_design':
+            return f'Design request from {name}'
+        return f'Print order from {name}'
+
+    @property
+    def order_data(self):
+        import json
+        try:
+            return json.loads(self.order_details or '{}')
+        except (ValueError, TypeError):
+            return {}
+
+    @property
+    def tracking_status(self):
+        """Customer-facing status shown on the public tracking page."""
+        if self.status == 'Archived':
+            return 'Archived'
+        if self.status == 'Converted' and self.quote:
+            if self.quote.jobs:
+                return self.quote.jobs[0].status
+            return 'Quote Sent'
+        if self.status == 'Reviewed':
+            return 'Being Reviewed'
+        return 'Received'

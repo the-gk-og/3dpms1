@@ -21,6 +21,10 @@
             <span class="nav-icon">📊</span>
             <span class="nav-label">Dashboard</span>
           </a>
+          <a href="{{ url_for('main.requests_list') }}" class="nav-item{% if ep.startswith('main.request') %} active{% endif %}">
+            <span class="nav-icon">📥</span>
+            <span class="nav-label">Requests</span>
+          </a>
           <a href="{{ url_for('main.quotes') }}" class="nav-item{% if ep.startswith('main.quote') or ep == 'main.new_quote' %} active{% endif %}">
             <span class="nav-icon">📄</span>
             <span class="nav-label">Quotes</span>

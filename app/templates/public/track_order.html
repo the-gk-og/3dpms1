@@ -11,7 +11,7 @@
 
 <div class="pub-panel" style="margin-top: 2rem;">
   <form method="post" class="pub-form">
-    <label>Job Number<input type="text" name="job_number" placeholder="JOB-2026-0001" required value="{{ request.form.get('job_number', '') }}"></label>
+    <label>Order Number<input type="text" name="job_number" placeholder="REQ-2026-0001" required value="{{ request.form.get('job_number', '') }}"></label>
 
     <label>Verify With</label>
     <div class="pub-radio-group">
@@ -34,15 +34,15 @@
     <button type="submit" class="pub-btn">Check Status</button>
   </form>
 
-  {% if job %}
+  {% if order %}
   <div class="pub-track-result">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-      <strong>{{ job.display_number }}</strong>
-      <span class="pub-status-badge">{{ job.status }}</span>
+      <strong>{{ order.display_number }}</strong>
+      <span class="pub-status-badge">{{ order.tracking_status }}</span>
     </div>
-    <p style="color: var(--text-muted); margin: 0;">{{ job.title }}</p>
+    <p style="color: var(--text-muted); margin: 0;">{{ order.title }}</p>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-      Placed {{ job.created_at.strftime('%d %B %Y') if job.created_at else '—' }}
+      Placed {{ order.created_at.strftime('%d %B %Y') if order.created_at else '—' }}
     </p>
   </div>
   {% elif searched %}

@@ -104,8 +104,15 @@
 
   <div class="form-section">
     <h3>Terms & Conditions</h3>
-    <label>Payment Terms<textarea name="payment_terms" rows="3" placeholder="e.g. 50% deposit required. Balance due on completion.">{{ business.payment_terms or '' }}</textarea></label>
-    <label>Terms of Service / Agreement<textarea name="terms_of_service" rows="5" placeholder="Agreement text shown on PDF with signature area">{{ business.terms_of_service or '' }}</textarea></label>
+    <div class="form-grid-2">
+      <label>Payment Terms<textarea name="payment_terms" rows="3" placeholder="e.g. 50% deposit required. Balance due on completion.">{{ business.payment_terms or '' }}</textarea></label>
+      <label>Payment Terms Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="payment_terms_font_size" value="{{ business.payment_terms_font_size or 9 }}"></label>
+    </div>
+    <div class="form-grid-2">
+      <label>Terms of Service / Agreement<textarea name="terms_of_service" rows="5" placeholder="Agreement text shown on PDF with signature area">{{ business.terms_of_service or '' }}</textarea></label>
+      <label>Terms of Service Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="tos_font_size" value="{{ business.tos_font_size or 8 }}"></label>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Smaller sizes fit more fine print; larger sizes are easier to read. Applies to both quote and invoice PDFs.</p>
   </div>
 
   <button type="submit">Save Templates</button>

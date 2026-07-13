@@ -6,12 +6,12 @@
   <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✅</div>
   <h1 style="margin-top: 0;">Order Received</h1>
   <p style="color: var(--text-muted);">
-    Thanks{% if job.client %}, {{ job.client.name }}{% endif %} — we've got your order and will follow up with a quote shortly.
+    Thanks{% if order.client %}, {{ order.client.name }}{% endif %} — we've got your order and will follow up with a quote shortly.
   </p>
 
   <div style="background: var(--bg-secondary); border-radius: 8px; padding: 1.25rem; margin: 1.5rem 0;">
-    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Your Job Number</div>
-    <div style="font-size: 1.6rem; font-weight: 700; margin-top: 0.35rem;">{{ job.display_number }}</div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Your Order Number</div>
+    <div style="font-size: 1.6rem; font-weight: 700; margin-top: 0.35rem;">{{ order.display_number }}</div>
   </div>
 
   <p style="font-size: 0.85rem; color: var(--text-muted);">

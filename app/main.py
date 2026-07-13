@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required
 
 from app import db
-from app.models import Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings
+from app.models import Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings, Request
 from app.helpers import (
     calculate_line_price, recalculate_quote_total, recalculate_invoice_total,
     generate_quote_number, generate_invoice_number, generate_job_number,
@@ -16,6 +16,7 @@ from app.helpers import (
     parse_payment_methods_and_surcharges, compute_marked_items,
     generate_upload_token, render_email_template, html_to_text,
     signed_uploads_dir, job_should_notify, send_job_complete_notification,
+    order_uploads_dir,
 )
 from app.pdf_utils import build_pdf, build_payment_details
 
@@ -146,6 +147,8 @@ def _quote_pdf_bytes(quote):
         notes=quote.notes or '',
         logo_path=logo_path,
         valid_until=quote.valid_until,
+        payment_terms_font_size=business.payment_terms_font_size or 9,
+        tos_font_size=business.tos_font_size or 8,
     )
 
 
@@ -177,6 +180,8 @@ def _invoice_pdf_bytes(invoice):
         notes=invoice.notes or '',
         logo_path=logo_path,
         due_date=invoice.due_date,
+        payment_terms_font_size=business.payment_terms_font_size or 9,
+        tos_font_size=business.tos_font_size or 8,
     )
 
 
@@ -471,8 +476,16 @@ def create_job_from_quote(quote_id):
 @main_bp.route('/invoices', methods=['GET'])
 @login_required
 def invoices():
-    invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
-    return render_template('invoices.html', invoices=invoices)
+    show_archived = request.args.get('archived') == '1'
+    q = (request.args.get('q') or '').strip()
+    query = Invoice.query.join(Client, isouter=True)
+    if not show_archived:
+        query = query.filter(Invoice.archived.is_(False))
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Invoice.invoice_number.ilike(like), Client.name.ilike(like)))
+    invoices = query.order_by(Invoice.created_at.desc()).all()
+    return render_template('invoices.html', invoices=invoices, show_archived=show_archived, q=q)
 
 
 @main_bp.route('/invoices/new', methods=['GET', 'POST'])
@@ -567,6 +580,26 @@ def delete_invoice(invoice_id):
     db.session.commit()
     flash('Invoice deleted')
     return redirect(url_for('main.invoices'))
+
+
+@main_bp.route('/invoices/<int:invoice_id>/archive', methods=['POST'])
+@login_required
+def archive_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    invoice.archived = True
+    db.session.commit()
+    flash('Invoice archived')
+    return redirect(url_for('main.invoices'))
+
+
+@main_bp.route('/invoices/<int:invoice_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    invoice.archived = False
+    db.session.commit()
+    flash('Invoice restored')
+    return redirect(url_for('main.invoices', archived='1'))
 
 
 @main_bp.route('/invoices/<int:invoice_id>/add-item', methods=['POST'])
@@ -710,8 +743,16 @@ def delete_client(client_id):
 @main_bp.route('/jobs')
 @login_required
 def jobs():
-    jobs = Job.query.order_by(Job.created_at.desc()).all()
-    return render_template('jobs.html', jobs=jobs)
+    show_archived = request.args.get('archived') == '1'
+    q = (request.args.get('q') or '').strip()
+    query = Job.query.join(Client, isouter=True)
+    if not show_archived:
+        query = query.filter(Job.archived.is_(False))
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Job.title.ilike(like), Client.name.ilike(like)))
+    jobs = query.order_by(Job.created_at.desc()).all()
+    return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q)
 
 
 @main_bp.route('/jobs/<int:job_id>/edit', methods=['POST'])
@@ -740,6 +781,26 @@ def edit_job(job_id):
     return redirect(url_for('main.jobs'))
 
 
+@main_bp.route('/jobs/<int:job_id>/archive', methods=['POST'])
+@login_required
+def archive_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    job.archived = True
+    db.session.commit()
+    flash('Job archived')
+    return redirect(url_for('main.jobs'))
+
+
+@main_bp.route('/jobs/<int:job_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    job.archived = False
+    db.session.commit()
+    flash('Job restored')
+    return redirect(url_for('main.jobs', archived='1'))
+
+
 @main_bp.route('/jobs/<int:job_id>/delete', methods=['POST'])
 @login_required
 def delete_job(job_id):
@@ -753,9 +814,106 @@ def delete_job(job_id):
 @main_bp.route('/jobs/<int:job_id>/files/<path:filename>')
 @login_required
 def download_order_file(job_id, filename):
-    from app.helpers import order_uploads_dir
     job = Job.query.get_or_404(job_id)
     directory = os.path.join(order_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
+    file_path = os.path.join(directory, filename)
+    if not os.path.isfile(file_path):
+        abort(404)
+    return send_file(file_path, as_attachment=True)
+
+
+# --- Requests (public order-form submissions awaiting triage) ----------------------
+
+@main_bp.route('/requests')
+@login_required
+def requests_list():
+    show_archived = request.args.get('archived') == '1'
+    q = (request.args.get('q') or '').strip()
+    query = Request.query.join(Client, isouter=True)
+    if not show_archived:
+        query = query.filter(Request.status != 'Archived')
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Client.name.ilike(like), Request.request_number.ilike(like)))
+    reqs = query.order_by(Request.created_at.desc()).all()
+    return render_template('requests.html', requests=reqs, show_archived=show_archived, q=q)
+
+
+@main_bp.route('/requests/<int:request_id>')
+@login_required
+def request_detail(request_id):
+    req = Request.query.get_or_404(request_id)
+    return render_template('request_detail.html', req=req)
+
+
+@main_bp.route('/requests/<int:request_id>/convert-to-quote', methods=['POST'])
+@login_required
+def convert_request_to_quote(request_id):
+    req = Request.query.get_or_404(request_id)
+    if req.quote_id:
+        flash('This request has already been converted to a quote.')
+        return redirect(url_for('main.quote_detail', quote_id=req.quote_id))
+
+    order = req.order_data
+    notes_parts = []
+    if order.get('description'):
+        notes_parts.append(f"Description: {order['description']}")
+    if order.get('materials'):
+        notes_parts.append(f"Materials requested: {', '.join(order['materials'])}")
+    if order.get('other_material'):
+        notes_parts.append(f"Other material requested: {order['other_material']}")
+    if order.get('model_links'):
+        notes_parts.append(f"Model links: {order['model_links']}")
+    if order.get('reference_links'):
+        notes_parts.append(f"Reference links: {order['reference_links']}")
+    if order.get('shipping_address'):
+        notes_parts.append(f"Shipping to: {order['shipping_address']}")
+    if order.get('notes'):
+        notes_parts.append(f"Customer notes: {order['notes']}")
+
+    quote = Quote(
+        quote_number=generate_quote_number(),
+        client_id=req.client_id,
+        notes='\n'.join(notes_parts),
+        notify_me=req.notify_me,
+        upload_token=generate_upload_token(),
+    )
+    db.session.add(quote)
+    db.session.commit()
+
+    req.status = 'Converted'
+    req.quote_id = quote.id
+    db.session.commit()
+
+    flash('Request converted to quote — add line items and pricing below.')
+    return redirect(url_for('main.quote_detail', quote_id=quote.id))
+
+
+@main_bp.route('/requests/<int:request_id>/mark-reviewed', methods=['POST'])
+@login_required
+def mark_request_reviewed(request_id):
+    req = Request.query.get_or_404(request_id)
+    req.status = 'Reviewed'
+    db.session.commit()
+    flash('Request marked as reviewed')
+    return redirect(url_for('main.request_detail', request_id=req.id))
+
+
+@main_bp.route('/requests/<int:request_id>/archive', methods=['POST'])
+@login_required
+def archive_request(request_id):
+    req = Request.query.get_or_404(request_id)
+    req.status = 'Archived'
+    db.session.commit()
+    flash('Request archived')
+    return redirect(url_for('main.requests_list'))
+
+
+@main_bp.route('/requests/<int:request_id>/files/<path:filename>')
+@login_required
+def download_request_file(request_id, filename):
+    req = Request.query.get_or_404(request_id)
+    directory = os.path.join(order_uploads_dir(), req.request_number or f'REQ-{req.id:04d}')
     file_path = os.path.join(directory, filename)
     if not os.path.isfile(file_path):
         abort(404)

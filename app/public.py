@@ -6,9 +6,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.utils import secure_filename
 
 from app import db
-from app.models import Client, Filament, Job, Quote
+from app.models import Client, Filament, Job, Quote, Request
 from app.helpers import (
-    get_business_settings, generate_job_number, send_plain_email,
+    get_business_settings, generate_request_number, send_plain_email,
+    notify_admin_new_submission,
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
     verify_turnstile,
@@ -80,8 +81,8 @@ def contact():
         notify_target = business.contact_email or business.smtp_from_email
         if notify_target:
             try:
-                send_plain_email(
-                    business, notify_target,
+                notify_admin_new_submission(
+                    business,
                     subject=f'New contact form message from {name}',
                     body_text=f'From: {name} <{email}>\n\n{message}',
                 )
@@ -98,38 +99,35 @@ def contact():
 @public_bp.route('/track', methods=['GET', 'POST'])
 def track_order():
     business = get_business_settings()
-    job = None
+    order = None
     searched = False
     if request.method == 'POST':
         searched = True
         if not _turnstile_ok(business):
             flash('Please complete the verification challenge and try again.')
-            return render_template('public/track_order.html', business=business, job=None, searched=False)
+            return render_template('public/track_order.html', business=business, order=None, searched=False)
 
-        job_number = (request.form.get('job_number') or '').strip()
+        order_number = (request.form.get('job_number') or '').strip()
         verify_method = request.form.get('verify_method', 'email')
         contact_value = (request.form.get('contact_value') or '').strip().lower()
 
-        candidate = Job.query.filter(Job.job_number.ilike(job_number)).first() if job_number else None
+        candidate = Request.query.filter(Request.request_number.ilike(order_number)).first() if order_number else None
         matched = False
         if candidate and candidate.client and contact_value:
             if verify_method == 'phone':
                 stored = (candidate.client.phone or '').strip().lower()
+                import re as _re
+                matched = bool(stored) and _re.sub(r'\D', '', stored) == _re.sub(r'\D', '', contact_value)
             else:
                 stored = (candidate.client.email or '').strip().lower()
-            # Compare phone numbers loosely (ignore spaces/punctuation); email stays exact.
-            if verify_method == 'phone':
-                import re as _re
-                matched = _re.sub(r'\D', '', stored) == _re.sub(r'\D', '', contact_value) and stored
-            else:
                 matched = stored == contact_value
 
         if matched:
-            job = candidate
+            order = candidate
         else:
-            flash('No matching order found. Double-check your job number and details.')
+            flash('No matching order found. Double-check your order number and details.')
 
-    return render_template('public/track_order.html', business=business, job=job, searched=searched)
+    return render_template('public/track_order.html', business=business, order=order, searched=searched)
 
 
 @public_bp.route('/order', methods=['GET', 'POST'])
@@ -164,13 +162,13 @@ def order_form():
             client.phone = phone
         db.session.commit()
 
-        job_number = generate_job_number()
+        request_number = generate_request_number()
 
         materials = request.form.getlist('materials')
         other_material = request.form.get('other_material', '').strip()
 
-        model_files = _save_uploaded_files(request.files.getlist('model_files'), job_number)
-        reference_images = _save_uploaded_files(request.files.getlist('reference_images'), job_number)
+        model_files = _save_uploaded_files(request.files.getlist('model_files'), request_number)
+        reference_images = _save_uploaded_files(request.files.getlist('reference_images'), request_number)
 
         order_details = {
             'model_source': model_source,
@@ -185,25 +183,41 @@ def order_form():
             'notes': request.form.get('notes', '').strip(),
         }
 
-        if model_source == 'need_design':
-            title = f"Design request from {client.name}"
-        else:
-            title = f"Print order from {client.name}"
-
-        job = Job(
-            job_number=job_number,
+        new_request = Request(
+            request_number=request_number,
             client_id=client.id,
-            title=title,
             status='New',
-            notes=order_details.get('notes', ''),
             notify_me=notify_me,
             model_source=model_source,
             order_details=json.dumps(order_details),
         )
-        db.session.add(job)
+        db.session.add(new_request)
         db.session.commit()
 
-        return render_template('public/order_confirmation.html', business=business, job=job)
+        try:
+            summary_lines = [
+                f'New order request: {request_number}',
+                f'Client: {name} ({email}, {phone})',
+                f'Type: {"Needs design" if model_source == "need_design" else "Has model"}',
+            ]
+            if order_details.get('description'):
+                summary_lines.append(f'Description: {order_details["description"]}')
+            if materials:
+                summary_lines.append(f'Materials: {", ".join(materials)}')
+            if order_details.get('notes'):
+                summary_lines.append(f'Notes: {order_details["notes"]}')
+            summary_lines.append(f'Review it in the dashboard under Requests.')
+            notify_admin_new_submission(
+                business,
+                subject=f'New order request — {request_number}',
+                body_text='\n'.join(summary_lines),
+            )
+        except EmailNotConfiguredError:
+            pass
+        except Exception:
+            pass
+
+        return render_template('public/order_confirmation.html', business=business, order=new_request)
 
     return render_template('public/order_form.html', business=business, filaments=filaments)
 

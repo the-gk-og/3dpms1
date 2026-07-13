@@ -1,2 +1,4 @@
-/instance
-/.venv
+.venv/
+__pycache__/
+.env
+instance/

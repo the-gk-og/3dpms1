@@ -8,6 +8,18 @@
   </div>
 </div>
 
+<div class="panel" style="margin-bottom: 1.25rem;">
+  <form method="get" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+    <label style="flex: 1; min-width: 200px; margin: 0;">Search
+      <input type="text" name="q" value="{{ q }}" placeholder="Job title or customer name">
+    </label>
+    <label class="checkbox-item" style="background: transparent; padding: 0; margin: 0 0 0.6rem;">
+      <input type="checkbox" name="archived" value="1" onchange="this.form.submit()"{% if show_archived %} checked{% endif %}> Show archived
+    </label>
+    <button type="submit" class="btn-secondary" style="margin-bottom: 0;">Search</button>
+  </form>
+</div>
+
 {% if jobs %}
 <div class="cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
   {% for job in jobs %}
@@ -19,6 +31,7 @@
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">{{ job.client.name }}</div>
       </div>
       <div style="text-align: right;">
+        {% if job.archived %}<span class="badge badge-muted">Archived</span>{% endif %}
         <span class="badge badge-accent">{{ job.status }}</span>
         {% if job.notify_me %}
         <div style="margin-top: 0.35rem;"><span class="badge badge-muted">🔔 Notify on complete{% if job.notify_sent_at %} · Sent{% endif %}</span></div>
@@ -61,10 +74,20 @@
     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
       Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}
       {% if job.quote %} · <a href="{{ url_for('main.quote_detail', quote_id=job.quote_id) }}" style="color: var(--accent);">View Quote</a>{% endif %}
+      {% if job.originating_request %} · <a href="{{ url_for('main.request_detail', request_id=job.originating_request.id) }}" style="color: var(--accent);">View Original Request</a>{% endif %}
     </div>
 
     <div class="item-actions">
       <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
+      {% if job.archived %}
+      <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
+        <button type="submit" class="btn-sm btn-secondary">Restore</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('main.archive_job', job_id=job.id) }}" style="display:inline;">
+        <button type="submit" class="btn-sm btn-secondary">Archive</button>
+      </form>
+      {% endif %}
       <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Delete this job?')">
         <button type="submit" class="btn-sm btn-danger">Delete</button>
       </form>
@@ -90,7 +113,7 @@
 {% else %}
 <div class="card empty-state">
   <div class="empty-state-icon">🎯</div>
-  <p>No jobs yet.</p>
+  <p>{% if q or show_archived %}No jobs match.{% else %}No jobs yet.{% endif %}</p>
   <p style="font-size: 0.85rem;">Create a job from an existing quote to start tracking production.</p>
   <a href="{{ url_for('main.quotes') }}" class="btn" style="margin-top: 1rem;">Go to Quotes</a>
 </div>

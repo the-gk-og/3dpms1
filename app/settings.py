@@ -55,6 +55,8 @@ def save_settings():
         business.invoice_footer = request.form.get('invoice_footer', '')
         business.payment_terms = request.form.get('payment_terms', '')
         business.terms_of_service = request.form.get('terms_of_service', '')
+        business.payment_terms_font_size = float(request.form.get('payment_terms_font_size', 9) or 9)
+        business.tos_font_size = float(request.form.get('tos_font_size', 8) or 8)
 
     elif tab == 'payment':
         business.pay_id = request.form.get('pay_id', '')

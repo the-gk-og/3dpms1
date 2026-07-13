@@ -20,7 +20,8 @@ def build_pdf(document_title, business, client, items, total, footer_text,
               payment_terms='', terms_of_service='', signature_enabled=False,
               document_number='', subtotal=0, surcharge_percent=0,
               notes='', logo_path=None, valid_until=None, due_date=None,
-              markup_percent=0, markup_amount=0, surcharge_notes=None):
+              markup_percent=0, markup_amount=0, surcharge_notes=None,
+              payment_terms_font_size=9, tos_font_size=8):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
@@ -51,6 +52,16 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     styles.add(ParagraphStyle(
         'SigLine', parent=styles['BodyText'], fontSize=9,
         textColor=colors.HexColor('#94a3b8'), spaceBefore=20,
+    ))
+    # User-configurable sizes (Settings → PDF Templates), kept as their own styles so
+    # they don't affect the other 'Muted'/'TOS' usages elsewhere on the page.
+    styles.add(ParagraphStyle(
+        'PaymentTermsCustom', parent=styles['BodyText'], fontSize=payment_terms_font_size,
+        textColor=colors.HexColor('#64748b'), leading=payment_terms_font_size * 1.35,
+    ))
+    styles.add(ParagraphStyle(
+        'TOSCustom', parent=styles['BodyText'], fontSize=tos_font_size,
+        textColor=colors.HexColor('#475569'), leading=tos_font_size * 1.35,
     ))
 
     story = []
@@ -219,7 +230,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     if payment_terms:
         story.append(Spacer(1, 0.1 * inch))
         story.append(Paragraph('<b>Payment Terms</b>', styles['SectionHead']))
-        story.append(Paragraph(payment_terms.replace('\n', '<br/>'), styles['Muted']))
+        story.append(Paragraph(payment_terms.replace('\n', '<br/>'), styles['PaymentTermsCustom']))
 
     # Agreement / TOS section
     story.append(Spacer(1, 0.25 * inch))
@@ -232,7 +243,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         'and conditions outlined in this document. Work will commence upon acceptance '
         'and/or receipt of deposit as specified.'
     )
-    story.append(Paragraph(tos_text.replace('\n', '<br/>'), styles['TOS']))
+    story.append(Paragraph(tos_text.replace('\n', '<br/>'), styles['TOSCustom']))
 
     if signature_enabled:
         story.append(Spacer(1, 0.3 * inch))

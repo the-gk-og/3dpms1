@@ -30,6 +30,8 @@ def run_migrations(db):
             'invoice_email_body_html': 'TEXT',
             'turnstile_site_key': 'VARCHAR(200)',
             'turnstile_secret_key': 'VARCHAR(200)',
+            'payment_terms_font_size': 'FLOAT DEFAULT 9',
+            'tos_font_size': 'FLOAT DEFAULT 8',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -45,6 +47,7 @@ def run_migrations(db):
             'markup_percent': 'FLOAT DEFAULT 0',
             'show_markup_to_client': 'BOOLEAN DEFAULT 0',
             'notify_me': 'BOOLEAN DEFAULT 0',
+            'archived': 'BOOLEAN DEFAULT 0',
         },
         'quote': {
             'valid_until': 'DATE',
@@ -63,6 +66,7 @@ def run_migrations(db):
             'notify_sent_at': 'DATETIME',
             'model_source': 'VARCHAR(20)',
             'order_details': 'TEXT',
+            'archived': 'BOOLEAN DEFAULT 0',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",
