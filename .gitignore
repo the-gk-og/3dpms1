@@ -1,4 +1,14 @@
-.venv/
 __pycache__/
-.env
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
 instance/
+app/uploads/
+app/static/uploads/
+*.db
+
+# Docker Compose local data and secrets
+data/
+.env

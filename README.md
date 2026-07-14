@@ -8,14 +8,46 @@ customer-facing site and a login-protected internal dashboard.
 - `/dash/...` — internal dashboard (quotes, invoices, clients, jobs, filament, settings). Requires login.
 
 ## First-time setup
-There is no public sign-up page. Create the first dashboard account from the server with:
+There is no public sign-up page. Create the first dashboard account with:
 ```bash
+# Docker
+docker compose exec web flask create-admin
+
+# Manual / venv
 . .venv/bin/activate
 export FLASK_APP=run.py
 flask create-admin
 ```
 This prompts for a username, email, and password. Additional users can be added later from
 the dashboard under Settings → Users, or by running the command again.
+
+## Deploy with Docker Compose
+```bash
+cp .env.example .env
+# edit .env and set SECRET_KEY — generate one with:
+#   python3 -c "import secrets; print(secrets.token_hex(32))"
+
+docker compose up -d --build
+docker compose exec web flask create-admin
+```
+The app is then available at `http://localhost:8000` (public site at `/`, dashboard at `/dash`).
+
+By default this uses SQLite, with the database and all uploaded files (logos, signed quotes,
+order attachments) stored under `./data/` on the host — back that folder up as a whole. To use
+Postgres instead, uncomment the `db` service in `docker-compose.yml` and set `DATABASE_URL` in
+`.env`; `psycopg2` is already installed either way.
+
+Put this behind a reverse proxy (Caddy, Cloudflare Tunnel, nginx, etc.) for TLS — the container
+itself only serves plain HTTP on port 8000.
+
+## Run locally without Docker
+```bash
+cd /home/elijahlsl/Documents/Projects/WEBAPPS/3dpms
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
 
 ## Features
 - Public order form with model upload / design-request flow, order tracking by job number
@@ -30,15 +62,6 @@ the dashboard under Settings → Users, or by running the command again.
 - Customer order-status email notifications, opt-in from the order form, quote upload page,
   or manually per-invoice
 - Client tracking and a jobs board
-
-## Run locally
-```bash
-cd /home/elijahlsl/Documents/Projects/WEBAPPS/3dpms
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-python run.py
-```
 
 ## Test
 ```bash

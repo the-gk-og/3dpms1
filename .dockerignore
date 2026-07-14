@@ -1,0 +1,15 @@
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+instance/
+app/uploads/
+app/static/uploads/
+data/
+.git
+.gitignore
+.env
+*.db
+.DS_Store
