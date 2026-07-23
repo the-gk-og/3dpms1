@@ -25,6 +25,7 @@ class BusinessSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, default='Your Business')
     address = db.Column(db.String(500))
+    abn = db.Column(db.String(20))
     contact_email = db.Column(db.String(200))
     email = db.Column(db.String(200))
     phone = db.Column(db.String(50))

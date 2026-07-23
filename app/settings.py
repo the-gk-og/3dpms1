@@ -43,6 +43,7 @@ def save_settings():
     if tab == 'business':
         business.name = request.form.get('name', business.name)
         business.address = request.form.get('address', '')
+        business.abn = request.form.get('abn', '')
         business.contact_email = request.form.get('contact_email', '')
         business.phone = request.form.get('phone', '')
         business.website = request.form.get('website', '')

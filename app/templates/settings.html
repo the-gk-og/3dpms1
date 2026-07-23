@@ -22,6 +22,7 @@
   <h3 style="margin-top: 0;">Business Details</h3>
   <div class="form-grid-2">
     <label>Business Name<input type="text" name="name" value="{{ business.name }}" required></label>
+    <label>ABN<input type="text" name="abn" value="{{ business.abn or '' }}" placeholder="12 345 678 901"></label>
     <label>Contact Email<input type="email" name="contact_email" value="{{ business.contact_email or '' }}"></label>
     <label>Phone<input type="text" name="phone" value="{{ business.phone or '' }}"></label>
     <label>Website<input type="text" name="website" value="{{ business.website or '' }}"></label>

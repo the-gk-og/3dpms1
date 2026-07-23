@@ -95,6 +95,8 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     biz_lines = []
     if business.address:
         biz_lines.append(Paragraph(_esc(business.address).replace('\n', '<br/>'), styles['Muted']))
+    if getattr(business, 'abn', None):
+        biz_lines.append(Paragraph(f'ABN: {_esc(business.abn)}', styles['Muted']))
     contact_parts = []
     if business.contact_email:
         contact_parts.append(_esc(business.contact_email))

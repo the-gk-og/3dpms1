@@ -9,6 +9,7 @@ def run_migrations(db):
     column_migrations = {
         'business_settings': {
             'phone': 'VARCHAR(50)',
+            'abn': 'VARCHAR(20)',
             'terms_of_service': 'TEXT',
             'hourly_rate': 'FLOAT DEFAULT 0',
             'pay_id': 'VARCHAR(200)',
