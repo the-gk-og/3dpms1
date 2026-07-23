@@ -10,6 +10,7 @@
 
 <div class="pub-panel" style="margin-top: 2rem;">
   <form method="post" class="pub-form" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div>
       <label style="font-size: 1rem; color: var(--text); margin-bottom: 0.75rem;">Customer Details</label>

@@ -1,5 +1,6 @@
 from io import BytesIO
 import os
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
@@ -9,6 +10,22 @@ from reportlab.lib.units import inch
 from reportlab.platypus import (
     HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
+
+
+def _esc(value):
+    """Escape a string before it's interpolated into a ReportLab Paragraph, which
+    parses a restricted XML/HTML-like markup language (<b>, <font>, <a href>, etc).
+    Client name/email/phone reach this function straight from the public,
+    unauthenticated order form — without escaping, a submitted name like
+    '<font size="40" color="red">...' renders as real styling on the generated
+    quote/invoice, and unbalanced markup (an unclosed '<') raises an unhandled
+    parser exception that breaks PDF generation for that document entirely.
+    Applied uniformly below (including to admin-authored fields) since escaping
+    a string that has no special characters is a harmless no-op.
+    """
+    if value is None:
+        return ''
+    return _xml_escape(str(value))
 
 
 def _money(value):
@@ -74,17 +91,17 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         except Exception:
             logo_cell = ''
 
-    biz_name_para = Paragraph(f'<b>{business.name or "Business"}</b>', styles['BizName'])
+    biz_name_para = Paragraph(f'<b>{_esc(business.name or "Business")}</b>', styles['BizName'])
     biz_lines = []
     if business.address:
-        biz_lines.append(Paragraph(business.address.replace('\n', '<br/>'), styles['Muted']))
+        biz_lines.append(Paragraph(_esc(business.address).replace('\n', '<br/>'), styles['Muted']))
     contact_parts = []
     if business.contact_email:
-        contact_parts.append(business.contact_email)
+        contact_parts.append(_esc(business.contact_email))
     if getattr(business, 'phone', None):
-        contact_parts.append(business.phone)
+        contact_parts.append(_esc(business.phone))
     if business.website:
-        contact_parts.append(business.website)
+        contact_parts.append(_esc(business.website))
     if contact_parts:
         biz_lines.append(Paragraph(' &nbsp;|&nbsp; '.join(contact_parts), styles['Muted']))
 
@@ -92,7 +109,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         Paragraph(document_title.upper(), styles['DocTitle']),
     ]
     if document_number:
-        doc_info.append(Paragraph(f'<b>{document_number}</b>', styles['Muted']))
+        doc_info.append(Paragraph(f'<b>{_esc(document_number)}</b>', styles['Muted']))
     from datetime import datetime
     doc_info.append(Paragraph(f'Date: {datetime.utcnow().strftime("%d %B %Y")}', styles['Muted']))
     if valid_until:
@@ -140,16 +157,17 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     story.append(Spacer(1, 0.15 * inch))
 
     if header_text:
-        story.append(Paragraph(header_text.replace('\n', '<br/>'), styles['Muted']))
+        story.append(Paragraph(_esc(header_text).replace('\n', '<br/>'), styles['Muted']))
         story.append(Spacer(1, 0.15 * inch))
 
-    # Client block
+    # Client block — name/email/phone originate from the public, unauthenticated
+    # order form, so these three lines are the highest-priority values to escape.
     client_lines = [Paragraph('<b>Prepared For</b>', styles['SectionHead'])]
-    client_lines.append(Paragraph(f'<b>{client.name}</b>', styles['BodyText']))
+    client_lines.append(Paragraph(f'<b>{_esc(client.name)}</b>', styles['BodyText']))
     if client.email:
-        client_lines.append(Paragraph(client.email, styles['Muted']))
+        client_lines.append(Paragraph(_esc(client.email), styles['Muted']))
     if client.phone:
-        client_lines.append(Paragraph(client.phone, styles['Muted']))
+        client_lines.append(Paragraph(_esc(client.phone), styles['Muted']))
 
     story.append(Table([[client_lines]], colWidths=[7 * inch]))
     story.append(Spacer(1, 0.2 * inch))
@@ -208,7 +226,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     if notes:
         story.append(Spacer(1, 0.15 * inch))
         story.append(Paragraph('<b>Notes</b>', styles['SectionHead']))
-        story.append(Paragraph(notes.replace('\n', '<br/>'), styles['Muted']))
+        story.append(Paragraph(_esc(notes).replace('\n', '<br/>'), styles['Muted']))
 
     # Payment details
     if payment_method or payment_details:
@@ -217,20 +235,20 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         story.append(Spacer(1, 0.1 * inch))
         story.append(Paragraph('<b>Payment Information</b>', styles['SectionHead']))
         if payment_method:
-            story.append(Paragraph(f'Accepted methods: {payment_method}', styles['Muted']))
+            story.append(Paragraph(f'Accepted methods: {_esc(payment_method)}', styles['Muted']))
         if surcharge_notes:
             for note in surcharge_notes:
                 if note:
-                    story.append(Paragraph(note, styles['Muted']))
+                    story.append(Paragraph(_esc(note), styles['Muted']))
         if payment_details:
             for line in payment_details:
                 if line:
-                    story.append(Paragraph(line, styles['Muted']))
+                    story.append(Paragraph(_esc(line), styles['Muted']))
 
     if payment_terms:
         story.append(Spacer(1, 0.1 * inch))
         story.append(Paragraph('<b>Payment Terms</b>', styles['SectionHead']))
-        story.append(Paragraph(payment_terms.replace('\n', '<br/>'), styles['PaymentTermsCustom']))
+        story.append(Paragraph(_esc(payment_terms).replace('\n', '<br/>'), styles['PaymentTermsCustom']))
 
     # Agreement / TOS section
     story.append(Spacer(1, 0.25 * inch))
@@ -243,7 +261,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         'and conditions outlined in this document. Work will commence upon acceptance '
         'and/or receipt of deposit as specified.'
     )
-    story.append(Paragraph(tos_text.replace('\n', '<br/>'), styles['TOSCustom']))
+    story.append(Paragraph(_esc(tos_text).replace('\n', '<br/>'), styles['TOSCustom']))
 
     if signature_enabled:
         story.append(Spacer(1, 0.3 * inch))
@@ -262,7 +280,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         story.append(Spacer(1, 0.2 * inch))
         story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
         story.append(Spacer(1, 0.08 * inch))
-        story.append(Paragraph(footer_text.replace('\n', '<br/>'), styles['TOS']))
+        story.append(Paragraph(_esc(footer_text).replace('\n', '<br/>'), styles['TOS']))
 
     doc.build(story)
     pdf = buffer.getvalue()

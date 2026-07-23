@@ -1,16 +1,24 @@
+import io
 import os
+import secrets as _secrets
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+import pyotp
+import qrcode
+import qrcode.image.svg
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session, Response
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app import db
-from app.models import BusinessSettings, User
-from app.helpers import get_business_settings
+from app.models import BusinessSettings, User, AuditLog
+from app.helpers import get_business_settings, log_audit
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/dash/settings')
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+# SVG deliberately excluded: SVG files can embed <script>, which is a stored-XSS
+# vector if the file is ever opened directly rather than rendered as an <img>.
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def allowed_file(filename):
@@ -42,11 +50,18 @@ def save_settings():
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):
-            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
-            os.makedirs(upload_dir, exist_ok=True)
-            filename = secure_filename(logo.filename)
-            logo.save(os.path.join(upload_dir, filename))
-            business.logo_path = filename
+            logo.stream.seek(0, os.SEEK_END)
+            size = logo.stream.tell()
+            logo.stream.seek(0)
+            if size <= MAX_LOGO_SIZE_BYTES:
+                upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                ext = logo.filename.rsplit('.', 1)[1].lower()
+                filename = f'{_secrets.token_hex(8)}.{ext}'
+                logo.save(os.path.join(upload_dir, filename))
+                business.logo_path = filename
+            else:
+                flash('Logo file is too large (5MB max) — settings saved without updating it.')
 
     elif tab == 'templates':
         business.quote_header = request.form.get('quote_header', '')
@@ -90,6 +105,7 @@ def save_settings():
         business.turnstile_secret_key = request.form.get('turnstile_secret_key', '').strip()
 
     db.session.commit()
+    log_audit('settings_updated', target_type='business_settings', detail=f'tab={tab}')
     flash('Settings saved')
     return redirect(url_for('settings.settings', tab=tab))
 
@@ -115,6 +131,7 @@ def add_user():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    log_audit('user_created', target_type='user', target_id=user.id, detail=username)
     flash(f'User "{username}" created.')
     return redirect(url_for('settings.settings', tab='users'))
 
@@ -130,7 +147,86 @@ def delete_user(user_id):
         return redirect(url_for('settings.settings', tab='users'))
 
     user = User.query.get_or_404(user_id)
+    deleted_username = user.username
     db.session.delete(user)
     db.session.commit()
+    log_audit('user_deleted', target_type='user', target_id=user_id, detail=deleted_username)
     flash('User removed.')
     return redirect(url_for('settings.settings', tab='users'))
+
+
+# --- Two-factor authentication (per-user TOTP) -----------------------------------
+
+@settings_bp.route('/2fa/setup', methods=['GET', 'POST'])
+@login_required
+def setup_2fa():
+    if current_user.two_factor_enabled:
+        flash('Two-factor authentication is already enabled on your account.')
+        return redirect(url_for('settings.settings', tab='users'))
+
+    if request.method == 'POST':
+        pending_secret = session.get('pending_totp_secret')
+        code = (request.form.get('code') or '').strip().replace(' ', '')
+        if not pending_secret:
+            flash('Setup session expired — start again.')
+            return redirect(url_for('settings.setup_2fa'))
+        if pyotp.TOTP(pending_secret).verify(code, valid_window=1):
+            current_user.totp_secret = pending_secret
+            current_user.two_factor_enabled = True
+            db.session.commit()
+            session.pop('pending_totp_secret', None)
+            log_audit('2fa_enabled', target_type='user', target_id=current_user.id)
+            flash('Two-factor authentication is now enabled on your account.')
+            return redirect(url_for('settings.settings', tab='users'))
+        flash('That code didn\u2019t match — please try again.')
+
+    secret = session.get('pending_totp_secret')
+    if not secret:
+        secret = pyotp.random_base32()
+        session['pending_totp_secret'] = secret
+
+    business = get_business_settings()
+    issuer = business.name or '3DPMS'
+    uri = pyotp.TOTP(secret).provisioning_uri(name=current_user.email, issuer_name=issuer)
+    return render_template('settings_2fa_setup.html', secret=secret, otpauth_uri=uri)
+
+
+@settings_bp.route('/2fa/qr.svg')
+@login_required
+def totp_qr_svg():
+    secret = session.get('pending_totp_secret')
+    if not secret:
+        return Response(status=404)
+    business = get_business_settings()
+    uri = pyotp.TOTP(secret).provisioning_uri(name=current_user.email, issuer_name=business.name or '3DPMS')
+    img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgImage)
+    buf = io.BytesIO()
+    img.save(buf)
+    return Response(buf.getvalue(), mimetype='image/svg+xml')
+
+
+@settings_bp.route('/2fa/disable', methods=['POST'])
+@login_required
+def disable_2fa():
+    password = request.form.get('password', '')
+    if not current_user.check_password(password):
+        flash('Incorrect password — two-factor authentication was not disabled.')
+        return redirect(url_for('settings.settings', tab='users'))
+    current_user.two_factor_enabled = False
+    current_user.totp_secret = None
+    db.session.commit()
+    log_audit('2fa_disabled', target_type='user', target_id=current_user.id)
+    flash('Two-factor authentication has been disabled on your account.')
+    return redirect(url_for('settings.settings', tab='users'))
+
+
+# --- Audit log ---------------------------------------------------------------------
+
+@settings_bp.route('/audit-log')
+@login_required
+def audit_log():
+    page = request.args.get('page', 1, type=int)
+    pagination = AuditLog.query.order_by(AuditLog.created_at.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    return render_template('settings_audit_log.html', pagination=pagination)

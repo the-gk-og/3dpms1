@@ -75,12 +75,14 @@
             <div class="item-actions" style="margin: 0;">
               <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('spool-edit-{{ spool.id }}')">Edit</button>
               <form method="post" action="{{ url_for('filament.delete_spool', spool_id=spool.id) }}" style="display:inline;" onsubmit="return confirm('Remove this spool?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-sm btn-danger">Remove</button>
               </form>
             </div>
           </div>
           <div id="spool-edit-{{ spool.id }}" class="collapsible-form">
             <form method="post" action="{{ url_for('filament.edit_spool', spool_id=spool.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <div class="form-grid-2">
                 <label>Remaining (g)<input type="number" step="1" name="weight_remaining_g" value="{{ spool.weight_remaining_g }}"></label>
                 <label>Initial (g)<input type="number" step="1" name="initial_weight_g" value="{{ spool.initial_weight_g }}"></label>
@@ -99,12 +101,14 @@
           <button type="button" class="btn-sm btn-success" onclick="toggleForm('spool-add-{{ f.id }}')">+ Spool</button>
           <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('filament-edit-{{ f.id }}')">Edit</button>
           <form method="post" action="{{ url_for('filament.delete_filament', filament_id=f.id) }}" style="display:inline;" onsubmit="return confirm('Delete {{ f.name }} and all spools?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-danger">Delete</button>
           </form>
         </div>
 
         <div id="spool-add-{{ f.id }}" class="collapsible-form">
           <form method="post" action="{{ url_for('filament.add_spool', filament_id=f.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-grid-2">
               <label>Weight (g)<input type="number" step="1" name="weight_g" value="1000"></label>
               <label>Purchase Cost<input type="number" step="0.01" name="purchase_cost" value="0"></label>
@@ -117,6 +121,7 @@
 
         <div id="filament-edit-{{ f.id }}" class="collapsible-form">
           <form method="post" action="{{ url_for('filament.edit_filament', filament_id=f.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-grid-2">
               <label>Name<input type="text" name="name" value="{{ f.name }}" required></label>
               <label>Brand<input type="text" name="brand" value="{{ f.brand or '' }}"></label>
@@ -151,6 +156,7 @@
     <div class="panel">
       <h3>➕ Add Filament</h3>
       <form method="post" action="{{ url_for('filament.add_filament') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>Name<input type="text" name="name" placeholder="e.g. eSun PLA+ Black" required></label>
         <label>Brand<input type="text" name="brand" placeholder="eSun, Bambu, etc."></label>
         <div class="form-grid-2">

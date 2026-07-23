@@ -12,10 +12,12 @@
   <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
   <a href="{{ url_for('settings.settings', tab='security') }}" class="tab-link{% if active_tab == 'security' %} active{% endif %}">Security</a>
   <a href="{{ url_for('settings.settings', tab='users') }}" class="tab-link{% if active_tab == 'users' %} active{% endif %}">Users</a>
+  <a href="{{ url_for('settings.audit_log') }}" class="tab-link">Audit Log</a>
 </div>
 
 {% if active_tab == 'business' %}
 <form method="post" action="{{ url_for('settings.save_settings') }}" enctype="multipart/form-data" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="tab" value="business">
   <h3 style="margin-top: 0;">Business Details</h3>
   <div class="form-grid-2">
@@ -39,6 +41,7 @@
 
 {% elif active_tab == 'payment' %}
 <form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="tab" value="payment">
   <h3 style="margin-top: 0;">Payment Details</h3>
   <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">These details appear on quotes, invoices, and PDF exports.</p>
@@ -87,6 +90,7 @@
 
 {% elif active_tab == 'templates' %}
 <form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="tab" value="templates">
   <h3 style="margin-top: 0;">PDF Templates</h3>
 
@@ -120,6 +124,7 @@
 
 {% elif active_tab == 'email' %}
 <form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="tab" value="email">
   <h3 style="margin-top: 0;">Email / SMTP Settings</h3>
   <div class="form-grid-2">
@@ -152,14 +157,22 @@
 </form>
 
 {% elif active_tab == 'security' %}
+{% if not business.turnstile_secret_key %}
+<div class="panel" style="border-left: 3px solid var(--warning, #d97706); margin-bottom: 1rem;">
+  <strong>Bot protection is off.</strong> Without a Turnstile key, your public login, order form,
+  contact form, and order tracking pages accept submissions from anyone — including bots — with
+  only basic rate limiting to fall back on. Recommended before going live on the public internet.
+</div>
+{% endif %}
 <form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="tab" value="security">
   <h3 style="margin-top: 0;">Cloudflare Turnstile</h3>
   <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
-    Optional bot protection for your public login, order form, contact form, and order tracking
+    Bot protection for your public login, order form, contact form, and order tracking
     pages. Get a site key and secret key from your
     <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener" style="color: var(--accent);">Cloudflare Turnstile dashboard</a>.
-    Leave blank to disable — forms will work as normal without the challenge.
+    Leave blank to disable — forms will work as normal without the challenge, but see the warning above.
   </p>
   <label>Site Key<input type="text" name="turnstile_site_key" value="{{ business.turnstile_site_key or '' }}" placeholder="0x4AAAAAAA..."></label>
   <label>Secret Key<input type="password" name="turnstile_secret_key" value="{{ business.turnstile_secret_key or '' }}" placeholder="0x4AAAAAAA..."></label>
@@ -168,6 +181,24 @@
 
 {% elif active_tab == 'users' %}
 <div class="panel">
+  <h3 style="margin-top: 0;">Two-Factor Authentication</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Applies to your own account ({{ current_user.username }}). Each user sets this up individually.
+  </p>
+  {% if current_user.two_factor_enabled %}
+  <p><span class="badge badge-success">Enabled</span></p>
+  <form method="post" action="{{ url_for('settings.disable_2fa') }}" onsubmit="return confirm('Disable two-factor authentication on your account?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Confirm your password to disable<input type="password" name="password" required></label>
+    <button type="submit" class="btn-sm btn-danger">Disable 2FA</button>
+  </form>
+  {% else %}
+  <p><span class="badge badge-muted">Not enabled</span></p>
+  <a href="{{ url_for('settings.setup_2fa') }}" class="btn-sm">Set up 2FA</a>
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
   <h3 style="margin-top: 0;">Dashboard Users</h3>
   <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
     There's no public sign-up — accounts are only created here, or via the <code>flask create-admin</code>
@@ -185,6 +216,7 @@
         <td style="text-align: right;">
           {% if user.id != current_user.id %}
           <form method="post" action="{{ url_for('settings.delete_user', user_id=user.id) }}" onsubmit="return confirm('Remove user {{ user.username }}?')" style="display: inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-danger">Remove</button>
           </form>
           {% endif %}
@@ -198,6 +230,7 @@
 <div class="panel" style="margin-top: 1.25rem;">
   <h3 style="margin-top: 0;">Add User</h3>
   <form method="post" action="{{ url_for('settings.add_user') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid-2">
       <label>Username<input type="text" name="username" required></label>
       <label>Email<input type="email" name="email" required></label>

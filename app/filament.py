@@ -3,6 +3,7 @@ from flask_login import login_required
 
 from app import db
 from app.models import Filament, FilamentSpool
+from app.helpers import log_audit
 
 filament_bp = Blueprint('filament', __name__, url_prefix='/dash/filament')
 
@@ -72,8 +73,10 @@ def edit_filament(filament_id):
 @login_required
 def delete_filament(filament_id):
     filament = Filament.query.get_or_404(filament_id)
+    filament_name = filament.name
     db.session.delete(filament)
     db.session.commit()
+    log_audit('filament_deleted', target_type='filament', target_id=filament_id, detail=filament_name)
     flash('Filament deleted')
     return redirect(url_for('filament.index'))
 
@@ -117,5 +120,6 @@ def delete_spool(spool_id):
     spool = FilamentSpool.query.get_or_404(spool_id)
     db.session.delete(spool)
     db.session.commit()
+    log_audit('spool_deleted', target_type='filament_spool', target_id=spool_id)
     flash('Spool removed')
     return redirect(url_for('filament.index'))

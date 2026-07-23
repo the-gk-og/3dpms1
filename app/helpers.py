@@ -5,7 +5,7 @@ import secrets
 import smtplib
 from email.message import EmailMessage
 
-from app.models import BusinessSettings, Quote, Invoice, Job, Request
+from app.models import BusinessSettings, Quote, Invoice, Job, Request, AuditLog
 
 
 def get_business_settings():
@@ -16,6 +16,38 @@ def get_business_settings():
         db.session.add(business)
         db.session.commit()
     return business
+
+
+def log_audit(action, target_type=None, target_id=None, detail=None):
+    """Record an audit trail entry for a sensitive action (login, delete, settings
+    change, user management, 2FA change). Best-effort — a logging failure should
+    never break the request that triggered it, so errors are swallowed.
+    """
+    try:
+        from flask import request as flask_request
+        from flask_login import current_user
+        from app import db
+
+        user_id = None
+        username = None
+        if current_user and getattr(current_user, 'is_authenticated', False):
+            user_id = current_user.id
+            username = current_user.username
+
+        entry = AuditLog(
+            user_id=user_id,
+            username=username,
+            action=action,
+            target_type=target_type,
+            target_id=str(target_id) if target_id is not None else None,
+            detail=(detail or '')[:500],
+            ip_address=flask_request.remote_addr if flask_request else None,
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception:
+        from app import db
+        db.session.rollback()
 
 
 PAYMENT_METHOD_DEFS = [
@@ -146,16 +178,27 @@ def generate_upload_token():
     return secrets.token_hex(32)
 
 
-def render_email_template(template_str, context):
+def render_email_template(template_str, context, escape_html=False):
     """Simple {{placeholder}} substitution — deliberately not a full template engine,
     since this content is rendered from business-authored settings rather than trusted
     application code, and plain substitution avoids any template-injection risk.
+
+    Pass escape_html=True when the result becomes an HTML email body (as opposed to a
+    plain-text subject line) — context values like client_name originate from the
+    public, unauthenticated order form, and without escaping, a name containing HTML
+    would be interpreted as real markup by the recipient's email client rather than
+    shown as literal text. Left off by default since escaping would be wrong for a
+    plain-text subject line (a literal '&' would incorrectly show as '&amp;').
     """
     if not template_str:
         return None
     result = template_str
     for key, value in context.items():
-        result = result.replace('{{' + key + '}}', str(value))
+        value_str = str(value)
+        if escape_html:
+            from html import escape as _html_escape
+            value_str = _html_escape(value_str)
+        result = result.replace('{{' + key + '}}', value_str)
     return result
 
 

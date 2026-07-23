@@ -14,6 +14,7 @@
   <div class="pub-flash">Thanks — your message has been sent. We'll be in touch shortly.</div>
   {% else %}
   <form method="post" class="pub-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="pub-form-row">
       <label>Name<input type="text" name="name" required></label>
       <label>Email<input type="email" name="email" required></label>

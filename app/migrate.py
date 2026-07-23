@@ -78,6 +78,9 @@ def run_migrations(db):
             'quantity': 'FLOAT DEFAULT 1',
             'rate': 'FLOAT DEFAULT 0',
         },
+        'user': {
+            'totp_secret': 'TEXT',
+        },
     }
 
     for table, columns in column_migrations.items():
@@ -106,3 +109,39 @@ def run_migrations(db):
         ).all():
             quote.upload_token = secrets.token_hex(32)
         db.session.commit()
+
+    _encrypt_legacy_secrets(db, existing_tables)
+
+
+def _encrypt_legacy_secrets(db, existing_tables):
+    """One-time pass that encrypts any plaintext smtp_password / turnstile_secret_key
+    values left over from before field-level encryption was introduced. Done here via
+    raw SQL rather than relying on the ORM to notice the field needs re-saving — if a
+    legacy value is later assigned back to itself unchanged (e.g. saving the Settings
+    form without touching that field), SQLAlchemy's dirty-tracking sees no diff and
+    silently skips the UPDATE, so it would otherwise never get encrypted.
+    """
+    if 'business_settings' not in existing_tables:
+        return
+    from cryptography.fernet import InvalidToken
+    from app.crypto import _get_fernet
+
+    fernet = _get_fernet()
+    rows = db.session.execute(
+        text('SELECT id, smtp_password, turnstile_secret_key FROM business_settings')
+    ).fetchall()
+    for row_id, smtp_password, turnstile_secret_key in rows:
+        updates = {}
+        for column, value in (('smtp_password', smtp_password), ('turnstile_secret_key', turnstile_secret_key)):
+            if not value:
+                continue
+            try:
+                fernet.decrypt(value.encode('utf-8'))
+            except (InvalidToken, ValueError):
+                # Doesn't decrypt -> legacy plaintext -> encrypt it now.
+                updates[column] = fernet.encrypt(value.encode('utf-8')).decode('utf-8')
+        if updates:
+            set_clause = ', '.join(f'{col} = :{col}' for col in updates)
+            updates['row_id'] = row_id
+            db.session.execute(text(f'UPDATE business_settings SET {set_clause} WHERE id = :row_id'), updates)
+    db.session.commit()

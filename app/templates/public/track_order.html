@@ -11,6 +11,7 @@
 
 <div class="pub-panel" style="margin-top: 2rem;">
   <form method="post" class="pub-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Order Number<input type="text" name="job_number" placeholder="REQ-2026-0001" required value="{{ request.form.get('job_number', '') }}"></label>
 
     <label>Verify With</label>

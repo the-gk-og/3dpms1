@@ -29,6 +29,7 @@
     <div class="panel">
       <h3 style="margin-top: 0;">Add Client</h3>
       <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>Name
           <input type="text" name="name" required>
         </label>

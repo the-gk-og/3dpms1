@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db
+from app.crypto import EncryptedString
 
 
 class User(UserMixin, db.Model):
@@ -11,6 +12,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     two_factor_enabled = db.Column(db.Boolean, default=False)
+    totp_secret = db.Column(EncryptedString(200))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -46,7 +48,7 @@ class BusinessSettings(db.Model):
     smtp_host = db.Column(db.String(200))
     smtp_port = db.Column(db.Integer, default=587)
     smtp_username = db.Column(db.String(200))
-    smtp_password = db.Column(db.String(200))
+    smtp_password = db.Column(EncryptedString(500))
     smtp_from_email = db.Column(db.String(200))
     # Default surcharge % applied per payment method (used to prefill new quotes/invoices)
     surcharge_bank_transfer = db.Column(db.Float, default=0.0)
@@ -62,7 +64,7 @@ class BusinessSettings(db.Model):
     invoice_email_body_html = db.Column(db.Text)
     # Cloudflare Turnstile (bot protection) — optional, forms skip verification if unset
     turnstile_site_key = db.Column(db.String(200))
-    turnstile_secret_key = db.Column(db.String(200))
+    turnstile_secret_key = db.Column(EncryptedString(500))
     payment_terms_font_size = db.Column(db.Float, default=9.0)
     tos_font_size = db.Column(db.Float, default=8.0)
 
@@ -378,3 +380,19 @@ class Request(db.Model):
         if self.status == 'Reviewed':
             return 'Being Reviewed'
         return 'Received'
+
+
+class AuditLog(db.Model):
+    """Records who did what, for accountability once the app is reachable from the
+    public internet. Deliberately denormalized (username/ip stored as plain strings)
+    so the trail survives the referenced user or record being deleted later.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    username = db.Column(db.String(80))
+    action = db.Column(db.String(100), nullable=False)
+    target_type = db.Column(db.String(50))
+    target_id = db.Column(db.String(50))
+    detail = db.Column(db.String(500))
+    ip_address = db.Column(db.String(64))

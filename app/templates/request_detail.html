@@ -121,14 +121,17 @@
         <a href="{{ url_for('main.quote_detail', quote_id=req.quote_id) }}" class="btn-block">View Quote {{ req.quote.display_number }}</a>
         {% else %}
         <form method="post" action="{{ url_for('main.convert_request_to_quote', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block">Convert to Quote</button>
         </form>
         {% if req.status == 'New' %}
         <form method="post" action="{{ url_for('main.mark_request_reviewed', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Mark Reviewed</button>
         </form>
         {% endif %}
         <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-danger">Archive</button>
         </form>
         {% endif %}

@@ -42,7 +42,6 @@ itself only serves plain HTTP on port 8000.
 
 ## Run locally without Docker
 ```bash
-cd /home/elijahlsl/Documents/Projects/WEBAPPS/3dpms
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt

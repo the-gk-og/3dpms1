@@ -52,10 +52,12 @@
           <a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a>
           {% if invoice.archived %}
           <form method="post" action="{{ url_for('main.unarchive_invoice', invoice_id=invoice.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-secondary">Restore</button>
           </form>
           {% else %}
           <form method="post" action="{{ url_for('main.archive_invoice', invoice_id=invoice.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-secondary">Archive</button>
           </form>
           {% endif %}

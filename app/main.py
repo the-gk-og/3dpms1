@@ -16,7 +16,7 @@ from app.helpers import (
     parse_payment_methods_and_surcharges, compute_marked_items,
     generate_upload_token, render_email_template, html_to_text,
     signed_uploads_dir, job_should_notify, send_job_complete_notification,
-    order_uploads_dir,
+    order_uploads_dir, log_audit,
 )
 from app.pdf_utils import build_pdf, build_payment_details
 
@@ -34,6 +34,18 @@ def _parse_date(value):
 
 def _safe_filename_part(value):
     return re.sub(r'[^A-Za-z0-9_.-]+', '-', value or '').strip('-')
+
+
+def _safe_join(directory, filename):
+    """Join `directory` and a user-supplied `filename`, returning None if the
+    resolved path would escape `directory` (e.g. via `../` segments or an absolute
+    path). Prevents path traversal on the authenticated file-download routes.
+    """
+    directory = os.path.abspath(directory)
+    candidate = os.path.abspath(os.path.join(directory, filename))
+    if os.path.commonpath([directory, candidate]) != directory:
+        return None
+    return candidate
 
 
 def _item_fields_from_form(form, business):
@@ -308,8 +320,10 @@ def set_quote_version(quote_id):
 @login_required
 def delete_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
+    quote_number = quote.display_number
     db.session.delete(quote)
     db.session.commit()
+    log_audit('quote_deleted', target_type='quote', target_id=quote_id, detail=quote_number)
     flash('Quote deleted')
     return redirect(url_for('main.quotes'))
 
@@ -401,7 +415,7 @@ def generate_quote_email(quote_id):
             'upload_link': upload_link,
         }
         subject = render_email_template(business.quote_email_subject, context) or default_subject
-        html_body = render_email_template(business.quote_email_body_html, context)
+        html_body = render_email_template(business.quote_email_body_html, context, escape_html=True)
         body_text = html_to_text(html_body) if html_body else default_body
 
         send_document_email(
@@ -576,8 +590,10 @@ def edit_invoice(invoice_id):
 @login_required
 def delete_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
+    invoice_number = invoice.display_number
     db.session.delete(invoice)
     db.session.commit()
+    log_audit('invoice_deleted', target_type='invoice', target_id=invoice_id, detail=invoice_number)
     flash('Invoice deleted')
     return redirect(url_for('main.invoices'))
 
@@ -679,7 +695,7 @@ def generate_invoice_email(invoice_id):
             'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
         }
         subject = render_email_template(business.invoice_email_subject, context) or default_subject
-        html_body = render_email_template(business.invoice_email_body_html, context)
+        html_body = render_email_template(business.invoice_email_body_html, context, escape_html=True)
         body_text = html_to_text(html_body) if html_body else default_body
 
         send_document_email(
@@ -734,8 +750,10 @@ def edit_client(client_id):
 @login_required
 def delete_client(client_id):
     client = Client.query.get_or_404(client_id)
+    client_name = client.name
     db.session.delete(client)
     db.session.commit()
+    log_audit('client_deleted', target_type='client', target_id=client_id, detail=client_name)
     flash('Client deleted')
     return redirect(url_for('main.clients'))
 
@@ -805,8 +823,10 @@ def unarchive_job(job_id):
 @login_required
 def delete_job(job_id):
     job = Job.query.get_or_404(job_id)
+    job_number = job.job_number
     db.session.delete(job)
     db.session.commit()
+    log_audit('job_deleted', target_type='job', target_id=job_id, detail=job_number)
     flash('Job deleted')
     return redirect(url_for('main.jobs'))
 
@@ -816,8 +836,8 @@ def delete_job(job_id):
 def download_order_file(job_id, filename):
     job = Job.query.get_or_404(job_id)
     directory = os.path.join(order_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
-    file_path = os.path.join(directory, filename)
-    if not os.path.isfile(file_path):
+    file_path = _safe_join(directory, filename)
+    if file_path is None or not os.path.isfile(file_path):
         abort(404)
     return send_file(file_path, as_attachment=True)
 
@@ -914,8 +934,8 @@ def archive_request(request_id):
 def download_request_file(request_id, filename):
     req = Request.query.get_or_404(request_id)
     directory = os.path.join(order_uploads_dir(), req.request_number or f'REQ-{req.id:04d}')
-    file_path = os.path.join(directory, filename)
-    if not os.path.isfile(file_path):
+    file_path = _safe_join(directory, filename)
+    if file_path is None or not os.path.isfile(file_path):
         abort(404)
     return send_file(file_path, as_attachment=True)
 

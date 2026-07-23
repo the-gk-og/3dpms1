@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from werkzeug.utils import secure_filename
 
-from app import db
+from app import db, limiter
 from app.models import Client, Filament, Job, Quote, Request
 from app.helpers import (
     get_business_settings, generate_request_number, send_plain_email,
@@ -29,9 +29,21 @@ def _turnstile_ok(business):
     return verify_turnstile(business.turnstile_secret_key, token, request.remote_addr)
 
 
+def _file_size(file):
+    """Size in bytes of a werkzeug FileStorage without consuming its stream."""
+    pos = file.stream.tell()
+    file.stream.seek(0, os.SEEK_END)
+    size = file.stream.tell()
+    file.stream.seek(pos)
+    return size
+
+
 def _save_uploaded_files(files, subdir_name):
     """Save a list of werkzeug FileStorage objects under order_uploads_dir()/subdir_name/
-    and return the list of stored filenames (relative to that subdirectory).
+    and return the list of stored filenames (relative to that subdirectory). Files with
+    a disallowed extension or that exceed MAX_UPLOAD_SIZE_BYTES are silently skipped —
+    the request-level MAX_CONTENT_LENGTH is the hard backstop, this is defense in depth
+    per-file so one oversized file doesn't sink an otherwise-valid submission.
     """
     if not files:
         return []
@@ -43,6 +55,8 @@ def _save_uploaded_files(files, subdir_name):
             continue
         ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
         if ext not in ALLOWED_ORDER_FILE_EXTENSIONS:
+            continue
+        if _file_size(file) > MAX_UPLOAD_SIZE_BYTES:
             continue
         safe_name = secure_filename(file.filename) or 'file'
         stored_name = f'{secrets.token_hex(6)}_{safe_name}'
@@ -64,6 +78,7 @@ def about():
 
 
 @public_bp.route('/contact', methods=['GET', 'POST'])
+@limiter.limit('5 per minute', methods=['POST'])
 def contact():
     business = get_business_settings()
     if request.method == 'POST':
@@ -81,9 +96,10 @@ def contact():
         notify_target = business.contact_email or business.smtp_from_email
         if notify_target:
             try:
+                safe_name = ' '.join(name.split())  # collapse embedded newlines/whitespace for the Subject header
                 notify_admin_new_submission(
                     business,
-                    subject=f'New contact form message from {name}',
+                    subject=f'New contact form message from {safe_name}',
                     body_text=f'From: {name} <{email}>\n\n{message}',
                 )
             except EmailNotConfiguredError:
@@ -97,6 +113,7 @@ def contact():
 
 
 @public_bp.route('/track', methods=['GET', 'POST'])
+@limiter.limit('15 per minute', methods=['POST'])
 def track_order():
     business = get_business_settings()
     order = None
@@ -131,6 +148,7 @@ def track_order():
 
 
 @public_bp.route('/order', methods=['GET', 'POST'])
+@limiter.limit('5 per minute', methods=['POST'])
 def order_form():
     business = get_business_settings()
     filaments = Filament.query.order_by(Filament.name).all()
@@ -223,6 +241,7 @@ def order_form():
 
 
 @public_bp.route('/q/<token>/upload', methods=['GET', 'POST'])
+@limiter.limit('10 per minute', methods=['POST'])
 def upload_signed_quote(token):
     """Public page (no login) linked from the quote email — lets a client upload a
     signed copy back to us. Found via an unguessable 256-bit token rather than the

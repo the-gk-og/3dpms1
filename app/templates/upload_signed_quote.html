@@ -77,6 +77,7 @@
           {% endif %}
           <p style="font-size: 0.85rem; color: var(--text-muted);">Need to send a different file? Just upload again below.</p>
           <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data" style="margin-top: 1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label>Replace file<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
             <label class="checkbox-item" style="background: transparent; padding: 0;">
               <input type="checkbox" name="notify_me"{% if quote.notify_me %} checked{% endif %}> Notify me about my order status
@@ -94,6 +95,7 @@
             If you'd like to proceed with this quote, sign it and upload a copy here (PDF, PNG, or JPG, up to 15MB).
           </p>
           <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label>Signed copy<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
             <label class="checkbox-item" style="background: transparent; padding: 0;">
               <input type="checkbox" name="notify_me" checked> Notify me about my order status

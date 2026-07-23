@@ -6,6 +6,10 @@ services:
       - "${PORT:-8000}:8000"
     environment:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your .env file — see .env.example}
+      # Optional — see .env.example for what each of these does. Fine to leave unset.
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-}
+      BEHIND_PROXY: ${BEHIND_PROXY:-1}
+      COOKIE_INSECURE: ${COOKIE_INSECURE:-0}
       # Defaults to a SQLite file under ./data/instance. To use Postgres instead,
       # set DATABASE_URL in your .env (see the commented `db` service below) —
       # nothing else needs to change, psycopg2 is already installed.

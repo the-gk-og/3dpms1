@@ -8,6 +8,7 @@
   </div>
 
   <form method="post" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
       <h3>Client</h3>
       <label>Existing Client

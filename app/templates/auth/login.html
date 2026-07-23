@@ -7,6 +7,7 @@
   <h1 style="text-align: center; margin-top: 0;">Sign In</h1>
   <p style="text-align: center; color: var(--text-muted);">Access your 3D printing business workspace.</p>
   <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Username
       <input type="text" name="username" required>
     </label>

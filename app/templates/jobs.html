@@ -81,20 +81,24 @@
       <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
       {% if job.archived %}
       <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn-sm btn-secondary">Restore</button>
       </form>
       {% else %}
       <form method="post" action="{{ url_for('main.archive_job', job_id=job.id) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn-sm btn-secondary">Archive</button>
       </form>
       {% endif %}
       <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Delete this job?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn-sm btn-danger">Delete</button>
       </form>
     </div>
 
     <div id="job-edit-{{ job.id }}" class="collapsible-form">
       <form method="post" action="{{ url_for('main.edit_job', job_id=job.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>Title<input type="text" name="title" value="{{ job.title }}"></label>
         <label>Status
           <select name="status">

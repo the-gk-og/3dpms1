@@ -89,11 +89,13 @@
           <div class="item-actions">
             <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('inv-item-edit-{{ item.id }}')">Edit</button>
             <form method="post" action="{{ url_for('main.delete_invoice_item', invoice_id=invoice.id, item_id=item.id) }}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn-sm btn-danger">Delete</button>
             </form>
           </div>
           <div id="inv-item-edit-{{ item.id }}" class="collapsible-form">
             <form method="post" action="{{ url_for('main.edit_invoice_item', invoice_id=invoice.id, item_id=item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               {{ item_type_fields(filaments, business, item) }}
               <button type="submit" class="btn-sm">Save Item</button>
             </form>
@@ -108,6 +110,7 @@
     <div class="panel" style="margin-top: 1.25rem;">
       <h3 style="margin-top: 0;">Edit Invoice</h3>
       <form method="post" action="{{ url_for('main.edit_invoice', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-grid-2">
           <label>Status
             <select name="status">
@@ -150,6 +153,7 @@
     <div class="panel">
       <h3 style="margin-top: 0;">Add Line Item</h3>
       <form method="post" action="{{ url_for('main.add_invoice_item', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {{ item_type_fields(filaments, business) }}
         <button type="submit">Add Item</button>
       </form>
@@ -159,12 +163,15 @@
       <h3 style="margin-top: 0;">Actions</h3>
       <div class="actions-stack">
         <form method="post" action="{{ url_for('main.generate_invoice_pdf', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Download PDF</button>
         </form>
         <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" onsubmit="return confirm('Send this invoice to {{ invoice.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Send Email</button>
         </form>
         <form method="post" action="{{ url_for('main.delete_invoice', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-danger">Delete Invoice</button>
         </form>
       </div>
