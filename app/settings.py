@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from app import db
 from app.models import BusinessSettings, User, AuditLog
-from app.helpers import get_business_settings, log_audit
+from app.helpers import get_business_settings, log_audit, render_email_template
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/dash/settings')
 
@@ -104,10 +104,23 @@ def save_settings():
         business.quote_email_body_html = request.form.get('quote_email_body_html', '')
         business.invoice_email_subject = request.form.get('invoice_email_subject', '')
         business.invoice_email_body_html = request.form.get('invoice_email_body_html', '')
+        business.job_complete_email_subject = request.form.get('job_complete_email_subject', '')
+        business.job_complete_email_body_html = request.form.get('job_complete_email_body_html', '')
+        business.overdue_reminder_email_subject = request.form.get('overdue_reminder_email_subject', '')
+        business.overdue_reminder_email_body_html = request.form.get('overdue_reminder_email_body_html', '')
+        business.contact_notification_email_subject = request.form.get('contact_notification_email_subject', '')
+        business.contact_notification_email_body_html = request.form.get('contact_notification_email_body_html', '')
+        business.order_notification_email_subject = request.form.get('order_notification_email_subject', '')
+        business.order_notification_email_body_html = request.form.get('order_notification_email_body_html', '')
+        business.invoice_paid_notification_email_subject = request.form.get('invoice_paid_notification_email_subject', '')
+        business.invoice_paid_notification_email_body_html = request.form.get('invoice_paid_notification_email_body_html', '')
 
     elif tab == 'security':
         business.turnstile_site_key = request.form.get('turnstile_site_key', '').strip()
         business.turnstile_secret_key = request.form.get('turnstile_secret_key', '').strip()
+        business.google_oauth_client_id = request.form.get('google_oauth_client_id', '').strip()
+        if request.form.get('google_oauth_client_secret'):
+            business.google_oauth_client_secret = request.form.get('google_oauth_client_secret').strip()
 
     db.session.commit()
     log_audit('settings_updated', target_type='business_settings', detail=f'tab={tab}')
@@ -235,3 +248,112 @@ def audit_log():
         page=page, per_page=50, error_out=False
     )
     return render_template('settings_audit_log.html', pagination=pagination)
+
+
+# --- Email template preview ---------------------------------------------------------
+
+# One sample context per template type, matching exactly what each real send site
+# builds (see generate_quote_email, generate_invoice_email, send_job_complete_notification,
+# send-overdue-reminders CLI command, and the three notify_admin_new_submission call
+# sites in app/public.py). Keeping these in sync with the real contexts means a
+# preview always shows genuinely available placeholders — nothing that would render
+# blank in production.
+EMAIL_PREVIEW_SAMPLES = {
+    'quote': {
+        'label': 'Quote Email',
+        'default_subject': 'Quote {{document_number}} from {{business_name}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'document_number': 'Q-2026-0042', 'total': '184.50',
+            'valid_until': '15 August 2026',
+            'upload_link': 'https://example.com/q/sample-token/upload',
+        },
+    },
+    'invoice': {
+        'label': 'Invoice Email',
+        'default_subject': 'Invoice {{document_number}} from {{business_name}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'document_number': 'INV-2026-0091', 'total': '184.50',
+            'due_date': '07 August 2026',
+        },
+    },
+    'job_complete': {
+        'label': 'Job Complete Notification',
+        'default_subject': 'Your order {{document_number}} is ready — {{business_name}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'document_number': 'JOB-2026-0033', 'job_title': 'Articulated dragon miniature',
+        },
+    },
+    'overdue_reminder': {
+        'label': 'Overdue Reminder',
+        'default_subject': 'Overdue: Invoice {{document_number}} from {{business_name}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'document_number': 'INV-2026-0091', 'total': '184.50',
+            'due_date': '07 August 2026', 'days_overdue': '5',
+        },
+    },
+    'contact_notification': {
+        'label': 'Contact Form Notification (to you)',
+        'default_subject': 'New contact form message from {{contact_name}}',
+        'context': {
+            'business_name': '{business_name}', 'contact_name': 'Jamie Smith',
+            'contact_email': 'jamie@example.com',
+            'message': 'Hi, I\u2019m interested in getting a custom miniature printed \u2014 could you give me a quote?',
+        },
+    },
+    'order_notification': {
+        'label': 'New Order Request Notification (to you)',
+        'default_subject': 'New order request \u2014 {{document_number}}',
+        'context': {
+            'business_name': '{business_name}', 'contact_name': 'Jamie Smith',
+            'contact_email': 'jamie@example.com', 'document_number': 'REQ-2026-0017',
+            'summary': 'Type: Has model \u00b7 Materials: PLA, PETG',
+        },
+    },
+    'invoice_paid_notification': {
+        'label': 'Invoice Paid Notification (to you)',
+        'default_subject': 'Invoice {{document_number}} paid \u2014 ${{total}}',
+        'context': {
+            'business_name': '{business_name}', 'client_name': 'Jamie Smith',
+            'document_number': 'INV-2026-0091', 'total': '184.50',
+            'paid_at': '24 July 2026, 09:14 AM UTC',
+        },
+    },
+}
+
+
+@settings_bp.route('/email-preview/<template_key>', methods=['GET', 'POST'])
+@login_required
+def email_preview(template_key):
+    """Renders a template with realistic sample data so you can see what it looks
+    like before saving. POST is used from the settings form so the *unsaved* textarea
+    content previews live; GET falls back to whatever's already saved, for opening the
+    preview link directly.
+    """
+    if template_key not in EMAIL_PREVIEW_SAMPLES:
+        return Response('Unknown template.', status=404)
+
+    business = get_business_settings()
+    sample = EMAIL_PREVIEW_SAMPLES[template_key]
+    context = dict(sample['context'])
+    context['business_name'] = business.name or 'Your Business'
+
+    if request.method == 'POST':
+        subject_raw = request.form.get('subject', '')
+        body_raw = request.form.get('body_html', '')
+    else:
+        subject_raw = getattr(business, f'{template_key}_email_subject', '') or ''
+        body_raw = getattr(business, f'{template_key}_email_body_html', '') or ''
+
+    subject = render_email_template(subject_raw, context) or \
+        render_email_template(sample['default_subject'], context)
+    html_body = render_email_template(body_raw, context, escape_html=True)
+
+    return render_template(
+        'settings_email_preview.html',
+        label=sample['label'], subject=subject, html_body=html_body,
+        is_custom=bool(body_raw),
+    )

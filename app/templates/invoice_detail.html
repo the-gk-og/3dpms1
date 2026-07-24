@@ -166,6 +166,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Download PDF</button>
         </form>
+        <a href="{{ url_for('main.preview_invoice_pdf', invoice_id=invoice.id) }}" target="_blank" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">Preview PDF</a>
         <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" onsubmit="return confirm('Send this invoice to {{ invoice.client.email }}?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Send Email</button>

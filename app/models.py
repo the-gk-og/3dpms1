@@ -14,6 +14,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     two_factor_enabled = db.Column(db.Boolean, default=False)
     totp_secret = db.Column(EncryptedString(200))
+    google_sub = db.Column(db.String(255), unique=True, index=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -66,11 +67,27 @@ class BusinessSettings(db.Model):
     quote_email_body_html = db.Column(db.Text)
     invoice_email_subject = db.Column(db.String(300))
     invoice_email_body_html = db.Column(db.Text)
+    job_complete_email_subject = db.Column(db.String(300))
+    job_complete_email_body_html = db.Column(db.Text)
+    overdue_reminder_email_subject = db.Column(db.String(300))
+    overdue_reminder_email_body_html = db.Column(db.Text)
+    # Admin notifications (sent to you, not the client) — same optional-HTML pattern
+    contact_notification_email_subject = db.Column(db.String(300))
+    contact_notification_email_body_html = db.Column(db.Text)
+    order_notification_email_subject = db.Column(db.String(300))
+    order_notification_email_body_html = db.Column(db.Text)
+    invoice_paid_notification_email_subject = db.Column(db.String(300))
+    invoice_paid_notification_email_body_html = db.Column(db.Text)
     # Cloudflare Turnstile (bot protection) — optional, forms skip verification if unset
     turnstile_site_key = db.Column(db.String(200))
     turnstile_secret_key = db.Column(EncryptedString(500))
     payment_terms_font_size = db.Column(db.Float, default=9.0)
     tos_font_size = db.Column(db.Float, default=8.0)
+    # Google OAuth (optional) — dashboard login as an alternative to password auth.
+    # Only ever links to an existing User matched by email; never creates one, so
+    # the app's "no public sign-up" invariant holds regardless of who has a Google account.
+    google_oauth_client_id = db.Column(db.String(300))
+    google_oauth_client_secret = db.Column(EncryptedString(500))
 
 
 class Filament(db.Model):
@@ -167,6 +184,7 @@ class Quote(db.Model):
     signed_copy_filename = db.Column(db.String(300))
     signed_copy_uploaded_at = db.Column(db.DateTime)
     notify_me = db.Column(db.Boolean, default=False)
+    archived = db.Column(db.Boolean, default=False)
     items = db.relationship('QuoteItem', backref='quote', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -256,6 +274,7 @@ class Invoice(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     due_date = db.Column(db.Date)
     paid_at = db.Column(db.DateTime)
+    last_reminder_sent_at = db.Column(db.DateTime)
     archived = db.Column(db.Boolean, default=False)
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 

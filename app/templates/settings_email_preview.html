@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Preview — {{ label }}</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f1f5f9;
+      }
+      .preview-chrome {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 0.85rem 1.5rem;
+        font-size: 0.85rem;
+      }
+      .preview-chrome strong { color: #fff; }
+      .preview-note {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 0.65rem 1.5rem;
+        font-size: 0.82rem;
+        border-bottom: 1px solid #fde68a;
+      }
+      .email-shell {
+        max-width: 640px;
+        margin: 2rem auto;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .email-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+        color: #64748b;
+      }
+      .email-header .subject {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 0.25rem;
+      }
+      .email-body { padding: 1.5rem; color: #1e293b; line-height: 1.6; }
+      .email-body p { margin: 0 0 1em; }
+    </style>
+  </head>
+  <body>
+    <div class="preview-chrome">
+      Previewing: <strong>{{ label }}</strong> — sample data shown below is illustrative, not a real client.
+    </div>
+    {% if not is_custom %}
+    <div class="preview-note">
+      No custom HTML body is set for this email — it'll be sent as plain text using the built-in
+      default wording instead. This preview shows what the email would look like <em>if</em> you add
+      a custom HTML body.
+    </div>
+    {% endif %}
+    <div class="email-shell">
+      <div class="email-header">
+        <div class="subject">{{ subject }}</div>
+        <div>To: sample-client@example.com</div>
+      </div>
+      <div class="email-body">
+        {% if html_body %}
+          {{ html_body | safe }}
+        {% else %}
+          <p style="color: #94a3b8; font-style: italic;">No custom HTML body configured yet — type one in and click Preview again.</p>
+        {% endif %}
+      </div>
+    </div>
+  </body>
+</html>

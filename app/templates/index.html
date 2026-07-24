@@ -8,12 +8,36 @@
     <div style="font-size: 0.85rem; color: var(--text-muted);">{{ settings.contact_email or 'Add contact info in Settings' }}</div>
   </div>
   <div class="card">
-    <div class="metric-label">Active Quotes</div>
-    <div class="metric-value">{{ quotes|length }}</div>
+    <div class="metric-label">Revenue This Month</div>
+    <div class="metric-value" style="color: var(--success);">${{ "%.2f"|format(revenue_this_month) }}</div>
+  </div>
+  <div class="card">
+    <div class="metric-label">Revenue This Year</div>
+    <div class="metric-value" style="color: var(--success);">${{ "%.2f"|format(revenue_this_year) }}</div>
   </div>
   <div class="card">
     <div class="metric-label">Quote Pipeline</div>
-    <div class="metric-value">${{ (quotes|sum(attribute='total'))|round(2) }}</div>
+    <div class="metric-value">${{ "%.2f"|format(quote_pipeline_total) }}</div>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="metric-label">Outstanding (Unpaid)</div>
+    <div class="metric-value">${{ "%.2f"|format(outstanding_total) }}</div>
+  </div>
+  <div class="card" {% if overdue_count %}style="border-left: 3px solid var(--danger, #c0392b);"{% endif %}>
+    <div class="metric-label">Overdue</div>
+    <div class="metric-value" style="{% if overdue_count %}color: var(--danger, #c0392b);{% endif %}">
+      {{ overdue_count }} invoice{{ 's' if overdue_count != 1 else '' }}
+    </div>
+    {% if overdue_count %}
+    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">${{ "%.2f"|format(overdue_total) }} total</div>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="metric-label">Active Quotes</div>
+    <div class="metric-value">{{ open_quotes_count }}</div>
   </div>
   <div class="card">
     <div class="metric-label">Filament Types</div>

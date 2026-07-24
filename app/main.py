@@ -205,22 +205,68 @@ def _invoice_pdf_bytes(invoice):
 @main_bp.route('/')
 @login_required
 def index():
+    from datetime import date
     settings = get_business_settings()
+
     quotes = Quote.query.order_by(Quote.created_at.desc()).limit(10).all()
     invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(10).all()
     clients = Client.query.order_by(Client.created_at.desc()).limit(10).all()
     filaments = Filament.query.all()
+
+    # Pipeline: value of quotes still awaiting a decision (not yet accepted/declined/expired)
+    open_quotes = Quote.query.filter(
+        Quote.archived.is_(False), Quote.status.in_(['Draft', 'Sent'])
+    ).all()
+    quote_pipeline_total = sum(q.total or 0 for q in open_quotes)
+
+    # Outstanding: money owed right now, across every non-cancelled unpaid invoice
+    unpaid_invoices = Invoice.query.filter(
+        Invoice.archived.is_(False), Invoice.status.notin_(['Paid', 'Cancelled'])
+    ).all()
+    outstanding_total = sum(i.total or 0 for i in unpaid_invoices)
+    overdue_count = sum(1 for i in unpaid_invoices if i.is_overdue)
+    overdue_total = sum(i.total or 0 for i in unpaid_invoices if i.is_overdue)
+
+    # Revenue: paid invoices, by when they were actually paid (not when created/sent) —
+    # paid_at is set by both the manual status-change path and the Stripe webhook.
+    today = date.today()
+    month_start = today.replace(day=1)
+    paid_this_month = Invoice.query.filter(
+        Invoice.status == 'Paid', Invoice.paid_at.isnot(None),
+        Invoice.paid_at >= month_start,
+    ).all()
+    revenue_this_month = sum(i.total or 0 for i in paid_this_month)
+
+    year_start = today.replace(month=1, day=1)
+    paid_this_year = Invoice.query.filter(
+        Invoice.status == 'Paid', Invoice.paid_at.isnot(None),
+        Invoice.paid_at >= year_start,
+    ).all()
+    revenue_this_year = sum(i.total or 0 for i in paid_this_year)
+
     return render_template(
         'index.html', settings=settings, quotes=quotes,
         invoices=invoices, clients=clients, filament_count=len(filaments),
+        quote_pipeline_total=quote_pipeline_total, open_quotes_count=len(open_quotes),
+        outstanding_total=outstanding_total, overdue_count=overdue_count,
+        overdue_total=overdue_total, revenue_this_month=revenue_this_month,
+        revenue_this_year=revenue_this_year,
     )
 
 
 @main_bp.route('/quotes', methods=['GET'])
 @login_required
 def quotes():
-    quotes = Quote.query.order_by(Quote.created_at.desc()).all()
-    return render_template('quotes.html', quotes=quotes)
+    show_archived = request.args.get('archived') == '1'
+    q = (request.args.get('q') or '').strip()
+    query = Quote.query.join(Client, isouter=True)
+    if not show_archived:
+        query = query.filter(Quote.archived.is_(False))
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Quote.quote_number.ilike(like), Client.name.ilike(like)))
+    quotes = query.order_by(Quote.created_at.desc()).all()
+    return render_template('quotes.html', quotes=quotes, show_archived=show_archived, q=q)
 
 
 @main_bp.route('/quotes/new', methods=['GET', 'POST'])
@@ -333,6 +379,26 @@ def delete_quote(quote_id):
     return redirect(url_for('main.quotes'))
 
 
+@main_bp.route('/quotes/<int:quote_id>/archive', methods=['POST'])
+@login_required
+def archive_quote(quote_id):
+    quote = Quote.query.get_or_404(quote_id)
+    quote.archived = True
+    db.session.commit()
+    flash('Quote archived')
+    return redirect(url_for('main.quotes'))
+
+
+@main_bp.route('/quotes/<int:quote_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_quote(quote_id):
+    quote = Quote.query.get_or_404(quote_id)
+    quote.archived = False
+    db.session.commit()
+    flash('Quote restored')
+    return redirect(url_for('main.quotes', archived='1'))
+
+
 @main_bp.route('/quotes/<int:quote_id>/add-item', methods=['POST'])
 @login_required
 def add_quote_item(quote_id):
@@ -385,6 +451,23 @@ def generate_quote_pdf(quote_id):
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
         as_attachment=True, download_name=f'{filename}.pdf',
+    )
+
+
+@main_bp.route('/quotes/<int:quote_id>/pdf/preview', methods=['GET'])
+@login_required
+def preview_quote_pdf(quote_id):
+    """Same PDF as the download button, but as_attachment=False so the browser renders
+    it inline in a new tab instead of forcing a save-to-disk dialog.
+    """
+    quote = Quote.query.get_or_404(quote_id)
+    pdf = _quote_pdf_bytes(quote)
+    filename = _safe_filename_part(quote.display_number)
+    if quote.version:
+        filename += f'-v{_safe_filename_part(quote.version)}'
+    return send_file(
+        __import__('io').BytesIO(pdf), mimetype='application/pdf',
+        as_attachment=False, download_name=f'{filename}.pdf',
     )
 
 
@@ -672,6 +755,20 @@ def generate_invoice_pdf(invoice_id):
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
         as_attachment=True, download_name=f'{invoice.display_number}.pdf',
+    )
+
+
+@main_bp.route('/invoices/<int:invoice_id>/pdf/preview', methods=['GET'])
+@login_required
+def preview_invoice_pdf(invoice_id):
+    """Same PDF as the download button, but as_attachment=False so the browser renders
+    it inline in a new tab instead of forcing a save-to-disk dialog.
+    """
+    invoice = Invoice.query.get_or_404(invoice_id)
+    pdf = _invoice_pdf_bytes(invoice)
+    return send_file(
+        __import__('io').BytesIO(pdf), mimetype='application/pdf',
+        as_attachment=False, download_name=f'{invoice.display_number}.pdf',
     )
 
 

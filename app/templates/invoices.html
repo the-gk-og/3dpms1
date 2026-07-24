@@ -50,6 +50,7 @@
         <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</td>
         <td style="white-space: nowrap;">
           <a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a>
+          <a href="{{ url_for('main.preview_invoice_pdf', invoice_id=invoice.id) }}" target="_blank" style="color: var(--text-muted); text-decoration: none; font-weight: 500; margin-left: 0.5rem;" title="Preview PDF">PDF</a>
           {% if invoice.archived %}
           <form method="post" action="{{ url_for('main.unarchive_invoice', invoice_id=invoice.id) }}" style="display:inline; margin-left: 0.5rem;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

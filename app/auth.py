@@ -2,11 +2,35 @@ import pyotp
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app import limiter
-from app.models import User
+from app import limiter, oauth
+from app.models import User, db
 from app.helpers import get_business_settings, verify_turnstile, log_audit
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/dash/auth')
+
+
+def _get_google_client(business):
+    """Registers the Google OAuth client on first use each process. Client ID/secret
+    live in the database (per-business setting), not env vars, so this can't happen
+    at app-factory time — the settings might not exist yet, and an admin can change
+    them from the dashboard without a restart. authlib caches by name internally, so
+    re-registering after a credential change requires re-creating the client here.
+    """
+    if not business.google_oauth_client_id or not business.google_oauth_client_secret:
+        return None
+    existing = oauth._clients.get('google')
+    if existing and getattr(existing, '_3dpms_client_id', None) == business.google_oauth_client_id:
+        return existing
+    client = oauth.register(
+        name='google',
+        client_id=business.google_oauth_client_id,
+        client_secret=business.google_oauth_client_secret,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+        overwrite=True,
+    )
+    client._3dpms_client_id = business.google_oauth_client_id
+    return client
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -37,6 +61,69 @@ def login():
         log_audit('login_failed', detail=f'username={username[:80]}')
         flash('Invalid credentials')
     return render_template('auth/login.html', business=business)
+
+
+@auth_bp.route('/login/google')
+@limiter.limit('10 per minute')
+def login_google():
+    business = get_business_settings()
+    client = _get_google_client(business)
+    if not client:
+        flash('Google sign-in isn\u2019t set up for this site.')
+        return redirect(url_for('auth.login'))
+    redirect_uri = url_for('auth.login_google_callback', _external=True)
+    return client.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/login/google/callback')
+@limiter.limit('10 per minute')
+def login_google_callback():
+    business = get_business_settings()
+    client = _get_google_client(business)
+    if not client:
+        flash('Google sign-in isn\u2019t set up for this site.')
+        return redirect(url_for('auth.login'))
+
+    try:
+        token = client.authorize_access_token()
+        userinfo = token.get('userinfo') or client.parse_id_token(token)
+    except Exception:
+        log_audit('login_failed', detail='google_oauth_error')
+        flash('Google sign-in failed. Please try again or use your password.')
+        return redirect(url_for('auth.login'))
+
+    google_sub = userinfo.get('sub')
+    email = (userinfo.get('email') or '').strip().lower()
+    email_verified = userinfo.get('email_verified', False)
+
+    if not google_sub or not email or not email_verified:
+        log_audit('login_failed', detail='google_oauth_unverified')
+        flash('Your Google account email must be verified to sign in.')
+        return redirect(url_for('auth.login'))
+
+    # Never create an account here — only link/sign in an existing dashboard user.
+    # This keeps the app's "admin-provisioned accounts only" model intact regardless
+    # of who has a Google account.
+    user = User.query.filter_by(google_sub=google_sub).first()
+    if not user:
+        user = User.query.filter(db.func.lower(User.email) == email).first()
+        if not user:
+            log_audit('login_failed', detail=f'google_no_match email={email[:80]}')
+            flash('No dashboard account matches that Google email address.')
+            return redirect(url_for('auth.login'))
+        user.google_sub = google_sub
+        db.session.commit()
+        log_audit('google_account_linked', target_type='user', target_id=user.id)
+
+    if user.two_factor_enabled:
+        # Same as password login: a correct Google sign-in still isn't enough on
+        # its own if 2FA is turned on — the TOTP step still has to happen.
+        session['pending_2fa_user_id'] = user.id
+        return redirect(url_for('auth.verify_2fa'))
+
+    login_user(user)
+    log_audit('login_success', target_type='user', target_id=user.id, detail='google_oauth')
+    return redirect(url_for('main.index'))
 
 
 @auth_bp.route('/verify-2fa', methods=['GET', 'POST'])

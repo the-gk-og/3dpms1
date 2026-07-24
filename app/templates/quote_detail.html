@@ -188,6 +188,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Download PDF</button>
         </form>
+        <a href="{{ url_for('main.preview_quote_pdf', quote_id=quote.id) }}" target="_blank" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">Preview PDF</a>
         {% if existing_invoice %}
         <a href="{{ url_for('main.invoice_detail', invoice_id=existing_invoice.id) }}" class="btn btn-block btn-success">View Invoice</a>
         {% else %}

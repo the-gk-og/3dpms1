@@ -292,7 +292,7 @@ def send_plain_email(business, to_email, subject, body_text, html_body=None):
     _smtp_send(business, msg)
 
 
-def notify_admin_new_submission(business, subject, body_text):
+def notify_admin_new_submission(business, subject, body_text, html_body=None):
     """Email the business owner about a new public submission (order or enquiry).
     Best-effort — the caller should swallow failures so a broken SMTP config never
     blocks the customer's submission from completing.
@@ -300,7 +300,7 @@ def notify_admin_new_submission(business, subject, body_text):
     target = business.contact_email or business.smtp_from_email
     if not target:
         return False
-    send_plain_email(business, target, subject, body_text)
+    send_plain_email(business, target, subject, body_text, html_body=html_body)
     return True
 
 
@@ -354,13 +354,21 @@ def send_job_complete_notification(job, business):
     if not job.client or not job.client.email:
         return False
 
-    subject = f'Your order {job.display_number} is ready — {business.name or ""}'.strip()
-    body = (
+    default_subject = f'Your order {job.display_number} is ready — {business.name or ""}'.strip()
+    default_body = (
         f"Hi {job.client.name},\n\n"
         f"Good news — your order {job.display_number} ({job.title}) is complete.\n\n"
         f"Kind regards,\n{business.name or ''}"
     )
-    send_plain_email(business, job.client.email, subject, body)
+    context = {
+        'client_name': job.client.name, 'business_name': business.name or '',
+        'document_number': job.display_number, 'job_title': job.title or '',
+    }
+    subject = render_email_template(business.job_complete_email_subject, context) or default_subject
+    html_body = render_email_template(business.job_complete_email_body_html, context, escape_html=True)
+    body = html_to_text(html_body) if html_body else default_body
+
+    send_plain_email(business, job.client.email, subject, body, html_body=html_body)
     from app import db
     job.notify_sent_at = datetime.utcnow()
     db.session.commit()

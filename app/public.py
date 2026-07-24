@@ -10,7 +10,7 @@ from app import db, limiter
 from app.models import Client, Filament, Invoice, Job, Quote, Request
 from app.helpers import (
     get_business_settings, generate_request_number, send_plain_email,
-    notify_admin_new_submission,
+    notify_admin_new_submission, render_email_template, html_to_text,
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
     verify_turnstile,
@@ -98,11 +98,16 @@ def contact():
         if notify_target:
             try:
                 safe_name = ' '.join(name.split())  # collapse embedded newlines/whitespace for the Subject header
-                notify_admin_new_submission(
-                    business,
-                    subject=f'New contact form message from {safe_name}',
-                    body_text=f'From: {name} <{email}>\n\n{message}',
-                )
+                default_subject = f'New contact form message from {safe_name}'
+                default_body = f'From: {name} <{email}>\n\n{message}'
+                context = {
+                    'business_name': business.name or '', 'contact_name': safe_name,
+                    'contact_email': email, 'message': message,
+                }
+                subject = render_email_template(business.contact_notification_email_subject, context) or default_subject
+                html_body = render_email_template(business.contact_notification_email_body_html, context, escape_html=True)
+                body_text = html_to_text(html_body) if html_body else default_body
+                notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
             except EmailNotConfiguredError:
                 pass  # Message was still received via the form; email just isn't set up.
             except Exception:
@@ -226,11 +231,24 @@ def order_form():
             if order_details.get('notes'):
                 summary_lines.append(f'Notes: {order_details["notes"]}')
             summary_lines.append(f'Review it in the dashboard under Requests.')
-            notify_admin_new_submission(
-                business,
-                subject=f'New order request — {request_number}',
-                body_text='\n'.join(summary_lines),
-            )
+            default_subject = f'New order request — {request_number}'
+            default_body = '\n'.join(summary_lines)
+            summary_html_lines = [
+                f'Type: {"Needs design" if model_source == "need_design" else "Has model"}',
+            ]
+            if order_details.get('description'):
+                summary_html_lines.append(f'Description: {order_details["description"]}')
+            if materials:
+                summary_html_lines.append(f'Materials: {", ".join(materials)}')
+            context = {
+                'business_name': business.name or '', 'contact_name': name,
+                'contact_email': email, 'document_number': request_number,
+                'summary': ' \u00b7 '.join(summary_html_lines),
+            }
+            subject = render_email_template(business.order_notification_email_subject, context) or default_subject
+            html_body = render_email_template(business.order_notification_email_body_html, context, escape_html=True)
+            body_text = html_to_text(html_body) if html_body else default_body
+            notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
         except EmailNotConfiguredError:
             pass
         except Exception:
@@ -309,18 +327,41 @@ def pay_invoice(token):
         )
 
     stripe.api_key = business.stripe_secret_key
+
+    # invoice.total already bakes in the surcharge when Stripe was the ONE payment
+    # method selected on the invoice (see recalculate_invoice_total). But when several
+    # methods are offered, the surcharge isn't baked in — it's shown as an advisory
+    # note instead, since which one applies depends on how the client ends up paying.
+    # Now that they've picked Stripe specifically, add that surcharge on top here.
+    methods = [m.strip() for m in (invoice.payment_method or '').split(',') if m.strip()]
+    stripe_surcharge_pct = 0.0
+    if len(methods) > 1:
+        stripe_surcharge_pct = invoice.surcharge_map.get('Stripe', 0) or 0
+
+    line_items = [{
+        'price_data': {
+            'currency': 'aud',
+            'unit_amount': round(invoice.total * 100),
+            'product_data': {'name': f'Invoice {invoice.display_number}'},
+        },
+        'quantity': 1,
+    }]
+    if stripe_surcharge_pct:
+        surcharge_amount = round(invoice.total * stripe_surcharge_pct / 100, 2)
+        line_items.append({
+            'price_data': {
+                'currency': 'aud',
+                'unit_amount': round(surcharge_amount * 100),
+                'product_data': {'name': f'Card surcharge ({stripe_surcharge_pct:.1f}%)'},
+            },
+            'quantity': 1,
+        })
+
     try:
         session = stripe.checkout.Session.create(
             mode='payment',
             payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'aud',
-                    'unit_amount': round(invoice.total * 100),
-                    'product_data': {'name': f'Invoice {invoice.display_number}'},
-                },
-                'quantity': 1,
-            }],
+            line_items=line_items,
             client_reference_id=invoice.pay_token,
             success_url=url_for('public.pay_invoice_success', token=token, _external=True),
             cancel_url=url_for('public.pay_invoice', token=token, _external=True),
@@ -375,15 +416,22 @@ def stripe_webhook():
             db.session.commit()
 
             try:
-                notify_admin_new_submission(
-                    business,
-                    subject=f'Invoice {invoice.display_number} paid \u2014 ${invoice.total:,.2f}',
-                    body_text=(
-                        f'{invoice.client.name if invoice.client else "A client"} just paid '
-                        f'invoice {invoice.display_number} for ${invoice.total:,.2f} via Stripe.\n\n'
-                        f'Paid at: {invoice.paid_at.strftime("%Y-%m-%d %H:%M UTC")}'
-                    ),
+                client_name = invoice.client.name if invoice.client else 'A client'
+                default_subject = f'Invoice {invoice.display_number} paid \u2014 ${invoice.total:,.2f}'
+                default_body = (
+                    f'{client_name} just paid invoice {invoice.display_number} for '
+                    f'${invoice.total:,.2f} via Stripe.\n\n'
+                    f'Paid at: {invoice.paid_at.strftime("%Y-%m-%d %H:%M UTC")}'
                 )
+                context = {
+                    'business_name': business.name or '', 'client_name': client_name,
+                    'document_number': invoice.display_number, 'total': f'{invoice.total:,.2f}',
+                    'paid_at': invoice.paid_at.strftime('%d %B %Y, %I:%M %p UTC'),
+                }
+                subject = render_email_template(business.invoice_paid_notification_email_subject, context) or default_subject
+                html_body = render_email_template(business.invoice_paid_notification_email_body_html, context, escape_html=True)
+                body_text = html_to_text(html_body) if html_body else default_body
+                notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
             except Exception:
                 # Best-effort notification only \u2014 the invoice is already marked paid above,
                 # so a broken SMTP config must never turn into a 500 back to Stripe (which

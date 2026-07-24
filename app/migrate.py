@@ -31,10 +31,22 @@ def run_migrations(db):
             'quote_email_body_html': 'TEXT',
             'invoice_email_subject': 'VARCHAR(300)',
             'invoice_email_body_html': 'TEXT',
+            'job_complete_email_subject': 'VARCHAR(300)',
+            'job_complete_email_body_html': 'TEXT',
+            'overdue_reminder_email_subject': 'VARCHAR(300)',
+            'overdue_reminder_email_body_html': 'TEXT',
+            'contact_notification_email_subject': 'VARCHAR(300)',
+            'contact_notification_email_body_html': 'TEXT',
+            'order_notification_email_subject': 'VARCHAR(300)',
+            'order_notification_email_body_html': 'TEXT',
+            'invoice_paid_notification_email_subject': 'VARCHAR(300)',
+            'invoice_paid_notification_email_body_html': 'TEXT',
             'turnstile_site_key': 'VARCHAR(200)',
             'turnstile_secret_key': 'VARCHAR(200)',
             'payment_terms_font_size': 'FLOAT DEFAULT 9',
             'tos_font_size': 'FLOAT DEFAULT 8',
+            'google_oauth_client_id': 'VARCHAR(300)',
+            'google_oauth_client_secret': 'VARCHAR(500)',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -47,6 +59,7 @@ def run_migrations(db):
             'pay_token': 'VARCHAR(64)',
             'due_date': 'DATE',
             'paid_at': 'DATETIME',
+            'last_reminder_sent_at': 'DATETIME',
             'surcharge_overrides': "TEXT DEFAULT '{}'",
             'markup_percent': 'FLOAT DEFAULT 0',
             'show_markup_to_client': 'BOOLEAN DEFAULT 0',
@@ -64,6 +77,7 @@ def run_migrations(db):
             'signed_copy_filename': 'VARCHAR(300)',
             'signed_copy_uploaded_at': 'DATETIME',
             'notify_me': 'BOOLEAN DEFAULT 0',
+            'archived': 'BOOLEAN DEFAULT 0',
         },
         'job': {
             'notify_me': 'BOOLEAN DEFAULT 0',
@@ -84,6 +98,7 @@ def run_migrations(db):
         },
         'user': {
             'totp_secret': 'TEXT',
+            'google_sub': 'VARCHAR(255)',
         },
     }
 
