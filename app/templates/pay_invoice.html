@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pay {{ invoice.display_number }} — {{ business.name or 'Invoice' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+      body.public-page {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 3rem 1.25rem;
+      }
+      .upload-card {
+        width: 100%;
+        max-width: 460px;
+      }
+      .upload-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      .upload-brand img {
+        max-height: 44px;
+        max-width: 120px;
+      }
+      .upload-brand-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+      .quote-summary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+      }
+      .quote-summary div { margin-bottom: 0.25rem; }
+      .quote-summary div:last-child { margin-bottom: 0; }
+      .success-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--success);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body class="public-page">
+    <div class="upload-card">
+      <div class="upload-brand">
+        {% if business.logo_path %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+        {% endif %}
+        <span class="upload-brand-name">{{ business.name or 'Invoice Payment' }}</span>
+      </div>
+
+      <div class="panel">
+        {% if already_paid or just_paid %}
+          <div class="success-icon">✓</div>
+          <h2 style="margin-top: 0;">{{ 'Payment received' if just_paid else 'Already paid' }}</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            {% if just_paid %}
+            Thanks — your payment for invoice {{ invoice.display_number }} is being confirmed. You'll receive a receipt from Stripe shortly.
+            {% else %}
+            Invoice {{ invoice.display_number }} has already been paid in full. No further action needed.
+            {% endif %}
+          </p>
+          <div class="quote-summary" style="margin-top: 1rem;">
+            <div><strong>Invoice:</strong> {{ invoice.display_number }}</div>
+            <div><strong>Amount:</strong> ${{ '%.2f'|format(invoice.total) }}</div>
+            {% if invoice.paid_at %}
+            <div><strong>Paid:</strong> {{ invoice.paid_at.strftime('%d %B %Y, %I:%M %p') }} UTC</div>
+            {% endif %}
+          </div>
+        {% else %}
+          <h2 style="margin-top: 0;">Pay invoice {{ invoice.display_number }}</h2>
+          <div class="quote-summary">
+            <div><strong>Invoice:</strong> {{ invoice.display_number }}</div>
+            <div><strong>Client:</strong> {{ invoice.client.name }}</div>
+            <div><strong>Amount due:</strong> ${{ '%.2f'|format(invoice.total) }}</div>
+          </div>
+          {% if error %}
+          <p style="color: var(--danger, #c0392b); font-size: 0.9rem;">{{ error }}</p>
+          {% else %}
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            You'll be taken to Stripe's secure checkout to complete payment by card.
+          </p>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flash-list" style="margin-top: 1rem;">
+          {% for message in messages %}
+          <li class="flash-message">{{ message }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </body>
+</html>

@@ -68,6 +68,20 @@
       <label>PayPal Email<input type="email" name="paypal_email" value="{{ business.paypal_email or '' }}"></label>
       <label>Stripe Payment Link<input type="url" name="stripe_link" value="{{ business.stripe_link or '' }}" placeholder="https://buy.stripe.com/..."></label>
     </div>
+    <div class="form-grid-2">
+      <label>Stripe Secret Key {% if business.stripe_secret_key %}<span style="color: var(--text-muted); font-weight: normal;">(set — leave blank to keep)</span>{% endif %}
+        <input type="password" name="stripe_secret_key" value="" placeholder="sk_live_...">
+      </label>
+      <label>Stripe Webhook Secret {% if business.stripe_webhook_secret %}<span style="color: var(--text-muted); font-weight: normal;">(set — leave blank to keep)</span>{% endif %}
+        <input type="password" name="stripe_webhook_secret" value="" placeholder="whsec_...">
+      </label>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.85rem;">
+      Needed for the per-invoice "Pay Now" Checkout link. Find these in your
+      <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe Dashboard</a> —
+      the webhook secret comes from the endpoint you register at
+      <code>https://your-domain/webhooks/stripe</code>.
+    </p>
   </div>
 
   <div class="form-section">

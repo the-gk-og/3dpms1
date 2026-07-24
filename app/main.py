@@ -176,12 +176,17 @@ def _invoice_pdf_bytes(invoice):
         from flask import current_app
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
 
+    payment_details = build_payment_details(business)
+    if business.stripe_secret_key and invoice.status != 'Paid' and invoice.pay_token:
+        pay_url = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
+        payment_details.append(f'Pay online now: {pay_url}')
+
     return build_pdf(
         'Invoice', business, invoice.client, items, invoice.total,
         business.invoice_footer or '',
         header_text=business.invoice_header or '',
         payment_method=invoice.payment_method or '',
-        payment_details=build_payment_details(business),
+        payment_details=payment_details,
         payment_terms=business.payment_terms or '',
         document_number=invoice.display_number,
         subtotal=subtotal,

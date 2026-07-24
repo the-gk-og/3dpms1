@@ -82,6 +82,10 @@ def save_settings():
         business.bank_account_number = request.form.get('bank_account_number', '')
         business.paypal_email = request.form.get('paypal_email', '')
         business.stripe_link = request.form.get('stripe_link', '')
+        if request.form.get('stripe_secret_key'):
+            business.stripe_secret_key = request.form.get('stripe_secret_key').strip()
+        if request.form.get('stripe_webhook_secret'):
+            business.stripe_webhook_secret = request.form.get('stripe_webhook_secret').strip()
         business.surcharge_bank_transfer = float(request.form.get('surcharge_bank_transfer', 0) or 0)
         business.surcharge_pay_id = float(request.form.get('surcharge_pay_id', 0) or 0)
         business.surcharge_cash = float(request.form.get('surcharge_cash', 0) or 0)

@@ -1,4 +1,5 @@
 from datetime import datetime
+import secrets
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -46,6 +47,8 @@ class BusinessSettings(db.Model):
     bank_account_number = db.Column(db.String(50))
     paypal_email = db.Column(db.String(200))
     stripe_link = db.Column(db.String(500))
+    stripe_secret_key = db.Column(EncryptedString(500))
+    stripe_webhook_secret = db.Column(EncryptedString(500))
     smtp_host = db.Column(db.String(200))
     smtp_port = db.Column(db.Integer, default=587)
     smtp_username = db.Column(db.String(200))
@@ -236,6 +239,7 @@ class QuoteItem(db.Model):
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(50), unique=True)
+    pay_token = db.Column(db.String(64), unique=True, index=True, default=lambda: secrets.token_hex(32))
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
     client = db.relationship('Client', backref='invoices')
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))

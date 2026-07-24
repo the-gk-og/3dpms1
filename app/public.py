@@ -2,11 +2,12 @@ import json
 import os
 from datetime import datetime
 
+import stripe
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from werkzeug.utils import secure_filename
 
 from app import db, limiter
-from app.models import Client, Filament, Job, Quote, Request
+from app.models import Client, Filament, Invoice, Job, Quote, Request
 from app.helpers import (
     get_business_settings, generate_request_number, send_plain_email,
     notify_admin_new_submission,
@@ -284,3 +285,109 @@ def upload_signed_quote(token):
         'upload_signed_quote.html', quote=quote, business=business,
         uploaded=bool(quote.signed_copy_filename),
     )
+
+
+@public_bp.route('/pay/<token>')
+def pay_invoice(token):
+    """Public page (no login) linked from the invoice PDF/email — creates a fresh
+    Stripe Checkout Session for the invoice's current total and redirects the client
+    to Stripe's hosted payment page. Found via an unguessable token, same pattern as
+    the quote upload link, so invoices can't be enumerated or guessed.
+    """
+    invoice = Invoice.query.filter_by(pay_token=token).first()
+    if not invoice:
+        abort(404)
+    business = get_business_settings()
+
+    if invoice.status == 'Paid':
+        return render_template('pay_invoice.html', invoice=invoice, business=business, already_paid=True)
+
+    if not business.stripe_secret_key:
+        return render_template(
+            'pay_invoice.html', invoice=invoice, business=business,
+            error='Online payment isn\u2019t set up for this invoice yet. Please use one of the other payment methods listed on your invoice.',
+        )
+
+    stripe.api_key = business.stripe_secret_key
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'aud',
+                    'unit_amount': round(invoice.total * 100),
+                    'product_data': {'name': f'Invoice {invoice.display_number}'},
+                },
+                'quantity': 1,
+            }],
+            client_reference_id=invoice.pay_token,
+            success_url=url_for('public.pay_invoice_success', token=token, _external=True),
+            cancel_url=url_for('public.pay_invoice', token=token, _external=True),
+        )
+    except stripe.error.StripeError:
+        return render_template(
+            'pay_invoice.html', invoice=invoice, business=business,
+            error='We couldn\u2019t start the payment right now. Please try again shortly or use another payment method.',
+        )
+
+    return redirect(session.url, code=303)
+
+
+@public_bp.route('/pay/<token>/success')
+def pay_invoice_success(token):
+    """Cosmetic thank-you page after Stripe Checkout. This never marks the invoice as
+    paid itself \u2014 the webhook is the only trustworthy source of that, since a client
+    could land here without the payment actually completing (or skip it entirely).
+    """
+    invoice = Invoice.query.filter_by(pay_token=token).first()
+    if not invoice:
+        abort(404)
+    business = get_business_settings()
+    return render_template('pay_invoice.html', invoice=invoice, business=business, just_paid=True)
+
+
+@public_bp.route('/webhooks/stripe', methods=['POST'])
+def stripe_webhook():
+    """Receives payment confirmations from Stripe. This is the only place an invoice
+    is actually marked Paid \u2014 never the success-page redirect, which the client's
+    browser could skip or which could be hit without a real payment. Signature
+    verification stops anyone else from POSTing a fake 'paid' event here.
+    """
+    business = get_business_settings()
+    if not business.stripe_webhook_secret:
+        abort(404)
+
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature', '')
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, business.stripe_webhook_secret)
+    except (ValueError, stripe.error.SignatureVerificationError):
+        abort(400)
+
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        token = session.get('client_reference_id')
+        invoice = Invoice.query.filter_by(pay_token=token).first() if token else None
+        if invoice and invoice.status != 'Paid':
+            invoice.status = 'Paid'
+            invoice.paid_at = datetime.utcnow()
+            db.session.commit()
+
+            try:
+                notify_admin_new_submission(
+                    business,
+                    subject=f'Invoice {invoice.display_number} paid \u2014 ${invoice.total:,.2f}',
+                    body_text=(
+                        f'{invoice.client.name if invoice.client else "A client"} just paid '
+                        f'invoice {invoice.display_number} for ${invoice.total:,.2f} via Stripe.\n\n'
+                        f'Paid at: {invoice.paid_at.strftime("%Y-%m-%d %H:%M UTC")}'
+                    ),
+                )
+            except Exception:
+                # Best-effort notification only \u2014 the invoice is already marked paid above,
+                # so a broken SMTP config must never turn into a 500 back to Stripe (which
+                # would make Stripe retry the webhook and could send a duplicate email later).
+                pass
+
+    return '', 200

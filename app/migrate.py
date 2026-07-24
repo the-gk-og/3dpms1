@@ -19,6 +19,8 @@ def run_migrations(db):
             'bank_account_number': 'VARCHAR(50)',
             'paypal_email': 'VARCHAR(200)',
             'stripe_link': 'VARCHAR(500)',
+            'stripe_secret_key': 'VARCHAR(500)',
+            'stripe_webhook_secret': 'VARCHAR(500)',
             'surcharge_bank_transfer': 'FLOAT DEFAULT 0',
             'surcharge_pay_id': 'FLOAT DEFAULT 0',
             'surcharge_cash': 'FLOAT DEFAULT 0',
@@ -42,6 +44,7 @@ def run_migrations(db):
         },
         'invoice': {
             'notes': 'TEXT',
+            'pay_token': 'VARCHAR(64)',
             'due_date': 'DATE',
             'paid_at': 'DATETIME',
             'surcharge_overrides': "TEXT DEFAULT '{}'",
@@ -109,6 +112,16 @@ def run_migrations(db):
             (Quote.upload_token.is_(None)) | (Quote.upload_token == '')
         ).all():
             quote.upload_token = secrets.token_hex(32)
+        db.session.commit()
+
+    # Backfill pay tokens for existing invoices so the Stripe payment link works retroactively
+    if 'invoice' in existing_tables:
+        import secrets
+        from app.models import Invoice
+        for invoice in Invoice.query.filter(
+            (Invoice.pay_token.is_(None)) | (Invoice.pay_token == '')
+        ).all():
+            invoice.pay_token = secrets.token_hex(32)
         db.session.commit()
 
     _encrypt_legacy_secrets(db, existing_tables)
