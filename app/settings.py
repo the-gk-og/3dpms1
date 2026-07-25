@@ -5,13 +5,13 @@ import secrets as _secrets
 import pyotp
 import qrcode
 import qrcode.image.svg
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session, Response
+from flask import Blueprint, request, redirect, url_for, flash, current_app, session, Response
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app import db
 from app.models import BusinessSettings, User, AuditLog
-from app.helpers import get_business_settings, log_audit, render_email_template
+from app.helpers import get_business_settings, log_audit, render_email_template, render_template
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/dash/settings')
 

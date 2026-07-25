@@ -1,0 +1,122 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Jobs{% endblock %}
+{% block content %}
+
+<div class="m-search-bar">
+  <form method="get" style="display: flex; gap: 0.5rem; width: 100%;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Job title or customer">
+    <button type="submit" class="m-btn m-btn-secondary" style="width: auto; padding: 0 1rem;">Go</button>
+  </form>
+</div>
+<div class="m-checkbox-field" style="margin-top: -0.5rem;">
+  <input type="checkbox" name="archived" value="1" onchange="window.location = '{{ url_for('main.jobs') }}?archived=' + (this.checked ? '1' : '0') + '&q={{ q }}'"{% if show_archived %} checked{% endif %}>
+  <label style="margin: 0;">Show archived</label>
+</div>
+
+{% if jobs %}
+  {% for job in jobs %}
+  <div class="m-card">
+    <div class="m-card-row" style="margin-bottom: 0.5rem;">
+      <div>
+        <div class="m-card-sub">{{ job.display_number }}</div>
+        <div class="m-card-title">{{ job.title }}</div>
+        <div class="m-card-sub">{{ job.client.name }}</div>
+      </div>
+    </div>
+    <div class="m-card-meta">
+      {% if job.archived %}<span class="m-badge m-badge-muted">Archived</span>{% endif %}
+      <span class="m-badge">{{ job.status }}</span>
+      {% if job.notify_me %}<span class="m-badge m-badge-muted">🔔{% if job.notify_sent_at %} Sent{% endif %}</span>{% endif %}
+    </div>
+
+    {% if job.notes %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.6rem 0 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
+    {% endif %}
+
+    {% if job.model_source %}
+    {% set order = job.order_data %}
+    <details style="margin: 0.6rem 0 0; font-size: 0.85rem;">
+      <summary style="cursor: pointer; color: var(--text-muted);">Order details ({{ 'Has model' if job.model_source == 'has_model' else 'Needs design' }})</summary>
+      <div style="margin-top: 0.5rem; padding: 0.65rem 0.75rem; background: var(--bg-secondary); border-radius: 8px;">
+        {% if order.description %}<div><strong>Description:</strong> {{ order.description }}</div>{% endif %}
+        {% if order.materials %}<div><strong>Materials:</strong> {{ order.materials|join(', ') }}{% if order.other_material %}, {{ order.other_material }}{% endif %}</div>{% endif %}
+        {% if order.model_links %}<div><strong>Model links:</strong> {{ order.model_links }}</div>{% endif %}
+        {% if order.reference_links %}<div><strong>Reference links:</strong> {{ order.reference_links }}</div>{% endif %}
+        {% if order.shipping_address %}<div><strong>Shipping to:</strong> {{ order.shipping_address }}</div>{% endif %}
+        {% if order.model_files %}
+        <div><strong>Files:</strong>
+          {% for f in order.model_files %}
+          <a href="{{ url_for('main.download_order_file', job_id=job.id, filename=f) }}" style="color: var(--accent);">{{ f.split('_', 1)[-1] }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if order.reference_images %}
+        <div><strong>Reference images:</strong>
+          {% for f in order.reference_images %}
+          <a href="{{ url_for('main.download_order_file', job_id=job.id, filename=f) }}" style="color: var(--accent);">{{ f.split('_', 1)[-1] }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+
+    <div style="font-size: 0.78rem; color: var(--text-muted); margin: 0.6rem 0;">
+      Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}
+      {% if job.quote %}<br><a href="{{ url_for('main.quote_detail', quote_id=job.quote_id) }}" class="m-link-btn" style="font-size: 0.78rem;">View Quote</a>{% endif %}
+      {% if job.originating_request %}<br><a href="{{ url_for('main.request_detail', request_id=job.originating_request.id) }}" class="m-link-btn" style="font-size: 0.78rem;">View Original Request</a>{% endif %}
+    </div>
+
+    <div class="m-card-actions">
+      <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
+      <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="m-btn m-btn-secondary m-btn-sm" style="text-align: center;">Slip</a>
+      {% if job.archived %}
+      <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-secondary m-btn-sm" style="width: 100%;">Restore</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('main.archive_job', job_id=job.id) }}" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-secondary m-btn-sm" style="width: 100%;">Archive</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" onsubmit="return confirm('Delete this job?')" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
+      </form>
+    </div>
+
+    <div id="job-edit-{{ job.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+      <form method="post" action="{{ url_for('main.edit_job', job_id=job.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="m-field"><label>Title</label><input type="text" name="title" value="{{ job.title }}"></div>
+        <div class="m-field">
+          <label>Status</label>
+          <select name="status">
+            {% for s in ['Queued','Printing','Post-Processing','Complete','Cancelled'] %}
+            <option value="{{ s }}"{% if job.status == s %} selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="m-field"><label>Notes</label><textarea name="notes" rows="2">{{ job.notes or '' }}</textarea></div>
+        <button type="submit" class="m-btn m-btn-primary">Save</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="m-empty">
+  🎯<br>
+  {% if q or show_archived %}No jobs match.{% else %}No jobs yet.{% endif %}<br>
+  <span style="font-size: 0.85rem;">Create a job from an existing quote to start tracking production.</span><br>
+  <a href="{{ url_for('main.quotes') }}" class="m-link-btn">Go to Quotes →</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) { document.getElementById(id).classList.toggle('open'); }
+</script>
+{% endblock %}

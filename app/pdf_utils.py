@@ -310,3 +310,213 @@ def build_payment_details(business):
     if business.stripe_link:
         lines.append(f'Stripe: {business.stripe_link}')
     return lines
+
+
+def build_packing_slip_pdf(business, job, invoice=None, logo_path=None):
+    """A one-page slip meant to travel with the physical print on delivery/pickup —
+    not a substitute for the invoice PDF, but a companion document: what's in the
+    box, what it cost, whether it's been paid, and a line for the business owner
+    to sign off that it passed QC before it went out.
+
+    invoice is optional — a job made without ever creating an invoice (e.g. work
+    quoted informally, or an internal print) still gets a usable slip; it just
+    omits the payment/receipt section rather than showing invented figures.
+    """
+    from datetime import datetime as _dt
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        rightMargin=0.65 * inch, leftMargin=0.65 * inch,
+        topMargin=0.55 * inch, bottomMargin=0.55 * inch,
+    )
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle('DocTitle', parent=styles['Title'], fontSize=20, spaceAfter=4,
+                               textColor=colors.HexColor('#1e293b')))
+    styles.add(ParagraphStyle('BizName', parent=styles['Heading2'], fontSize=13,
+                               textColor=colors.HexColor('#2563eb'), spaceAfter=2))
+    styles.add(ParagraphStyle('Muted', parent=styles['BodyText'], fontSize=9,
+                               textColor=colors.HexColor('#64748b'), leading=12))
+    styles.add(ParagraphStyle('SectionHead', parent=styles['Heading3'], fontSize=11,
+                               textColor=colors.HexColor('#334155'), spaceBefore=10, spaceAfter=4))
+    styles.add(ParagraphStyle('Body', parent=styles['BodyText'], fontSize=9.5,
+                               textColor=colors.HexColor('#1e293b'), leading=13))
+
+    story = []
+
+    # --- Header: logo + business name/ABN, mirroring the quote/invoice header so the
+    # slip is visually recognizable as coming from the same business. ---
+    logo_cell = ''
+    if logo_path and os.path.isfile(logo_path):
+        try:
+            logo_cell = Image(logo_path, width=0.85 * inch, height=0.5 * inch, kind='proportional')
+        except Exception:
+            logo_cell = ''
+
+    biz_name_para = Paragraph(f'<b>{_esc(business.name or "Business")}</b>', styles['BizName'])
+    biz_lines = []
+    if getattr(business, 'abn', None):
+        biz_lines.append(Paragraph(f'ABN: {_esc(business.abn)}', styles['Muted']))
+    contact_parts = []
+    if business.contact_email:
+        contact_parts.append(_esc(business.contact_email))
+    if getattr(business, 'phone', None):
+        contact_parts.append(_esc(business.phone))
+    if contact_parts:
+        biz_lines.append(Paragraph(' &nbsp;|&nbsp; '.join(contact_parts), styles['Muted']))
+
+    if logo_cell:
+        left_content = [[logo_cell, biz_name_para]]
+        left_col_widths = [1.0 * inch, 3.2 * inch]
+    else:
+        left_content = [['', biz_name_para]]
+        left_col_widths = [0, 4.2 * inch]
+    for line in biz_lines:
+        left_content.append(['', line])
+    left_table = Table(left_content, colWidths=left_col_widths)
+    left_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ] + ([('SPAN', (0, 0), (0, len(left_content) - 1))] if logo_cell else [])))
+
+    doc_info = [
+        Paragraph('DELIVERY SLIP', styles['DocTitle']),
+        Paragraph(f'<b>{_esc(job.display_number)}</b>', styles['Muted']),
+        Paragraph(f'Date: {_dt.utcnow().strftime("%d %B %Y")}', styles['Muted']),
+    ]
+
+    header_table = Table([[left_table, doc_info]], colWidths=[4.2 * inch, 2.55 * inch])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.15 * inch))
+    story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#2563eb')))
+    story.append(Spacer(1, 0.2 * inch))
+
+    # --- Client / job details ---
+    story.append(Paragraph('PRINT DETAILS', styles['SectionHead']))
+    client_name = job.client.name if job.client else 'Walk-in / Internal'
+    detail_rows = [['Client:', _esc(client_name)], ['Job:', _esc(job.title)]]
+    if job.client and job.client.phone:
+        detail_rows.append(['Phone:', _esc(job.client.phone)])
+    if job.quote:
+        detail_rows.append(['Quote Ref:', _esc(job.quote.display_number)])
+    order = job.order_data
+    if order.get('materials'):
+        materials = order['materials']
+        mat_str = ', '.join(materials) if isinstance(materials, list) else str(materials)
+        if order.get('other_material'):
+            mat_str = f'{mat_str}, {order["other_material"]}' if mat_str else order['other_material']
+        detail_rows.append(['Material:', _esc(mat_str)])
+    if order.get('description'):
+        detail_rows.append(['Description:', _esc(order['description'])])
+
+    detail_table = Table(detail_rows, colWidths=[1.1 * inch, 5.65 * inch])
+    detail_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
+        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(detail_table)
+
+    # Line items, if the job's quote has them — gives a concrete packing-list of
+    # what's actually in the box, not just a job title.
+    if job.quote and job.quote.items:
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph('CONTENTS', styles['SectionHead']))
+        item_rows = [['Item', 'Qty']]
+        for item in job.quote.items:
+            qty = item.quantity if item.item_type != 'print' else 1
+            item_rows.append([_esc(item.description or 'Item'), str(qty)])
+        item_table = Table(item_rows, colWidths=[5.75 * inch, 1.0 * inch])
+        item_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#1e293b')),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#e2e8f0')),
+            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(item_table)
+
+    # --- Payment / receipt section — only shown when a real invoice exists, so this
+    # never shows an amount or status that was invented rather than actually billed. ---
+    story.append(Spacer(1, 0.15 * inch))
+    story.append(Paragraph('PAYMENT', styles['SectionHead']))
+    if invoice:
+        pay_rows = [
+            ['Tax Invoice:', _esc(invoice.display_number)],
+            ['Amount:', _money(invoice.total)],
+        ]
+        pay_table = Table(pay_rows, colWidths=[1.1 * inch, 2.4 * inch])
+        pay_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
+            ('FONTNAME', (1, 1), (1, 1), 'Helvetica-Bold'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+
+        is_paid = invoice.status == 'Paid'
+        checkbox = lambda checked: '\u2612' if checked else '\u2610'  # checked / unchecked box
+        status_rows = [
+            [f'{checkbox(is_paid)}  Paid', f'{checkbox(not is_paid)}  Awaiting Payment'],
+        ]
+        status_table = Table(status_rows, colWidths=[2.4 * inch, 2.7 * inch])
+        status_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#16a34a') if is_paid else colors.HexColor('#94a3b8')),
+            ('TEXTCOLOR', (1, 0), (1, 0), colors.HexColor('#94a3b8') if is_paid else colors.HexColor('#dc2626')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ]))
+
+        combo = Table([[pay_table, status_table]], colWidths=[3.5 * inch, 3.25 * inch])
+        combo.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+        story.append(combo)
+    else:
+        story.append(Paragraph(
+            'No invoice has been generated for this job yet.', styles['Muted'],
+        ))
+
+    # --- QC sign-off ---
+    story.append(Spacer(1, 0.35 * inch))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+    story.append(Spacer(1, 0.1 * inch))
+    story.append(Paragraph('QUALITY CHECK', styles['SectionHead']))
+    qc_table = Table([
+        ['_' * 30, '', '_' * 18],
+        ['QC Checked By', '', 'Date'],
+    ], colWidths=[2.9 * inch, 0.5 * inch, 2 * inch])
+    qc_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#64748b')),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (1, 0), (1, 0), 14),
+    ]))
+    story.append(qc_table)
+
+    story.append(Spacer(1, 0.2 * inch))
+    if job.notes:
+        story.append(Paragraph('NOTES', styles['SectionHead']))
+        story.append(Paragraph(_esc(job.notes).replace('\n', '<br/>'), styles['Body']))
+
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    return pdf

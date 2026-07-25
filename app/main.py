@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, abort
+from flask import Blueprint, request, redirect, url_for, flash, send_file, abort
 from flask_login import login_required
 
 from app import db
@@ -16,9 +16,9 @@ from app.helpers import (
     parse_payment_methods_and_surcharges, compute_marked_items,
     generate_upload_token, render_email_template, html_to_text,
     signed_uploads_dir, job_should_notify, send_job_complete_notification,
-    order_uploads_dir, log_audit,
+    order_uploads_dir, log_audit, render_template,
 )
-from app.pdf_utils import build_pdf, build_payment_details
+from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_pdf
 
 main_bp = Blueprint('main', __name__, url_prefix='/dash')
 
@@ -199,6 +199,43 @@ def _invoice_pdf_bytes(invoice):
         due_date=invoice.due_date,
         payment_terms_font_size=business.payment_terms_font_size or 9,
         tos_font_size=business.tos_font_size or 8,
+    )
+
+
+def _job_packing_slip_bytes(job):
+    business = get_business_settings()
+    invoice = Invoice.query.filter_by(quote_id=job.quote_id).first() if job.quote_id else None
+
+    logo_path = None
+    if business.logo_path:
+        from flask import current_app
+        logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
+
+    return build_packing_slip_pdf(business, job, invoice=invoice, logo_path=logo_path)
+
+
+@main_bp.route('/jobs/<int:job_id>/packing-slip', methods=['POST'])
+@login_required
+def generate_job_packing_slip(job_id):
+    job = Job.query.get_or_404(job_id)
+    pdf = _job_packing_slip_bytes(job)
+    return send_file(
+        __import__('io').BytesIO(pdf), mimetype='application/pdf',
+        as_attachment=True, download_name=f'{job.display_number}-delivery-slip.pdf',
+    )
+
+
+@main_bp.route('/jobs/<int:job_id>/packing-slip/preview', methods=['GET'])
+@login_required
+def preview_job_packing_slip(job_id):
+    """Same PDF as the download button, but rendered inline in a new tab instead of
+    forcing a save-to-disk dialog — same pattern as the quote/invoice PDF previews.
+    """
+    job = Job.query.get_or_404(job_id)
+    pdf = _job_packing_slip_bytes(job)
+    return send_file(
+        __import__('io').BytesIO(pdf), mimetype='application/pdf',
+        as_attachment=False, download_name=f'{job.display_number}-delivery-slip.pdf',
     )
 
 

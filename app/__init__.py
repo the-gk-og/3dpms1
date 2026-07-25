@@ -9,7 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 
-load_dotenv()  
+load_dotenv()  # Load environment variables from .env file if present
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(basedir, '..'))
@@ -132,6 +132,9 @@ def create_app(test_config=None):
 
     _register_cli(app)
     _register_security_headers(app)
+
+    from app.helpers import is_mobile_request
+    app.jinja_env.globals['is_mobile_request'] = is_mobile_request
 
     return app
 

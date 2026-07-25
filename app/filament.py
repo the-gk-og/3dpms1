@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, request, redirect, url_for, flash
 from flask_login import login_required
 
 from app import db
 from app.models import Filament, FilamentSpool
-from app.helpers import log_audit
+from app.helpers import log_audit, render_template
 
 filament_bp = Blueprint('filament', __name__, url_prefix='/dash/filament')
 

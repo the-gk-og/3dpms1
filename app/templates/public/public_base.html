@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ business.name or '3D Printing' }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='public.css') }}">
+    {% if is_mobile_request() %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile-public.css') }}">
+    {% endif %}
     {% block head %}{% endblock %}
   </head>
   <body>

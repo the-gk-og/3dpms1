@@ -5,7 +5,57 @@ import secrets
 import smtplib
 from email.message import EmailMessage
 
+from flask import request, render_template as _flask_render_template
+
 from app.models import BusinessSettings, Quote, Invoice, Job, Request, AuditLog
+
+
+# Matches common mobile/tablet user agents. Deliberately conservative — false
+# negatives (a mobile device gets the desktop layout) are far less harmful than
+# false positives (a desktop user gets a phone-width layout), so this only matches
+# well-established device signatures rather than trying to catch everything.
+_MOBILE_UA_RE = re.compile(
+    r'Mobi|Android|iPhone|iPod|iPad|BlackBerry|IEMobile|Opera Mini|Windows Phone',
+    re.IGNORECASE,
+)
+
+
+def is_mobile_request():
+    """True if the request's User-Agent header identifies a phone or tablet.
+
+    This is server-side user-agent sniffing, not a viewport check — it reflects
+    what device made the request, not how wide the browser window currently is.
+    A ?mobile=0 / ?mobile=1 query param can force either layout, mainly useful for
+    testing and for anyone on a device this misses.
+    """
+    override = request.args.get('mobile')
+    if override == '1':
+        return True
+    if override == '0':
+        return False
+    ua = request.user_agent.string or ''
+    return bool(_MOBILE_UA_RE.search(ua))
+
+
+def render_template(template_name, **context):
+    """Drop-in replacement for Flask's render_template that transparently swaps in
+    a `<name>.mobile.html` version when one exists and the request looks like it's
+    coming from a phone or tablet. Falls back to the desktop template automatically
+    if no mobile variant has been created for that page yet, so pages can be
+    migrated to mobile versions incrementally without breaking anything.
+    """
+    if is_mobile_request() and not template_name.endswith('.mobile.html'):
+        mobile_name = template_name.rsplit('.html', 1)[0] + '.mobile.html'
+        try:
+            return _flask_render_template(mobile_name, **context)
+        except Exception as e:
+            # jinja2.TemplateNotFound is the expected case (no mobile version yet for
+            # this page) — anything else is a real bug in the mobile template and
+            # should surface normally rather than silently masking it as "not found".
+            from jinja2 import TemplateNotFound
+            if not isinstance(e, TemplateNotFound):
+                raise
+    return _flask_render_template(template_name, **context)
 
 
 def get_business_settings():

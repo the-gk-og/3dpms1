@@ -79,6 +79,7 @@
 
     <div class="item-actions">
       <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
+      <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Delivery Slip</a>
       {% if job.archived %}
       <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1,0 +1,31 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Clients{% endblock %}
+{% block content %}
+
+<div class="m-section-title">Client Directory</div>
+{% for client in clients %}
+<div class="m-card">
+  <div class="m-card-title">{{ client.name }}</div>
+  {% if client.email %}<div class="m-card-sub">{{ client.email }}</div>{% endif %}
+  {% if client.phone %}<div class="m-card-sub">{{ client.phone }}</div>{% endif %}
+  {% if client.notes %}
+  <hr class="m-divider">
+  <p style="margin: 0; font-size: 0.85rem;">{{ client.notes }}</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="m-empty">No clients yet. Add one below to get started.</div>
+{% endfor %}
+
+<div class="m-section-title">Add Client</div>
+<div class="m-card">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Name</label><input type="text" name="name" required></div>
+    <div class="m-field"><label>Email</label><input type="email" name="email"></div>
+    <div class="m-field"><label>Phone</label><input type="text" name="phone"></div>
+    <div class="m-field"><label>Notes</label><textarea name="notes" rows="3"></textarea></div>
+    <button type="submit" class="m-btn m-btn-primary">Save Client</button>
+  </form>
+</div>
+{% endblock %}

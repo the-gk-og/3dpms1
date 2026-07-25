@@ -13,7 +13,7 @@ from app.helpers import (
     notify_admin_new_submission, render_email_template, html_to_text,
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
-    verify_turnstile,
+    verify_turnstile, render_template as render_template_mobile_aware,
 )
 import secrets
 
@@ -162,7 +162,7 @@ def order_form():
     if request.method == 'POST':
         if not _turnstile_ok(business):
             flash('Please complete the verification challenge and try again.')
-            return render_template('public/order_form.html', business=business, filaments=filaments)
+            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
 
         name = request.form.get('name', '').strip()
         phone = request.form.get('phone', '').strip()
@@ -175,7 +175,7 @@ def order_form():
 
         if not name or not phone or not email:
             flash('Please fill in your name, phone number, and email.')
-            return render_template('public/order_form.html', business=business, filaments=filaments)
+            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
 
         client = Client.query.filter_by(email=email).first()
         if not client:
@@ -254,9 +254,9 @@ def order_form():
         except Exception:
             pass
 
-        return render_template('public/order_confirmation.html', business=business, order=new_request)
+        return render_template_mobile_aware('public/order_confirmation.html', business=business, order=new_request)
 
-    return render_template('public/order_form.html', business=business, filaments=filaments)
+    return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
 
 
 @public_bp.route('/q/<token>/upload', methods=['GET', 'POST'])
