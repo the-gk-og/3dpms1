@@ -211,7 +211,19 @@ def _job_packing_slip_bytes(job):
         from flask import current_app
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
 
-    return build_packing_slip_pdf(business, job, invoice=invoice, logo_path=logo_path)
+    invoice_items, invoice_subtotal, invoice_surcharge_notes = None, 0, None
+    if invoice:
+        invoice_items, invoice_subtotal, _markup_pct, _markup_amt = _items_and_totals_for_pdf(invoice)
+        if not invoice_items:
+            invoice_items = [{'description': 'Invoice total', 'detail': '—', 'line_total': invoice.total}]
+            invoice_subtotal = invoice.total
+        invoice_surcharge_notes = _surcharge_notes(invoice)
+
+    return build_packing_slip_pdf(
+        business, job, invoice=invoice, logo_path=logo_path,
+        invoice_items=invoice_items, invoice_subtotal=invoice_subtotal,
+        invoice_surcharge_notes=invoice_surcharge_notes,
+    )
 
 
 @main_bp.route('/jobs/<int:job_id>/packing-slip', methods=['POST'])

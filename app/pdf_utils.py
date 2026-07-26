@@ -9,6 +9,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    Flowable, PageBreak,
 )
 
 
@@ -312,15 +313,61 @@ def build_payment_details(business):
     return lines
 
 
-def build_packing_slip_pdf(business, job, invoice=None, logo_path=None):
-    """A one-page slip meant to travel with the physical print on delivery/pickup —
-    not a substitute for the invoice PDF, but a companion document: what's in the
-    box, what it cost, whether it's been paid, and a line for the business owner
-    to sign off that it passed QC before it went out.
+class _CheckboxLabel(Flowable):
+    """Draws a bordered square checkbox (with a real drawn checkmark stroke when
+    checked, not a font glyph) immediately followed by a label. Font-rendered
+    checkbox characters (☑/☐) look like plain shaded blocks in some PDF viewers
+    depending on what font substitution kicks in — drawing the box and check
+    ourselves renders identically everywhere.
+    """
+    def __init__(self, label, checked, color, box_size=12, font_size=11, gap=6):
+        Flowable.__init__(self)
+        self.label = label
+        self.checked = checked
+        self.color = color
+        self.box_size = box_size
+        self.font_size = font_size
+        self.gap = gap
+        self.width = box_size + gap + (len(label) * font_size * 0.56)
+        self.height = box_size + 2
+
+    def draw(self):
+        c = self.canv
+        s = self.box_size
+        c.setLineWidth(1.3)
+        c.setStrokeColor(self.color)
+        if self.checked:
+            c.setFillColor(self.color)
+            c.rect(0, 0, s, s, stroke=1, fill=1)
+            # Checkmark drawn as two connected strokes in white, inset from the box edges
+            c.setStrokeColor(colors.white)
+            c.setLineWidth(1.6)
+            c.line(s * 0.22, s * 0.52, s * 0.42, s * 0.25)
+            c.line(s * 0.42, s * 0.25, s * 0.82, s * 0.75)
+        else:
+            c.setFillColor(colors.white)
+            c.rect(0, 0, s, s, stroke=1, fill=1)
+
+        c.setFillColor(self.color)
+        c.setFont('Helvetica-Bold', self.font_size)
+        c.drawString(s + self.gap, (s - self.font_size) / 2 + 1, self.label)
+
+
+def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
+                            invoice_items=None, invoice_subtotal=0, invoice_surcharge_notes=None):
+    """A two-page document meant to travel with the physical print on delivery/pickup.
+
+    Page 1 is delivery-facing: what's in the box, print/job details, a brief paid/
+    unpaid status, and a line for the business owner to sign off that it passed QC.
+
+    Page 2 is a standalone tax invoice / receipt (line items, subtotal, surcharge,
+    total, and the same paid/unpaid checkboxes) — deliberately without the terms of
+    service or payment-terms text that appear on the emailed invoice PDF, since this
+    is a delivery companion document, not a substitute for that invoice.
 
     invoice is optional — a job made without ever creating an invoice (e.g. work
-    quoted informally, or an internal print) still gets a usable slip; it just
-    omits the payment/receipt section rather than showing invented figures.
+    quoted informally, or an internal print) still gets a usable page 1; page 2 is
+    skipped entirely rather than showing invented figures.
     """
     from datetime import datetime as _dt
 
@@ -452,43 +499,28 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None):
         ]))
         story.append(item_table)
 
-    # --- Payment / receipt section — only shown when a real invoice exists, so this
-    # never shows an amount or status that was invented rather than actually billed. ---
+    # --- Payment status — brief on this page; the full tax invoice/receipt with line
+    # items lives on its own page below so this delivery-facing page stays focused on
+    # what's being handed over, not the financial breakdown. ---
     story.append(Spacer(1, 0.15 * inch))
-    story.append(Paragraph('PAYMENT', styles['SectionHead']))
+    story.append(Paragraph('PAYMENT STATUS', styles['SectionHead']))
     if invoice:
-        pay_rows = [
-            ['Tax Invoice:', _esc(invoice.display_number)],
-            ['Amount:', _money(invoice.total)],
-        ]
-        pay_table = Table(pay_rows, colWidths=[1.1 * inch, 2.4 * inch])
-        pay_table.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 9.5),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
-            ('FONTNAME', (1, 1), (1, 1), 'Helvetica-Bold'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-
         is_paid = invoice.status == 'Paid'
-        checkbox = lambda checked: '\u2612' if checked else '\u2610'  # checked / unchecked box
-        status_rows = [
-            [f'{checkbox(is_paid)}  Paid', f'{checkbox(not is_paid)}  Awaiting Payment'],
-        ]
-        status_table = Table(status_rows, colWidths=[2.4 * inch, 2.7 * inch])
+        paid_box = _CheckboxLabel('Paid', is_paid,
+                                   colors.HexColor('#16a34a') if is_paid else colors.HexColor('#cbd5e1'))
+        pending_box = _CheckboxLabel('Awaiting Payment', not is_paid,
+                                      colors.HexColor('#dc2626') if not is_paid else colors.HexColor('#cbd5e1'))
+        status_table = Table([[paid_box, pending_box]], colWidths=[2.2 * inch, 3.2 * inch])
         status_table.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#16a34a') if is_paid else colors.HexColor('#94a3b8')),
-            ('TEXTCOLOR', (1, 0), (1, 0), colors.HexColor('#94a3b8') if is_paid else colors.HexColor('#dc2626')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
         ]))
-
-        combo = Table([[pay_table, status_table]], colWidths=[3.5 * inch, 3.25 * inch])
-        combo.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
-        story.append(combo)
+        story.append(status_table)
+        story.append(Paragraph(
+            f'See page 2 for the tax invoice / receipt ({_esc(invoice.display_number)}).',
+            styles['Muted'],
+        ))
     else:
         story.append(Paragraph(
             'No invoice has been generated for this job yet.', styles['Muted'],
@@ -515,6 +547,122 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None):
     if job.notes:
         story.append(Paragraph('NOTES', styles['SectionHead']))
         story.append(Paragraph(_esc(job.notes).replace('\n', '<br/>'), styles['Body']))
+
+    # --- Page 2: standalone tax invoice / receipt. Only added when there's a real
+    # invoice to show — no invoice means no page 2, rather than an empty or fabricated
+    # receipt. Deliberately excludes ToS and payment-terms text: this is a delivery
+    # companion, not a replacement for the full invoice PDF that was (or will be) emailed. ---
+    if invoice:
+        story.append(PageBreak())
+
+        title_row = Table([[
+            Paragraph('TAX INVOICE / RECEIPT', styles['DocTitle']),
+        ]], colWidths=[6.75 * inch])
+        title_row.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 0)]))
+        story.append(title_row)
+        story.append(Spacer(1, 0.05 * inch))
+
+        biz_receipt_line = f'{_esc(business.name or "Business")}'
+        if getattr(business, 'abn', None):
+            biz_receipt_line += f' &nbsp;|&nbsp; ABN: {_esc(business.abn)}'
+        story.append(Paragraph(biz_receipt_line, styles['Muted']))
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#2563eb')))
+        story.append(Spacer(1, 0.15 * inch))
+
+        meta_rows = [
+            ['Invoice Number:', _esc(invoice.display_number)],
+            ['Job Reference:', _esc(job.display_number)],
+            ['Date:', _dt.utcnow().strftime('%d %B %Y')],
+            ['Client:', _esc(job.client.name if job.client else 'Walk-in / Internal')],
+        ]
+        meta_table = Table(meta_rows, colWidths=[1.5 * inch, 5.25 * inch])
+        meta_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#64748b')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        story.append(meta_table)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Line items with real amounts, if provided by the caller
+        if invoice_items:
+            item_rows = [['Description', 'Amount']]
+            for it in invoice_items:
+                desc = it.get('description', 'Item')
+                detail = it.get('detail')
+                label = f'{desc}<br/><font size=7 color="#94a3b8">{_esc(detail)}</font>' if detail and detail != '—' else _esc(desc)
+                item_rows.append([Paragraph(label, styles['Body']), _money(it.get('line_total', 0))])
+            receipt_table = Table(item_rows, colWidths=[4.75 * inch, 2.0 * inch])
+            receipt_table.setStyle(TableStyle([
+                ('FONTSIZE', (0, 0), (-1, 0), 9.5),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#e2e8f0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(receipt_table)
+            story.append(Spacer(1, 0.1 * inch))
+
+        # Totals block: subtotal, surcharge notes (advisory, when multiple payment
+        # methods are offered), and the final total — same math as the real invoice.
+        totals_rows = []
+        if invoice_items and round(invoice_subtotal, 2) != round(invoice.total, 2):
+            totals_rows.append(['Subtotal:', _money(invoice_subtotal)])
+            if invoice.surcharge_percent:
+                totals_rows.append([f'Surcharge ({invoice.surcharge_percent:.1f}%):',
+                                     _money(invoice.total - invoice_subtotal)])
+        totals_rows.append(['Total:', _money(invoice.total)])
+        totals_table = Table(totals_rows, colWidths=[4.75 * inch, 2.0 * inch])
+        totals_style = [
+            ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#64748b')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('FONTSIZE', (0, -1), (-1, -1), 13),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#1e293b')),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
+            ('LINEABOVE', (0, -1), (-1, -1), 0.75, colors.HexColor('#cbd5e1')),
+        ]
+        totals_table.setStyle(TableStyle(totals_style))
+        story.append(totals_table)
+
+        if invoice_surcharge_notes:
+            story.append(Spacer(1, 0.08 * inch))
+            for note in invoice_surcharge_notes:
+                story.append(Paragraph(_esc(note), styles['Muted']))
+
+        # Payment status — same real checkboxes as page 1, repeated here so the
+        # receipt page is self-contained if separated from page 1.
+        story.append(Spacer(1, 0.3 * inch))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=colors.HexColor('#e2e8f0')))
+        story.append(Spacer(1, 0.15 * inch))
+        is_paid = invoice.status == 'Paid'
+        paid_box = _CheckboxLabel('Paid', is_paid,
+                                   colors.HexColor('#16a34a') if is_paid else colors.HexColor('#cbd5e1'))
+        pending_box = _CheckboxLabel('Awaiting Payment', not is_paid,
+                                      colors.HexColor('#dc2626') if not is_paid else colors.HexColor('#cbd5e1'))
+        receipt_status_table = Table([[paid_box, pending_box]], colWidths=[2.2 * inch, 3.2 * inch])
+        receipt_status_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(receipt_status_table)
+
+        if invoice.paid_at:
+            story.append(Spacer(1, 0.1 * inch))
+            story.append(Paragraph(
+                f'Paid on {invoice.paid_at.strftime("%d %B %Y")}', styles['Muted'],
+            ))
 
     doc.build(story)
     pdf = buffer.getvalue()
