@@ -1,0 +1,61 @@
+{#
+  Renders the full reference-number chain for one job/order: the originating
+  public Request (if any) -> Quote -> Job(s) -> Invoice(s). Every stage keeps its
+  own independent reference number (REQ-/Q-/JOB-/INV-...); this just makes the
+  links between them visible so any one number can be traced back to the rest.
+
+  Usage: {% from '_pipeline_chain.html' import pipeline_chain %}
+         {{ pipeline_chain(quote=quote, current='quote') }}
+         {{ pipeline_chain(quote=job.quote, current='job', current_id=job.id) }}
+         {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
+         {{ pipeline_chain(quote=req.quote, standalone_request=req, current='request') }}
+#}
+{% macro pipeline_chain(quote=none, standalone_request=none, current='', current_id=none) %}
+  {% set req = standalone_request or (quote.originating_request if quote else none) %}
+  {% set jobs = quote.jobs if quote else [] %}
+  {% set invs = quote.invoices if quote else [] %}
+  {% if req or quote or jobs or invs %}
+  <div class="pipeline-chain" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.82rem; margin: 0.5rem 0 1rem;">
+    <span style="color: var(--text-muted); margin-right: 0.15rem;">Pipeline:</span>
+
+    {% if req %}
+      {% if current == 'request' %}
+        <span class="badge badge-accent">{{ req.display_number }}</span>
+      {% else %}
+        <a href="{{ url_for('main.request_detail', request_id=req.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ req.display_number }}</a>
+      {% endif %}
+      <span style="color: var(--text-muted);">→</span>
+    {% endif %}
+
+    {% if quote %}
+      {% if current == 'quote' %}
+        <span class="badge badge-accent">{{ quote.display_number }}</span>
+      {% else %}
+        <a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ quote.display_number }}</a>
+      {% endif %}
+    {% endif %}
+
+    {% if jobs %}
+      <span style="color: var(--text-muted);">→</span>
+      {% for job in jobs %}
+        {% if current == 'job' and current_id == job.id %}
+          <span class="badge badge-accent">{{ job.display_number }}</span>
+        {% else %}
+          <a href="{{ url_for('main.jobs') }}#job-{{ job.id }}" class="badge badge-muted" style="text-decoration: none;">{{ job.display_number }}</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% if invs %}
+      <span style="color: var(--text-muted);">→</span>
+      {% for inv in invs %}
+        {% if current == 'invoice' and current_id == inv.id %}
+          <span class="badge badge-accent">{{ inv.display_number }}</span>
+        {% else %}
+          <a href="{{ url_for('main.invoice_detail', invoice_id=inv.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ inv.display_number }}</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+  {% endif %}
+{% endmacro %}

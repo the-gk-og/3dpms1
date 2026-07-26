@@ -7,7 +7,7 @@ from email.message import EmailMessage
 
 from flask import request, render_template as _flask_render_template
 
-from app.models import BusinessSettings, Quote, Invoice, Job, Request, AuditLog
+from app.models import BusinessSettings, Quote, Invoice, Job, Request, AuditLog, FeedbackSurvey
 
 
 # Matches common mobile/tablet user agents. Deliberately conservative — false
@@ -423,3 +423,58 @@ def send_job_complete_notification(job, business):
     job.notify_sent_at = datetime.utcnow()
     db.session.commit()
     return True
+
+
+# --- Feedback surveys ----------------------------------------------------------------
+
+def get_or_create_job_survey(job):
+    """Returns the job's in-progress (unresponded) FeedbackSurvey if one exists, so
+    re-sending the survey re-uses the same link rather than minting a new one every
+    time. Once a client has responded, the next send starts a fresh survey instead.
+    """
+    from app import db
+    existing = FeedbackSurvey.query.filter_by(job_id=job.id, responded_at=None).first()
+    if existing:
+        return existing
+    survey = FeedbackSurvey(job_id=job.id, client_id=job.client_id, quote_id=job.quote_id)
+    db.session.add(survey)
+    db.session.commit()
+    return survey
+
+
+def send_feedback_survey_email(job, business=None):
+    """Emails the job's client a link to the public feedback survey. Raises
+    ValueError if there's no client email on file, EmailNotConfiguredError if SMTP
+    isn't set up. Returns the FeedbackSurvey row on success.
+    """
+    from flask import url_for
+    from app import db
+
+    business = business or get_business_settings()
+    if not job.client or not job.client.email:
+        raise ValueError('This client has no email address on file.')
+
+    survey = get_or_create_job_survey(job)
+    survey_url = url_for('public.feedback_survey', token=survey.token, _external=True)
+
+    subject = f'How did we do? — {job.display_number} from {business.name or "us"}'
+    body = (
+        f"Hi {job.client.name},\n\n"
+        f"We'd love to hear how your order {job.display_number} ({job.title}) went. "
+        f"It only takes a minute:\n\n{survey_url}\n\n"
+        f"Thanks for your time,\n{business.name or ''}"
+    )
+    html_body = (
+        f"<p>Hi {job.client.name},</p>"
+        f"<p>We'd love to hear how your order <strong>{job.display_number}</strong> "
+        f"({job.title}) went. It only takes a minute.</p>"
+        f'<p><a href="{survey_url}" style="display:inline-block;padding:10px 20px;'
+        f'background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">'
+        f"Leave feedback</a></p>"
+        f"<p>Thanks for your time,<br>{business.name or ''}</p>"
+    )
+
+    send_plain_email(business, job.client.email, subject, body, html_body=html_body)
+    survey.sent_at = datetime.utcnow()
+    db.session.commit()
+    return survey

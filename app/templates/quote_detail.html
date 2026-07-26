@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% from '_item_form_fields.html' import item_type_fields %}
 {% from '_payment_fields.html' import payment_surcharge_fields %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}{{ quote.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
@@ -18,6 +19,7 @@
           {% endif %}
         </div>
       </div>
+      {{ pipeline_chain(quote=quote, current='quote') }}
 
       <div class="detail-grid">
         <div>

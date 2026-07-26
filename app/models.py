@@ -258,10 +258,11 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(50), unique=True)
     pay_token = db.Column(db.String(64), unique=True, index=True, default=lambda: secrets.token_hex(32))
+    stripe_enabled = db.Column(db.Boolean, default=True, nullable=False)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
     client = db.relationship('Client', backref='invoices')
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
-    quote = db.relationship('Quote')
+    quote = db.relationship('Quote', backref='invoices')
     status = db.Column(db.String(50), default='Draft')
     total = db.Column(db.Float, default=0.0)
     payment_method = db.Column(db.String(200), default='Bank Transfer')
@@ -298,6 +299,13 @@ class Invoice(db.Model):
             return json.loads(self.surcharge_overrides or '{}')
         except (ValueError, TypeError):
             return {}
+
+    @property
+    def originating_request(self):
+        """The public order-form Request that led to this invoice, if any (via its quote)."""
+        if not self.quote_id:
+            return None
+        return Request.query.filter_by(quote_id=self.quote_id).first()
 
 
 class InvoiceItem(db.Model):
@@ -404,6 +412,37 @@ class Request(db.Model):
         if self.status == 'Reviewed':
             return 'Being Reviewed'
         return 'Received'
+
+
+class FeedbackSurvey(db.Model):
+    """A feedback request emailed to a client about a finished job. Found via an
+    unguessable token (same pattern as the Stripe pay link and signed-quote upload
+    link) so responses can't be enumerated or spoofed. One row per survey sent;
+    responses are recorded in place once the client submits the public form.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, index=True, default=lambda: secrets.token_hex(32))
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
+    client = db.relationship('Client', backref='feedback_surveys')
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'))
+    job = db.relationship('Job', backref='feedback_surveys')
+    quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
+    quote = db.relationship('Quote', backref='feedback_surveys')
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    responded_at = db.Column(db.DateTime)
+    rating = db.Column(db.Integer)  # 1-5
+    would_recommend = db.Column(db.Boolean)
+    comments = db.Column(db.Text)
+
+    @property
+    def responded(self):
+        return self.responded_at is not None
+
+    @property
+    def originating_request(self):
+        if not self.quote_id:
+            return None
+        return Request.query.filter_by(quote_id=self.quote_id).first()
 
 
 class AuditLog(db.Model):

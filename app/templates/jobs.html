@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}Jobs{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -23,7 +24,7 @@
 {% if jobs %}
 <div class="cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
   {% for job in jobs %}
-  <div class="card">
+  <div class="card" id="job-{{ job.id }}">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
       <div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">{{ job.display_number }}</div>
@@ -36,8 +37,21 @@
         {% if job.notify_me %}
         <div style="margin-top: 0.35rem;"><span class="badge badge-muted">🔔 Notify on complete{% if job.notify_sent_at %} · Sent{% endif %}</span></div>
         {% endif %}
+        {% if job.feedback_surveys %}
+        {% set latest_survey = job.feedback_surveys|sort(attribute='sent_at')|last %}
+        <div style="margin-top: 0.35rem;">
+          {% if latest_survey.responded %}
+          <a href="{{ url_for('feedback.detail', survey_id=latest_survey.id) }}" class="badge badge-success" style="text-decoration: none;">⭐ {{ latest_survey.rating }}/5 received</a>
+          {% else %}
+          <span class="badge badge-muted">⭐ Survey awaiting response</span>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </div>
+    {% if job.quote %}
+    {{ pipeline_chain(quote=job.quote, current='job', current_id=job.id) }}
+    {% endif %}
 
     {% if job.notes %}
     <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
@@ -80,6 +94,10 @@
     <div class="item-actions">
       <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
       <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Delivery Slip</a>
+      <form method="post" action="{{ url_for('main.send_job_survey', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Send a feedback survey to {{ job.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-sm btn-secondary">Send Feedback Survey</button>
+      </form>
       {% if job.archived %}
       <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

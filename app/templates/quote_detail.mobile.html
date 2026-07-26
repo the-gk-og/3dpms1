@@ -1,6 +1,7 @@
 {% extends 'base.mobile.html' %}
 {% from '_item_form_fields.mobile.html' import item_type_fields_mobile %}
 {% from '_payment_fields.mobile.html' import payment_surcharge_fields_mobile %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}{{ quote.display_number }}{% endblock %}
 {% block content %}
 
@@ -15,6 +16,8 @@
       {% if quote.is_expired %}<div style="margin-top: 0.3rem;"><span class="m-badge m-badge-danger">Expired</span></div>{% endif %}
     </div>
   </div>
+
+  {{ pipeline_chain(quote=quote, current='quote') }}
 
   <div class="m-card-row" style="margin-bottom: 0.5rem;">
     <span class="m-card-sub">Client</span>

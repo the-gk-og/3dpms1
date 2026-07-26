@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% from '_item_form_fields.html' import item_type_fields %}
 {% from '_payment_fields.html' import payment_surcharge_fields %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}{{ invoice.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
@@ -17,6 +18,7 @@
         <span class="badge badge-success">{{ invoice.status }}</span>
         {% endif %}
       </div>
+      {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
       <div class="detail-grid">
         <div>
           <div class="detail-label">Client</div>
@@ -69,6 +71,35 @@
         <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ invoice.notes }}</p>
       </div>
       {% endif %}
+
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="detail-label">Pay with Stripe</div>
+            {% if not business.stripe_secret_key %}
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Stripe isn\u2019t configured for this site yet \u2014 set it up under Settings \u2192 Payment Details.</div>
+            {% elif invoice.status == 'Paid' %}
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">This invoice is already paid.</div>
+            {% elif invoice.stripe_enabled %}
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; word-break: break-all;">
+              <span class="badge badge-success" style="margin-right: 0.4rem;">On</span>
+              <a href="{{ url_for('public.pay_invoice', token=invoice.pay_token, _external=True) }}" target="_blank" style="color: var(--accent);">{{ url_for('public.pay_invoice', token=invoice.pay_token, _external=True) }}</a>
+            </div>
+            {% else %}
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span class="badge badge-muted" style="margin-right: 0.4rem;">Off</span>
+              Client won\u2019t see an online payment option on this invoice.
+            </div>
+            {% endif %}
+          </div>
+          {% if business.stripe_secret_key and invoice.status != 'Paid' %}
+          <form method="post" action="{{ url_for('main.toggle_invoice_stripe', invoice_id=invoice.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm {{ 'btn-secondary' if invoice.stripe_enabled else '' }}">{{ 'Disable' if invoice.stripe_enabled else 'Enable' }}</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
     </div>
 
     <div class="panel" style="margin-top: 1.25rem;">
@@ -171,6 +202,15 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Send Email</button>
         </form>
+        {% if invoice.status not in ('Paid', 'Cancelled') %}
+        <form method="post" action="{{ url_for('main.send_invoice_reminder_route', invoice_id=invoice.id) }}" onsubmit="return confirm('Send a payment reminder to {{ invoice.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-block btn-secondary">Send Payment Reminder</button>
+        </form>
+        {% if invoice.last_reminder_sent_at %}
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: -0.5rem;">Last reminder sent {{ invoice.last_reminder_sent_at.strftime('%d %b %Y') }}</div>
+        {% endif %}
+        {% endif %}
         <form method="post" action="{{ url_for('main.delete_invoice', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-danger">Delete Invoice</button>

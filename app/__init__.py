@@ -115,12 +115,16 @@ def create_app(test_config=None):
     from app.settings import settings_bp
     from app.filament import filament_bp
     from app.public import public_bp
+    from app.export import export_bp
+    from app.feedback import feedback_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(filament_bp)
     app.register_blueprint(public_bp)
+    app.register_blueprint(export_bp)
+    app.register_blueprint(feedback_bp)
 
     with app.app_context():
         db.create_all()
@@ -210,11 +214,8 @@ def _register_cli(app):
         """
         from datetime import datetime, timedelta
         from app.models import Invoice
-        from app.helpers import (
-            get_business_settings, send_document_email, notify_admin_new_submission,
-            render_email_template, html_to_text, EmailNotConfiguredError,
-        )
-        from app.main import _invoice_pdf_bytes
+        from app.helpers import get_business_settings, notify_admin_new_submission, EmailNotConfiguredError
+        from app.main import send_invoice_reminder
 
         business = get_business_settings()
         cutoff = datetime.utcnow() - timedelta(days=7)
@@ -242,40 +243,7 @@ def _register_cli(app):
                 continue
 
             try:
-                pdf = _invoice_pdf_bytes(invoice)
-                days_overdue = (datetime.utcnow().date() - invoice.due_date).days
-                default_subject = f'Overdue: Invoice {invoice.display_number} from {business.name or "us"}'
-                default_body = (
-                    f"Hi {invoice.client.name},\n\n"
-                    f"This is a reminder that invoice {invoice.display_number} for "
-                    f"${invoice.total:,.2f} was due on {invoice.due_date.strftime('%d %B %Y')} "
-                    f"and is now {days_overdue} day{'s' if days_overdue != 1 else ''} overdue.\n\n"
-                    f"The invoice is attached again for your convenience.\n\n"
-                    f"Kind regards,\n{business.name or ''}"
-                )
-                context = {
-                    'client_name': invoice.client.name,
-                    'business_name': business.name or '',
-                    'document_number': invoice.display_number,
-                    'total': f'{invoice.total:,.2f}',
-                    'due_date': invoice.due_date.strftime('%d %B %Y'),
-                    'days_overdue': str(days_overdue),
-                }
-                # Now uses its own dedicated overdue_reminder_email_body_html template
-                # (not the invoice template, which is written for a fresh invoice and
-                # wouldn't mention it's now overdue) — falls back to plain default_body
-                # when nothing custom is configured.
-                subject = render_email_template(business.overdue_reminder_email_subject, context) or default_subject
-                html_body = render_email_template(business.overdue_reminder_email_body_html, context, escape_html=True)
-                body_text = html_to_text(html_body) if html_body else default_body
-
-                send_document_email(
-                    business, invoice.client.email,
-                    subject=subject, body_text=body_text, html_body=html_body,
-                    pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
-                )
-                invoice.last_reminder_sent_at = datetime.utcnow()
-                db.session.commit()
+                send_invoice_reminder(invoice, business)
                 sent.append(invoice.display_number)
             except EmailNotConfiguredError:
                 click.echo('SMTP is not configured — set it up in Settings before running this command.')

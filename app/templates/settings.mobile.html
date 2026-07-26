@@ -9,6 +9,7 @@
   <a href="{{ url_for('settings.settings', tab='email') }}" class="m-subtab{% if active_tab == 'email' %} active{% endif %}">Email</a>
   <a href="{{ url_for('settings.settings', tab='security') }}" class="m-subtab{% if active_tab == 'security' %} active{% endif %}">Security</a>
   <a href="{{ url_for('settings.settings', tab='users') }}" class="m-subtab{% if active_tab == 'users' %} active{% endif %}">Users</a>
+  <a href="{{ url_for('settings.settings', tab='export') }}" class="m-subtab{% if active_tab == 'export' %} active{% endif %}">Data Export</a>
   <a href="{{ url_for('settings.audit_log') }}" class="m-subtab">Audit Log</a>
 </div>
 
@@ -267,6 +268,29 @@
   {% endif %}
 </div>
 
+<div class="m-card">
+  <div class="m-section-title" style="margin-top: 0;">Google Account</div>
+  <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
+    Applies to your own account ({{ current_user.username }}). Connecting never creates a new
+    account — it only links Google to the account you're already logged into.
+    {% if not business.google_oauth_client_id %}
+    <br>Google sign-in isn\u2019t configured yet — set it up under Security first.
+    {% endif %}
+  </p>
+  {% if current_user.google_sub %}
+  <p><span class="m-badge m-badge-success">Connected</span></p>
+  <form method="post" action="{{ url_for('auth.disconnect_google') }}" onsubmit="return confirm('Disconnect your Google account? You\u2019ll need your password to sign in.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="m-btn m-btn-danger">Disconnect Google</button>
+  </form>
+  {% else %}
+  <p><span class="m-badge m-badge-muted">Not connected</span></p>
+  {% if business.google_oauth_client_id %}
+  <a href="{{ url_for('auth.connect_google') }}" class="m-btn m-btn-primary">Connect Google Account</a>
+  {% endif %}
+  {% endif %}
+</div>
+
 <div class="m-section-title">Dashboard Users</div>
 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
   There's no public sign-up — accounts are only created here, or via <code>flask create-admin</code> on the server.
@@ -297,6 +321,23 @@
     <div class="m-field"><label>Password (at least 8 characters)</label><input type="password" name="password" minlength="8" required></div>
     <button type="submit" class="m-btn m-btn-primary">Create User</button>
   </form>
+</div>
+{% elif active_tab == 'export' %}
+<div class="m-card">
+  <div class="m-section-title" style="margin-top: 0;">Export Everything</div>
+  <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">One zip with a CSV for every table.</p>
+  <a href="{{ url_for('export.export_all') }}" class="m-btn m-btn-primary">Download All (.zip)</a>
+</div>
+<div class="m-section-title">Individual CSVs</div>
+<div class="m-card">
+  <a href="{{ url_for('export.export_csv', key='customers') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Customers</a>
+  <a href="{{ url_for('export.export_csv', key='filament') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Filament</a>
+  <a href="{{ url_for('export.export_csv', key='spools') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Filament Spools</a>
+  <a href="{{ url_for('export.export_csv', key='quotes') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Quotes</a>
+  <a href="{{ url_for('export.export_csv', key='invoices') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Invoices</a>
+  <a href="{{ url_for('export.export_csv', key='jobs') }}" class="m-btn m-btn-secondary" style="margin-bottom: 0.5rem;">Jobs</a>
+  <a href="{{ url_for('export.export_csv', key='requests') }}" class="m-btn m-btn-secondary">Requests</a>
+  <a href="{{ url_for('export.export_csv', key='feedback') }}" class="m-btn m-btn-secondary" style="margin-top: 0.5rem;">Feedback Responses</a>
 </div>
 {% endif %}
 {% endblock %}

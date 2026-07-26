@@ -126,6 +126,77 @@ def login_google_callback():
     return redirect(url_for('main.index'))
 
 
+@auth_bp.route('/google/connect')
+@login_required
+@limiter.limit('10 per minute')
+def connect_google():
+    """Self-service binding: lets an already-authenticated dashboard user link their
+    own Google account, as an alternative to the automatic email-match linking that
+    happens on first Google sign-in. This never creates a User — it only ever
+    attaches a google_sub to the account you're already logged into.
+    """
+    business = get_business_settings()
+    client = _get_google_client(business)
+    if not client:
+        flash('Google sign-in isn\u2019t set up for this site.')
+        return redirect(url_for('settings.settings', tab='users'))
+    redirect_uri = url_for('auth.connect_google_callback', _external=True)
+    return client.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/google/connect/callback')
+@login_required
+@limiter.limit('10 per minute')
+def connect_google_callback():
+    business = get_business_settings()
+    client = _get_google_client(business)
+    if not client:
+        flash('Google sign-in isn\u2019t set up for this site.')
+        return redirect(url_for('settings.settings', tab='users'))
+
+    try:
+        token = client.authorize_access_token()
+        userinfo = token.get('userinfo') or client.parse_id_token(token)
+    except Exception:
+        log_audit('google_account_link_failed', target_type='user', target_id=current_user.id, detail='oauth_error')
+        flash('Could not connect your Google account. Please try again.')
+        return redirect(url_for('settings.settings', tab='users'))
+
+    google_sub = userinfo.get('sub')
+    email = (userinfo.get('email') or '').strip().lower()
+    email_verified = userinfo.get('email_verified', False)
+
+    if not google_sub or not email or not email_verified:
+        log_audit('google_account_link_failed', target_type='user', target_id=current_user.id, detail='unverified')
+        flash('That Google account\u2019s email must be verified to connect it.')
+        return redirect(url_for('settings.settings', tab='users'))
+
+    existing = User.query.filter_by(google_sub=google_sub).first()
+    if existing and existing.id != current_user.id:
+        log_audit('google_account_link_failed', target_type='user', target_id=current_user.id, detail='already_linked_elsewhere')
+        flash('That Google account is already connected to a different dashboard user.')
+        return redirect(url_for('settings.settings', tab='users'))
+
+    current_user.google_sub = google_sub
+    db.session.commit()
+    log_audit('google_account_linked', target_type='user', target_id=current_user.id, detail=f'manual email={email[:80]}')
+    flash('Your Google account is now connected \u2014 you can sign in with it next time.')
+    return redirect(url_for('settings.settings', tab='users'))
+
+
+@auth_bp.route('/google/disconnect', methods=['POST'])
+@login_required
+def disconnect_google():
+    if not current_user.google_sub:
+        flash('No Google account is connected.')
+        return redirect(url_for('settings.settings', tab='users'))
+    current_user.google_sub = None
+    db.session.commit()
+    log_audit('google_account_unlinked', target_type='user', target_id=current_user.id)
+    flash('Your Google account has been disconnected.')
+    return redirect(url_for('settings.settings', tab='users'))
+
+
 @auth_bp.route('/verify-2fa', methods=['GET', 'POST'])
 @limiter.limit('10 per minute', methods=['POST'])
 def verify_2fa():

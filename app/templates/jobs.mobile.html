@@ -1,4 +1,5 @@
 {% extends 'base.mobile.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}Jobs{% endblock %}
 {% block content %}
 
@@ -15,7 +16,7 @@
 
 {% if jobs %}
   {% for job in jobs %}
-  <div class="m-card">
+  <div class="m-card" id="job-{{ job.id }}">
     <div class="m-card-row" style="margin-bottom: 0.5rem;">
       <div>
         <div class="m-card-sub">{{ job.display_number }}</div>
@@ -23,10 +24,19 @@
         <div class="m-card-sub">{{ job.client.name }}</div>
       </div>
     </div>
+    {% if job.quote %}{{ pipeline_chain(quote=job.quote, current='job', current_id=job.id) }}{% endif %}
     <div class="m-card-meta">
       {% if job.archived %}<span class="m-badge m-badge-muted">Archived</span>{% endif %}
       <span class="m-badge">{{ job.status }}</span>
       {% if job.notify_me %}<span class="m-badge m-badge-muted">🔔{% if job.notify_sent_at %} Sent{% endif %}</span>{% endif %}
+      {% if job.feedback_surveys %}
+      {% set latest_survey = job.feedback_surveys|sort(attribute='sent_at')|last %}
+      {% if latest_survey.responded %}
+      <a href="{{ url_for('feedback.detail', survey_id=latest_survey.id) }}" class="m-badge m-badge-success">⭐ {{ latest_survey.rating }}/5</a>
+      {% else %}
+      <span class="m-badge m-badge-muted">⭐ Pending</span>
+      {% endif %}
+      {% endif %}
     </div>
 
     {% if job.notes %}
@@ -70,6 +80,10 @@
     <div class="m-card-actions">
       <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
       <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="m-btn m-btn-secondary m-btn-sm" style="text-align: center;">Slip</a>
+      <form method="post" action="{{ url_for('main.send_job_survey', job_id=job.id) }}" style="flex: 1;" onsubmit="return confirm('Send a feedback survey to {{ job.client.email }}?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-secondary m-btn-sm" style="width: 100%;">Survey</button>
+      </form>
       {% if job.archived %}
       <form method="post" action="{{ url_for('main.unarchive_job', job_id=job.id) }}" style="flex: 1;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}{{ req.display_number }}{% endblock %}
 {% block content %}
 <div class="layout-split-wide">
@@ -19,6 +20,8 @@
         <span class="badge badge-warning">New</span>
         {% endif %}
       </div>
+
+      {{ pipeline_chain(quote=req.quote, standalone_request=req, current='request') }}
 
       <div class="detail-grid">
         <div>
@@ -119,6 +122,11 @@
       <div class="actions-stack">
         {% if req.status == 'Converted' and req.quote_id %}
         <a href="{{ url_for('main.quote_detail', quote_id=req.quote_id) }}" class="btn-block">View Quote {{ req.quote.display_number }}</a>
+        {% elif req.status == 'Archived' %}
+        <form method="post" action="{{ url_for('main.unarchive_request', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-block btn-secondary">Unarchive</button>
+        </form>
         {% else %}
         <form method="post" action="{{ url_for('main.convert_request_to_quote', request_id=req.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -130,7 +138,7 @@
           <button type="submit" class="btn-block btn-secondary">Mark Reviewed</button>
         </form>
         {% endif %}
-        <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request?')">
+        <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request? Its linked quote, jobs, and invoices will be archived too.')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-danger">Archive</button>
         </form>

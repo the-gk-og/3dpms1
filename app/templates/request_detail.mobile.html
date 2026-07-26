@@ -1,4 +1,5 @@
 {% extends 'base.mobile.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
 {% block page_title %}{{ req.display_number }}{% endblock %}
 {% block content %}
 
@@ -18,6 +19,8 @@
     <span class="m-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">New</span>
     {% endif %}
   </div>
+
+  {{ pipeline_chain(quote=req.quote, standalone_request=req, current='request') }}
 
   <div class="m-card-row" style="margin-bottom: 0.5rem;">
     <span class="m-card-sub">Client</span>
@@ -108,6 +111,11 @@
   <div style="display: flex; flex-direction: column; gap: 0.6rem;">
     {% if req.status == 'Converted' and req.quote_id %}
     <a href="{{ url_for('main.quote_detail', quote_id=req.quote_id) }}" class="m-btn m-btn-primary">View Quote {{ req.quote.display_number }}</a>
+    {% elif req.status == 'Archived' %}
+    <form method="post" action="{{ url_for('main.unarchive_request', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Unarchive</button>
+    </form>
     {% else %}
     <form method="post" action="{{ url_for('main.convert_request_to_quote', request_id=req.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -119,7 +127,7 @@
       <button type="submit" class="m-btn m-btn-secondary">Mark Reviewed</button>
     </form>
     {% endif %}
-    <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request?')">
+    <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request? Its linked quote, jobs, and invoices will be archived too.')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="m-btn m-btn-danger">Archive</button>
     </form>

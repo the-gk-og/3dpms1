@@ -12,6 +12,7 @@
   <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
   <a href="{{ url_for('settings.settings', tab='security') }}" class="tab-link{% if active_tab == 'security' %} active{% endif %}">Security</a>
   <a href="{{ url_for('settings.settings', tab='users') }}" class="tab-link{% if active_tab == 'users' %} active{% endif %}">Users</a>
+  <a href="{{ url_for('settings.settings', tab='export') }}" class="tab-link{% if active_tab == 'export' %} active{% endif %}">Data Export</a>
   <a href="{{ url_for('settings.audit_log') }}" class="tab-link">Audit Log</a>
 </div>
 
@@ -289,6 +290,30 @@
 </div>
 
 <div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Google Account</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Applies to your own account ({{ current_user.username }}). Connecting lets you sign in with
+    Google instead of a password. This never creates a new account \u2014 it only links Google to the
+    account you're already logged into.
+    {% if not business.google_oauth_client_id %}
+    <br>Google sign-in isn\u2019t configured for this site yet \u2014 set it up under the Security tab first.
+    {% endif %}
+  </p>
+  {% if current_user.google_sub %}
+  <p><span class="badge badge-success">Connected</span></p>
+  <form method="post" action="{{ url_for('auth.disconnect_google') }}" onsubmit="return confirm('Disconnect your Google account? You\u2019ll need your password to sign in.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-sm btn-danger">Disconnect Google</button>
+  </form>
+  {% else %}
+  <p><span class="badge badge-muted">Not connected</span></p>
+  {% if business.google_oauth_client_id %}
+  <a href="{{ url_for('auth.connect_google') }}" class="btn-sm">Connect Google Account</a>
+  {% endif %}
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
   <h3 style="margin-top: 0;">Dashboard Users</h3>
   <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
     There's no public sign-up — accounts are only created here, or via the <code>flask create-admin</code>
@@ -328,6 +353,33 @@
     <label>Password <span style="font-weight: 400;">(at least 8 characters)</span><input type="password" name="password" minlength="8" required></label>
     <button type="submit">Create User</button>
   </form>
+</div>
+{% elif active_tab == 'export' %}
+<div class="panel">
+  <h3 style="margin-top: 0;">Export Everything</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    One zip containing a CSV for every table below.
+  </p>
+  <a href="{{ url_for('export.export_all') }}" class="btn-sm">Download All (.zip)</a>
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Individual CSVs</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Each export includes reference numbers linking it back through the pipeline (request → quote → job → invoice) where applicable.
+  </p>
+  <table class="data-table">
+    <tbody>
+      <tr><td>Customers</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='customers') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Filament</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='filament') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Filament Spools</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='spools') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Quotes</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='quotes') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Invoices</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='invoices') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Jobs</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='jobs') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Requests</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='requests') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Feedback Responses</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='feedback') }}" class="btn-sm">Download CSV</a></td></tr>
+    </tbody>
+  </table>
 </div>
 {% endif %}
 {% endblock %}

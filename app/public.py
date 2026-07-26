@@ -305,6 +305,63 @@ def upload_signed_quote(token):
     )
 
 
+@public_bp.route('/feedback/<token>', methods=['GET', 'POST'])
+@limiter.limit('10 per minute', methods=['POST'])
+def feedback_survey(token):
+    """Public page (no login) linked from the feedback survey email. Found via an
+    unguessable token, same pattern as the quote upload and Stripe pay links.
+    """
+    from app.models import FeedbackSurvey
+
+    survey = FeedbackSurvey.query.filter_by(token=token).first()
+    if not survey:
+        abort(404)
+    business = get_business_settings()
+
+    if request.method == 'POST':
+        if survey.responded_at:
+            return render_template('feedback_survey.html', survey=survey, business=business, submitted=True)
+
+        if not _turnstile_ok(business):
+            flash('Verification failed. Please try again.')
+            return redirect(url_for('public.feedback_survey', token=token))
+
+        try:
+            rating = int(request.form.get('rating', 0))
+        except (TypeError, ValueError):
+            rating = 0
+        if rating < 1 or rating > 5:
+            flash('Please choose a star rating.')
+            return redirect(url_for('public.feedback_survey', token=token))
+
+        survey.rating = rating
+        recommend = request.form.get('would_recommend')
+        survey.would_recommend = (recommend == 'yes') if recommend in ('yes', 'no') else None
+        survey.comments = (request.form.get('comments') or '').strip()[:5000]
+        survey.responded_at = datetime.utcnow()
+        db.session.commit()
+
+        try:
+            notify_admin_new_submission(
+                business,
+                subject=f'New feedback received — {survey.job.display_number if survey.job else survey.client.name}',
+                body_text=(
+                    f'Rating: {survey.rating}/5\n'
+                    f'Would recommend: {"Yes" if survey.would_recommend else ("No" if survey.would_recommend is False else "—")}\n'
+                    f'Comments: {survey.comments or "(none)"}'
+                ),
+            )
+        except Exception:
+            pass  # best-effort — the response itself is already saved
+
+        return render_template('feedback_survey.html', survey=survey, business=business, submitted=True)
+
+    return render_template(
+        'feedback_survey.html', survey=survey, business=business,
+        submitted=bool(survey.responded_at),
+    )
+
+
 @public_bp.route('/pay/<token>')
 def pay_invoice(token):
     """Public page (no login) linked from the invoice PDF/email — creates a fresh
@@ -320,7 +377,7 @@ def pay_invoice(token):
     if invoice.status == 'Paid':
         return render_template('pay_invoice.html', invoice=invoice, business=business, already_paid=True)
 
-    if not business.stripe_secret_key:
+    if not business.stripe_secret_key or not invoice.stripe_enabled:
         return render_template(
             'pay_invoice.html', invoice=invoice, business=business,
             error='Online payment isn\u2019t set up for this invoice yet. Please use one of the other payment methods listed on your invoice.',

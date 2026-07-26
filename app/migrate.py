@@ -65,6 +65,7 @@ def run_migrations(db):
             'show_markup_to_client': 'BOOLEAN DEFAULT 0',
             'notify_me': 'BOOLEAN DEFAULT 0',
             'archived': 'BOOLEAN DEFAULT 0',
+            'stripe_enabled': 'BOOLEAN DEFAULT 1',
         },
         'quote': {
             'valid_until': 'DATE',

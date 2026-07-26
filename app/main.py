@@ -17,6 +17,7 @@ from app.helpers import (
     generate_upload_token, render_email_template, html_to_text,
     signed_uploads_dir, job_should_notify, send_job_complete_notification,
     order_uploads_dir, log_audit, render_template,
+    send_feedback_survey_email,
 )
 from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_pdf
 
@@ -177,7 +178,7 @@ def _invoice_pdf_bytes(invoice):
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
 
     payment_details = build_payment_details(business)
-    if business.stripe_secret_key and invoice.status != 'Paid' and invoice.pay_token:
+    if business.stripe_secret_key and invoice.stripe_enabled and invoice.status != 'Paid' and invoice.pay_token:
         pay_url = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
         payment_details.append(f'Pay online now: {pay_url}')
 
@@ -200,6 +201,59 @@ def _invoice_pdf_bytes(invoice):
         payment_terms_font_size=business.payment_terms_font_size or 9,
         tos_font_size=business.tos_font_size or 8,
     )
+
+
+def send_invoice_reminder(invoice, business=None):
+    """Send (or re-send) a payment reminder email for a single invoice, with the
+    invoice PDF re-attached. Shared by the manual "Send Reminder" button on the
+    invoice page and the automated `flask send-overdue-reminders` CLI command, so
+    both use the same subject/body customization and the same
+    Invoice.last_reminder_sent_at bookkeeping.
+
+    Raises EmailNotConfiguredError if SMTP isn't set up, or ValueError if the
+    client has no email on file. Returns True on success.
+    """
+    business = business or get_business_settings()
+    if not invoice.client or not invoice.client.email:
+        raise ValueError('This client has no email address on file.')
+
+    pdf = _invoice_pdf_bytes(invoice)
+    days_overdue = (datetime.utcnow().date() - invoice.due_date).days if invoice.due_date else 0
+    if invoice.due_date and days_overdue > 0:
+        overdue_phrase = f"and is now {days_overdue} day{'s' if days_overdue != 1 else ''} overdue"
+    elif invoice.due_date:
+        overdue_phrase = f"and is due on {invoice.due_date.strftime('%d %B %Y')}"
+    else:
+        overdue_phrase = "and payment is still outstanding"
+
+    default_subject = f'Payment reminder: Invoice {invoice.display_number} from {business.name or "us"}'
+    default_body = (
+        f"Hi {invoice.client.name},\n\n"
+        f"This is a friendly reminder that invoice {invoice.display_number} for "
+        f"${invoice.total:,.2f} {overdue_phrase}.\n\n"
+        f"The invoice is attached again for your convenience.\n\n"
+        f"Kind regards,\n{business.name or ''}"
+    )
+    context = {
+        'client_name': invoice.client.name,
+        'business_name': business.name or '',
+        'document_number': invoice.display_number,
+        'total': f'{invoice.total:,.2f}',
+        'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
+        'days_overdue': str(max(days_overdue, 0)),
+    }
+    subject = render_email_template(business.overdue_reminder_email_subject, context) or default_subject
+    html_body = render_email_template(business.overdue_reminder_email_body_html, context, escape_html=True)
+    body_text = html_to_text(html_body) if html_body else default_body
+
+    send_document_email(
+        business, invoice.client.email,
+        subject=subject, body_text=body_text, html_body=html_body,
+        pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
+    )
+    invoice.last_reminder_sent_at = datetime.utcnow()
+    db.session.commit()
+    return True
 
 
 def _job_packing_slip_bytes(job):
@@ -428,13 +482,43 @@ def delete_quote(quote_id):
     return redirect(url_for('main.quotes'))
 
 
+def _archive_pipeline(archived, quote=None, req=None, job=None, invoice=None):
+    """Archiving (or restoring) any one part of a request→quote→job→invoice chain
+    archives (or restores) the whole chain together, so an archived job or invoice
+    never gets left dangling under a still-active quote, and vice versa.
+
+    Pass whichever single object triggered the action; the rest of the chain is
+    resolved from it via the existing pipeline relationships.
+    """
+    if req and req.quote_id and not quote:
+        quote = req.quote
+    if job and job.quote_id and not quote:
+        quote = job.quote
+    if invoice and invoice.quote_id and not quote:
+        quote = invoice.quote
+    if quote and not req:
+        req = quote.originating_request
+
+    jobs = quote.jobs if quote else ([job] if job else [])
+    invoices = quote.invoices if quote else ([invoice] if invoice else [])
+
+    if req:
+        req.status = 'Archived' if archived else ('Converted' if req.quote_id else 'New')
+    if quote:
+        quote.archived = archived
+    for j in jobs:
+        j.archived = archived
+    for inv in invoices:
+        inv.archived = archived
+    db.session.commit()
+
+
 @main_bp.route('/quotes/<int:quote_id>/archive', methods=['POST'])
 @login_required
 def archive_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
-    quote.archived = True
-    db.session.commit()
-    flash('Quote archived')
+    _archive_pipeline(True, quote=quote)
+    flash('Quote and its linked request, jobs, and invoices were archived')
     return redirect(url_for('main.quotes'))
 
 
@@ -442,9 +526,8 @@ def archive_quote(quote_id):
 @login_required
 def unarchive_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
-    quote.archived = False
-    db.session.commit()
-    flash('Quote restored')
+    _archive_pipeline(False, quote=quote)
+    flash('Quote and its linked request, jobs, and invoices were restored')
     return redirect(url_for('main.quotes', archived='1'))
 
 
@@ -739,19 +822,49 @@ def delete_invoice(invoice_id):
 @login_required
 def archive_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
-    invoice.archived = True
-    db.session.commit()
-    flash('Invoice archived')
+    _archive_pipeline(True, invoice=invoice)
+    flash('Invoice and its linked request, quote, and jobs were archived')
     return redirect(url_for('main.invoices'))
+
+
+@main_bp.route('/invoices/<int:invoice_id>/send-reminder', methods=['POST'])
+@login_required
+def send_invoice_reminder_route(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    business = get_business_settings()
+    try:
+        send_invoice_reminder(invoice, business)
+        log_audit('invoice_reminder_sent', target_type='invoice', target_id=invoice_id, detail='manual')
+        flash(f'Payment reminder sent to {invoice.client.email}')
+    except EmailNotConfiguredError:
+        flash('Email sending isn\u2019t set up yet \u2014 configure SMTP under Settings \u2192 Email.')
+    except ValueError as e:
+        flash(str(e))
+    except Exception:
+        flash('Couldn\u2019t send the reminder email. Please try again.')
+    return redirect(url_for('main.invoice_detail', invoice_id=invoice_id))
+
+
+@main_bp.route('/invoices/<int:invoice_id>/toggle-stripe', methods=['POST'])
+@login_required
+def toggle_invoice_stripe(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    invoice.stripe_enabled = not invoice.stripe_enabled
+    db.session.commit()
+    log_audit(
+        'invoice_stripe_toggled', target_type='invoice', target_id=invoice_id,
+        detail='enabled' if invoice.stripe_enabled else 'disabled',
+    )
+    flash(f'Stripe payment link {"enabled" if invoice.stripe_enabled else "disabled"} for {invoice.display_number}')
+    return redirect(url_for('main.invoice_detail', invoice_id=invoice_id))
 
 
 @main_bp.route('/invoices/<int:invoice_id>/unarchive', methods=['POST'])
 @login_required
 def unarchive_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
-    invoice.archived = False
-    db.session.commit()
-    flash('Invoice restored')
+    _archive_pipeline(False, invoice=invoice)
+    flash('Invoice and its linked request, quote, and jobs were restored')
     return redirect(url_for('main.invoices', archived='1'))
 
 
@@ -950,13 +1063,29 @@ def edit_job(job_id):
     return redirect(url_for('main.jobs'))
 
 
+@main_bp.route('/jobs/<int:job_id>/send-survey', methods=['POST'])
+@login_required
+def send_job_survey(job_id):
+    job = Job.query.get_or_404(job_id)
+    try:
+        survey = send_feedback_survey_email(job)
+        log_audit('feedback_survey_sent', target_type='job', target_id=job_id, detail=job.display_number)
+        flash(f'Feedback survey sent to {job.client.email}')
+    except EmailNotConfiguredError:
+        flash('Email sending isn\u2019t set up yet \u2014 configure SMTP under Settings \u2192 Email.')
+    except ValueError as e:
+        flash(str(e))
+    except Exception:
+        flash('Couldn\u2019t send the feedback survey. Please try again.')
+    return redirect(url_for('main.jobs'))
+
+
 @main_bp.route('/jobs/<int:job_id>/archive', methods=['POST'])
 @login_required
 def archive_job(job_id):
     job = Job.query.get_or_404(job_id)
-    job.archived = True
-    db.session.commit()
-    flash('Job archived')
+    _archive_pipeline(True, job=job)
+    flash('Job and its linked request, quote, and invoices were archived')
     return redirect(url_for('main.jobs'))
 
 
@@ -964,9 +1093,8 @@ def archive_job(job_id):
 @login_required
 def unarchive_job(job_id):
     job = Job.query.get_or_404(job_id)
-    job.archived = False
-    db.session.commit()
-    flash('Job restored')
+    _archive_pipeline(False, job=job)
+    flash('Job and its linked request, quote, and invoices were restored')
     return redirect(url_for('main.jobs', archived='1'))
 
 
@@ -1074,10 +1202,18 @@ def mark_request_reviewed(request_id):
 @login_required
 def archive_request(request_id):
     req = Request.query.get_or_404(request_id)
-    req.status = 'Archived'
-    db.session.commit()
-    flash('Request archived')
+    _archive_pipeline(True, req=req)
+    flash('Request and its linked quote, jobs, and invoices were archived')
     return redirect(url_for('main.requests_list'))
+
+
+@main_bp.route('/requests/<int:request_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_request(request_id):
+    req = Request.query.get_or_404(request_id)
+    _archive_pipeline(False, req=req)
+    flash('Request and its linked quote, jobs, and invoices were restored')
+    return redirect(url_for('main.requests_list', archived='1'))
 
 
 @main_bp.route('/requests/<int:request_id>/files/<path:filename>')

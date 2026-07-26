@@ -1,0 +1,144 @@
+{% from '_turnstile.html' import turnstile_script, turnstile_widget %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Feedback — {{ business.name or 'Survey' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {{ turnstile_script(business) }}
+    <style>
+      body.public-page {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 3rem 1.25rem;
+      }
+      .upload-card { width: 100%; max-width: 460px; }
+      .upload-brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+      .upload-brand img { max-height: 44px; max-width: 120px; }
+      .upload-brand-name { font-weight: 700; font-size: 1.1rem; }
+      .quote-summary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+      }
+      .quote-summary div { margin-bottom: 0.25rem; }
+      .quote-summary div:last-child { margin-bottom: 0; }
+      .success-icon {
+        width: 48px; height: 48px; border-radius: 50%;
+        background: var(--success); color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; margin-bottom: 1rem;
+      }
+      .star-rating {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        gap: 0.25rem;
+        font-size: 2.25rem;
+        margin: 0.5rem 0 1.25rem;
+      }
+      .star-rating input { display: none; }
+      .star-rating label {
+        color: var(--border);
+        cursor: pointer;
+        transition: color 0.1s;
+      }
+      .star-rating input:checked ~ label,
+      .star-rating label:hover,
+      .star-rating label:hover ~ label {
+        color: #f5b301;
+      }
+      .recommend-toggle { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
+      .recommend-toggle label {
+        flex: 1;
+        text-align: center;
+        padding: 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+      .recommend-toggle input { display: none; }
+      .recommend-toggle input:checked ~ label,
+      .recommend-toggle input:checked + label {
+        border-color: var(--accent);
+        background: var(--bg-secondary);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body class="public-page">
+    <div class="upload-card">
+      <div class="upload-brand">
+        {% if business.logo_path %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+        {% endif %}
+        <span class="upload-brand-name">{{ business.name or 'Feedback Survey' }}</span>
+      </div>
+
+      <div class="panel">
+        {% if submitted %}
+          <div class="success-icon">✓</div>
+          <h2 style="margin-top: 0;">Thanks for the feedback!</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            We really appreciate you taking the time to let us know how things went.
+          </p>
+          {% if survey.rating %}
+          <div class="quote-summary" style="margin-top: 1rem;">
+            <div><strong>Your rating:</strong> {{ '★' * survey.rating }}{{ '☆' * (5 - survey.rating) }}</div>
+          </div>
+          {% endif %}
+        {% else %}
+          <h2 style="margin-top: 0;">How did we do?</h2>
+          <div class="quote-summary">
+            {% if survey.job %}
+            <div><strong>Order:</strong> {{ survey.job.display_number }} — {{ survey.job.title }}</div>
+            {% endif %}
+          </div>
+
+          <form method="post" action="{{ url_for('public.feedback_survey', token=survey.token) }}">
+            <label style="font-size: 0.9rem; font-weight: 600;">Overall rating</label>
+            <div class="star-rating">
+              <input type="radio" name="rating" value="5" id="r5"><label for="r5">★</label>
+              <input type="radio" name="rating" value="4" id="r4"><label for="r4">★</label>
+              <input type="radio" name="rating" value="3" id="r3"><label for="r3">★</label>
+              <input type="radio" name="rating" value="2" id="r2"><label for="r2">★</label>
+              <input type="radio" name="rating" value="1" id="r1"><label for="r1">★</label>
+            </div>
+
+            <label style="font-size: 0.9rem; font-weight: 600;">Would you recommend us?</label>
+            <div class="recommend-toggle">
+              <input type="radio" name="would_recommend" value="yes" id="rec-yes"><label for="rec-yes">👍 Yes</label>
+              <input type="radio" name="would_recommend" value="no" id="rec-no"><label for="rec-no">👎 No</label>
+            </div>
+
+            <div class="form-group">
+              <label style="font-size: 0.9rem; font-weight: 600;">Anything you'd like to add? (optional)</label>
+              <textarea name="comments" rows="4" style="width: 100%; margin-top: 0.35rem;" placeholder="Tell us more..."></textarea>
+            </div>
+
+            <div style="margin: 1rem 0;">{{ turnstile_widget(business) }}</div>
+
+            <button type="submit" class="btn-block" style="margin-top: 0.5rem;">Submit Feedback</button>
+          </form>
+        {% endif %}
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flash-list" style="margin-top: 1rem;">
+          {% for message in messages %}
+          <li class="flash-message">{{ message }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </body>
+</html>
