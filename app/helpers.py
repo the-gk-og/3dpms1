@@ -436,7 +436,11 @@ def get_or_create_job_survey(job):
     existing = FeedbackSurvey.query.filter_by(job_id=job.id, responded_at=None).first()
     if existing:
         return existing
-    survey = FeedbackSurvey(job_id=job.id, client_id=job.client_id, quote_id=job.quote_id)
+    survey = FeedbackSurvey(
+        job_id=job.id, client_id=job.client_id, quote_id=job.quote_id,
+        respondent_name=job.client.name if job.client else None,
+        respondent_email=job.client.email if job.client else None,
+    )
     db.session.add(survey)
     db.session.commit()
     return survey

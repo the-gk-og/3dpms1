@@ -28,6 +28,19 @@ def dashboard():
     recommend_yes = sum(1 for s in responded if s.would_recommend is True)
     recommend_no = sum(1 for s in responded if s.would_recommend is False)
 
+    category_fields = [
+        ('Print Quality', 'print_quality_rating'),
+        ('Customer Service', 'customer_service_rating'),
+        ('Communication', 'communication_rating'),
+        ('Turnaround Time', 'turnaround_rating'),
+        ('Value for Money', 'value_rating'),
+    ]
+    category_averages = []
+    for label, field in category_fields:
+        vals = [getattr(s, field) for s in responded if getattr(s, field)]
+        if vals:
+            category_averages.append((label, round(sum(vals) / len(vals), 1)))
+
     filter_ = request.args.get('filter', 'all')
     if filter_ == 'responded':
         shown = responded
@@ -42,6 +55,7 @@ def dashboard():
         total_sent=total_sent, total_responded=total_responded, response_rate=response_rate,
         avg_rating=avg_rating, distribution=distribution, max_bucket=max_bucket,
         recommend_yes=recommend_yes, recommend_no=recommend_no,
+        category_averages=category_averages,
     )
 
 

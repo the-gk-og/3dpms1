@@ -50,6 +50,20 @@
   </div>
 </div>
 
+{% if category_averages %}
+<div class="panel" style="margin-bottom: 1.25rem;">
+  <h3 style="margin-top: 0;">By Category</h3>
+  <div class="cards" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+    {% for label, avg in category_averages %}
+    <div class="card">
+      <div class="metric-label">{{ label }}</div>
+      <div class="metric-value" style="font-size: 1.4rem;">{{ avg }}<span style="font-size: 0.85rem; color: var(--text-muted);"> / 5</span></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="panel">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
     <h3 style="margin: 0;">Responses</h3>
@@ -74,7 +88,10 @@
     <tbody>
       {% for s in surveys %}
       <tr>
-        <td>{{ s.client.name if s.client else '—' }}</td>
+        <td>
+          {{ s.client.name if s.client else '—' }}
+          {% if s.testimonial_ok %}<span class="badge badge-accent" style="margin-left: 0.3rem; font-size: 0.7rem;" title="OK to use as testimonial">💬</span>{% endif %}
+        </td>
         <td>{% if s.job %}<a href="{{ url_for('main.jobs') }}#job-{{ s.job.id }}" style="color: var(--accent);">{{ s.job.display_number }}</a>{% else %}—{% endif %}</td>
         <td>{% if s.rating %}{{ '★' * s.rating }}{{ '☆' * (5 - s.rating) }}{% else %}—{% endif %}</td>
         <td style="font-size: 0.85rem; color: var(--text-muted);">{{ s.sent_at.strftime('%d %b %Y') if s.sent_at else '—' }}</td>

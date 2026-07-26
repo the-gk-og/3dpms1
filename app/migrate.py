@@ -101,6 +101,19 @@ def run_migrations(db):
             'totp_secret': 'TEXT',
             'google_sub': 'VARCHAR(255)',
         },
+        'feedback_survey': {
+            'respondent_name': 'VARCHAR(200)',
+            'respondent_email': 'VARCHAR(200)',
+            'would_order_again': 'BOOLEAN',
+            'print_quality_rating': 'INTEGER',
+            'communication_rating': 'INTEGER',
+            'turnaround_rating': 'INTEGER',
+            'value_rating': 'INTEGER',
+            'customer_service_rating': 'INTEGER',
+            'referral_source': 'VARCHAR(100)',
+            'improvements': 'TEXT',
+            'testimonial_ok': 'BOOLEAN',
+        },
     }
 
     for table, columns in column_migrations.items():

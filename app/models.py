@@ -430,13 +430,47 @@ class FeedbackSurvey(db.Model):
     quote = db.relationship('Quote', backref='feedback_surveys')
     sent_at = db.Column(db.DateTime, default=datetime.utcnow)
     responded_at = db.Column(db.DateTime)
-    rating = db.Column(db.Integer)  # 1-5
+
+    # Respondent info (prefilled from the client on the form, but editable —
+    # useful when the person replying isn't the account holder, e.g. an
+    # office manager filling it in on behalf of the company).
+    respondent_name = db.Column(db.String(200))
+    respondent_email = db.Column(db.String(200))
+
+    # Overall
+    rating = db.Column(db.Integer)  # 1-5 overall satisfaction
     would_recommend = db.Column(db.Boolean)
-    comments = db.Column(db.Text)
+    would_order_again = db.Column(db.Boolean)
+
+    # Category breakdown
+    print_quality_rating = db.Column(db.Integer)  # 1-5
+    communication_rating = db.Column(db.Integer)  # 1-5
+    turnaround_rating = db.Column(db.Integer)      # 1-5 — speed / met deadline
+    value_rating = db.Column(db.Integer)           # 1-5 — value for money
+    customer_service_rating = db.Column(db.Integer)  # 1-5
+
+    referral_source = db.Column(db.String(100))  # how they heard about the business
+    comments = db.Column(db.Text)         # what went well
+    improvements = db.Column(db.Text)     # what could be better
+    testimonial_ok = db.Column(db.Boolean)  # OK to quote publicly as a testimonial
 
     @property
     def responded(self):
         return self.responded_at is not None
+
+    @property
+    def category_ratings(self):
+        """(label, value) pairs for whichever category scores were actually answered —
+        used to render the breakdown consistently on the dashboard and detail page.
+        """
+        pairs = [
+            ('Print Quality', self.print_quality_rating),
+            ('Customer Service', self.customer_service_rating),
+            ('Communication', self.communication_rating),
+            ('Turnaround Time', self.turnaround_rating),
+            ('Value for Money', self.value_rating),
+        ]
+        return [(label, value) for label, value in pairs if value]
 
     @property
     def originating_request(self):

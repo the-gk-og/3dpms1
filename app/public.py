@@ -326,18 +326,36 @@ def feedback_survey(token):
             flash('Verification failed. Please try again.')
             return redirect(url_for('public.feedback_survey', token=token))
 
-        try:
-            rating = int(request.form.get('rating', 0))
-        except (TypeError, ValueError):
-            rating = 0
-        if rating < 1 or rating > 5:
-            flash('Please choose a star rating.')
+        def _star(field):
+            try:
+                val = int(request.form.get(field, 0))
+            except (TypeError, ValueError):
+                return None
+            return val if 1 <= val <= 5 else None
+
+        def _yes_no(field):
+            val = request.form.get(field)
+            return (val == 'yes') if val in ('yes', 'no') else None
+
+        rating = _star('rating')
+        if rating is None:
+            flash('Please choose an overall star rating.')
             return redirect(url_for('public.feedback_survey', token=token))
 
+        survey.respondent_name = (request.form.get('respondent_name') or '').strip()[:200] or survey.respondent_name
+        survey.respondent_email = (request.form.get('respondent_email') or '').strip()[:200] or survey.respondent_email
         survey.rating = rating
-        recommend = request.form.get('would_recommend')
-        survey.would_recommend = (recommend == 'yes') if recommend in ('yes', 'no') else None
+        survey.would_recommend = _yes_no('would_recommend')
+        survey.would_order_again = _yes_no('would_order_again')
+        survey.print_quality_rating = _star('print_quality_rating')
+        survey.customer_service_rating = _star('customer_service_rating')
+        survey.communication_rating = _star('communication_rating')
+        survey.turnaround_rating = _star('turnaround_rating')
+        survey.value_rating = _star('value_rating')
+        survey.referral_source = (request.form.get('referral_source') or '').strip()[:100]
         survey.comments = (request.form.get('comments') or '').strip()[:5000]
+        survey.improvements = (request.form.get('improvements') or '').strip()[:5000]
+        survey.testimonial_ok = request.form.get('testimonial_ok') == 'on'
         survey.responded_at = datetime.utcnow()
         db.session.commit()
 
@@ -348,7 +366,8 @@ def feedback_survey(token):
                 body_text=(
                     f'Rating: {survey.rating}/5\n'
                     f'Would recommend: {"Yes" if survey.would_recommend else ("No" if survey.would_recommend is False else "—")}\n'
-                    f'Comments: {survey.comments or "(none)"}'
+                    f'Comments: {survey.comments or "(none)"}\n'
+                    f'Could improve: {survey.improvements or "(none)"}'
                 ),
             )
         except Exception:

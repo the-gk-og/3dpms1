@@ -136,18 +136,25 @@ def _requests_rows():
 
 def _feedback_rows():
     header = [
-        'Client', 'Job', 'Sent At', 'Responded At', 'Rating', 'Would Recommend', 'Comments',
+        'Respondent Name', 'Respondent Email', 'Client', 'Job', 'Sent At', 'Responded At',
+        'Overall Rating', 'Print Quality', 'Customer Service', 'Communication', 'Turnaround',
+        'Value for Money', 'Would Recommend', 'Would Order Again', 'Referral Source',
+        'Comments', 'Improvements', 'OK for Testimonial',
     ]
     rows = []
     for s in FeedbackSurvey.query.order_by(FeedbackSurvey.sent_at.desc()).all():
+        def yn(v):
+            return 'Yes' if v is True else ('No' if v is False else '')
         rows.append([
-            s.client.name if s.client else '',
-            s.job.display_number if s.job else '',
+            s.respondent_name or '', s.respondent_email or '',
+            s.client.name if s.client else '', s.job.display_number if s.job else '',
             s.sent_at.isoformat() if s.sent_at else '',
             s.responded_at.isoformat() if s.responded_at else '',
-            s.rating or '',
-            'Yes' if s.would_recommend is True else ('No' if s.would_recommend is False else ''),
-            (s.comments or '').replace('\n', ' '),
+            s.rating or '', s.print_quality_rating or '', s.customer_service_rating or '',
+            s.communication_rating or '', s.turnaround_rating or '', s.value_rating or '',
+            yn(s.would_recommend), yn(s.would_order_again), s.referral_source or '',
+            (s.comments or '').replace('\n', ' '), (s.improvements or '').replace('\n', ' '),
+            yn(s.testimonial_ok),
         ])
     return header, rows
 

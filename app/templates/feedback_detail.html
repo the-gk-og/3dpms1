@@ -7,9 +7,10 @@
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <h2 style="margin: 0;">{{ survey.client.name if survey.client else 'Unknown client' }}</h2>
+          <h2 style="margin: 0;">{{ survey.respondent_name or (survey.client.name if survey.client else 'Unknown client') }}</h2>
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-            {% if survey.job %}{{ survey.job.display_number }} — {{ survey.job.title }}{% endif %}
+            {% if survey.respondent_email %}{{ survey.respondent_email }}{% elif survey.client %}{{ survey.client.email }}{% endif %}
+            {% if survey.job %} · {{ survey.job.display_number }} — {{ survey.job.title }}{% endif %}
           </div>
         </div>
         {% if survey.responded %}
@@ -26,7 +27,7 @@
       {% if survey.responded %}
       <div class="detail-grid">
         <div>
-          <div class="detail-label">Rating</div>
+          <div class="detail-label">Overall Rating</div>
           <div class="detail-value" style="font-size: 1.25rem; color: #f5b301;">{{ '★' * survey.rating }}{{ '☆' * (5 - survey.rating) }}</div>
         </div>
         <div>
@@ -34,6 +35,16 @@
           <div class="detail-value">
             {% if survey.would_recommend is true %}👍 Yes{% elif survey.would_recommend is false %}👎 No{% else %}—{% endif %}
           </div>
+        </div>
+        <div>
+          <div class="detail-label">Would Order Again</div>
+          <div class="detail-value">
+            {% if survey.would_order_again is true %}Yes{% elif survey.would_order_again is false %}No{% else %}—{% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="detail-label">How They Heard About Us</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ survey.referral_source or '—' }}</div>
         </div>
         <div>
           <div class="detail-label">Sent</div>
@@ -44,10 +55,38 @@
           <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ survey.responded_at.strftime('%d %b %Y') if survey.responded_at else '—' }}</div>
         </div>
       </div>
+
+      {% if survey.category_ratings %}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div class="detail-label" style="margin-bottom: 0.5rem;">By Category</div>
+        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+          {% for label, value in survey.category_ratings %}
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+            <span>{{ label }}</span>
+            <span style="color: #f5b301;">{{ '★' * value }}{{ '☆' * (5 - value) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
       {% if survey.comments %}
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-        <div class="detail-label">Comments</div>
+        <div class="detail-label">What went well</div>
         <p style="margin: 0.25rem 0 0; font-size: 0.9rem; white-space: pre-wrap;">{{ survey.comments }}</p>
+      </div>
+      {% endif %}
+
+      {% if survey.improvements %}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div class="detail-label">Could be improved</div>
+        <p style="margin: 0.25rem 0 0; font-size: 0.9rem; white-space: pre-wrap;">{{ survey.improvements }}</p>
+      </div>
+      {% endif %}
+
+      {% if survey.testimonial_ok %}
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <span class="badge badge-accent">💬 OK to use as a public testimonial</span>
       </div>
       {% endif %}
       {% else %}
