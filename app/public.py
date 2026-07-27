@@ -14,6 +14,7 @@ from app.helpers import (
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
     verify_turnstile, render_template as render_template_mobile_aware,
+    default_email_html,
 )
 import secrets
 
@@ -99,14 +100,14 @@ def contact():
             try:
                 safe_name = ' '.join(name.split())  # collapse embedded newlines/whitespace for the Subject header
                 default_subject = f'New contact form message from {safe_name}'
-                default_body = f'From: {name} <{email}>\n\n{message}'
                 context = {
                     'business_name': business.name or '', 'contact_name': safe_name,
                     'contact_email': email, 'message': message,
                 }
                 subject = render_email_template(business.contact_notification_email_subject, context) or default_subject
-                html_body = render_email_template(business.contact_notification_email_body_html, context, escape_html=True)
-                body_text = html_to_text(html_body) if html_body else default_body
+                custom_html = render_email_template(business.contact_notification_email_body_html, context, escape_html=True)
+                html_body = custom_html or default_email_html('contact_notification', context, business)
+                body_text = html_to_text(html_body)
                 notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
             except EmailNotConfiguredError:
                 pass  # Message was still received via the form; email just isn't set up.
@@ -219,20 +220,7 @@ def order_form():
         db.session.commit()
 
         try:
-            summary_lines = [
-                f'New order request: {request_number}',
-                f'Client: {name} ({email}, {phone})',
-                f'Type: {"Needs design" if model_source == "need_design" else "Has model"}',
-            ]
-            if order_details.get('description'):
-                summary_lines.append(f'Description: {order_details["description"]}')
-            if materials:
-                summary_lines.append(f'Materials: {", ".join(materials)}')
-            if order_details.get('notes'):
-                summary_lines.append(f'Notes: {order_details["notes"]}')
-            summary_lines.append(f'Review it in the dashboard under Requests.')
             default_subject = f'New order request — {request_number}'
-            default_body = '\n'.join(summary_lines)
             summary_html_lines = [
                 f'Type: {"Needs design" if model_source == "need_design" else "Has model"}',
             ]
@@ -244,10 +232,12 @@ def order_form():
                 'business_name': business.name or '', 'contact_name': name,
                 'contact_email': email, 'document_number': request_number,
                 'summary': ' \u00b7 '.join(summary_html_lines),
+                'dashboard_link': url_for('main.request_detail', request_id=new_request.id, _external=True),
             }
             subject = render_email_template(business.order_notification_email_subject, context) or default_subject
-            html_body = render_email_template(business.order_notification_email_body_html, context, escape_html=True)
-            body_text = html_to_text(html_body) if html_body else default_body
+            custom_html = render_email_template(business.order_notification_email_body_html, context, escape_html=True)
+            html_body = custom_html or default_email_html('order_notification', context, business)
+            body_text = html_to_text(html_body)
             notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
         except EmailNotConfiguredError:
             pass
@@ -494,19 +484,16 @@ def stripe_webhook():
             try:
                 client_name = invoice.client.name if invoice.client else 'A client'
                 default_subject = f'Invoice {invoice.display_number} paid \u2014 ${invoice.total:,.2f}'
-                default_body = (
-                    f'{client_name} just paid invoice {invoice.display_number} for '
-                    f'${invoice.total:,.2f} via Stripe.\n\n'
-                    f'Paid at: {invoice.paid_at.strftime("%Y-%m-%d %H:%M UTC")}'
-                )
                 context = {
                     'business_name': business.name or '', 'client_name': client_name,
                     'document_number': invoice.display_number, 'total': f'{invoice.total:,.2f}',
                     'paid_at': invoice.paid_at.strftime('%d %B %Y, %I:%M %p UTC'),
+                    'dashboard_link': url_for('main.invoice_detail', invoice_id=invoice.id, _external=True),
                 }
                 subject = render_email_template(business.invoice_paid_notification_email_subject, context) or default_subject
-                html_body = render_email_template(business.invoice_paid_notification_email_body_html, context, escape_html=True)
-                body_text = html_to_text(html_body) if html_body else default_body
+                custom_html = render_email_template(business.invoice_paid_notification_email_body_html, context, escape_html=True)
+                html_body = custom_html or default_email_html('invoice_paid_notification', context, business)
+                body_text = html_to_text(html_body)
                 notify_admin_new_submission(business, subject=subject, body_text=body_text, html_body=html_body)
             except Exception:
                 # Best-effort notification only \u2014 the invoice is already marked paid above,

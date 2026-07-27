@@ -260,6 +260,174 @@ def html_to_text(html):
     return text.strip()
 
 
+# --- Default HTML email design ------------------------------------------------------
+#
+# Every outgoing email type has an optional business-authored custom body (see
+# render_email_template above). When a business hasn't written one, the app used to
+# fall back to a plain-text-only message. default_email_html() below gives every
+# email type a polished, on-brand HTML look out of the box instead — a shared,
+# email-client-safe shell (table-based layout, inline styles) wrapping content
+# tailored to that email type. Both the real send sites and the Settings > Email
+# preview button use this same function, so what you preview is what gets sent.
+
+_EMAIL_ACCENT = '#6366f1'
+
+
+def _esc(value):
+    from html import escape
+    return escape(str(value)) if value is not None else ''
+
+
+def _email_button(url, label):
+    if not url:
+        return ''
+    return (
+        f'<div style="text-align:center;margin:28px 0 4px;">'
+        f'<a href="{_esc(url)}" style="background:{_EMAIL_ACCENT};color:#ffffff;text-decoration:none;'
+        f'padding:12px 30px;border-radius:8px;font-weight:600;font-size:14px;display:inline-block;">'
+        f'{_esc(label)}</a></div>'
+    )
+
+
+def _email_shell(business, preheader, body_html):
+    """Wraps inner body_html in a branded, responsive, table-based HTML email shell."""
+    name = _esc(business.name or 'Notification')
+    footer_bits = []
+    if business.website:
+        footer_bits.append(f'<a href="{_esc(business.website)}" style="color:{_EMAIL_ACCENT};text-decoration:none;">{_esc(business.website)}</a>')
+    contact = business.contact_email or business.email
+    if contact:
+        footer_bits.append(_esc(contact))
+    if business.phone:
+        footer_bits.append(_esc(business.phone))
+    footer_line = ' &middot; '.join(footer_bits)
+    address_line = f'<div style="margin-top:4px;">{_esc(business.address)}</div>' if business.address else ''
+    footer_contact_line = f'<div style="margin-top:4px;">{footer_line}</div>' if footer_line else ''
+
+    return (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"></head>'
+        '<body style="margin:0;padding:0;background:#f3f4f6;'
+        'font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">'
+        f'<span style="display:none;font-size:1px;color:#f3f4f6;line-height:1px;max-height:0;'
+        f'max-width:0;opacity:0;overflow:hidden;">{_esc(preheader)}</span>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#f3f4f6;padding:32px 16px;"><tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;">'
+        f'<tr><td style="padding:22px 32px;border-bottom:3px solid {_EMAIL_ACCENT};">'
+        f'<span style="font-size:18px;font-weight:700;color:#111827;">{name}</span></td></tr>'
+        f'<tr><td style="padding:32px;color:#1f2937;font-size:15px;line-height:1.6;">{body_html}</td></tr>'
+        '<tr><td style="padding:18px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;'
+        f'color:#9ca3af;font-size:12px;line-height:1.6;"><div>{name}</div>{address_line}'
+        f'{footer_contact_line}'
+        '</td></tr></table></td></tr></table></body></html>'
+    )
+
+
+def default_email_html(template_key, context, business):
+    """Builds the default branded HTML body for a given email type from its context
+    dict (the same dict already passed to render_email_template for the custom-body
+    path), so this can be used interchangeably at send time and in the Settings
+    preview. context values are treated as untrusted display text and escaped.
+    """
+    c = {k: _esc(v) for k, v in context.items()}
+    client_name = c.get('client_name', 'there')
+
+    if template_key == 'quote':
+        valid_line = f'<p>This quote is valid until <strong>{c["valid_until"]}</strong>.</p>' if context.get('valid_until') else ''
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">Your quote is ready</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>Please find attached quote <strong>{c.get("document_number","")}</strong> '
+            f'for <strong>${c.get("total","")}</strong>.</p>'
+            f'{valid_line}'
+            f'{_email_button(context.get("upload_link"), "View & Sign Quote")}'
+        )
+        return _email_shell(business, f'Quote {c.get("document_number","")} — ${c.get("total","")}', body)
+
+    if template_key == 'invoice':
+        due_line = f'<p>Payment is due by <strong>{c["due_date"]}</strong>.</p>' if context.get('due_date') else ''
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">Invoice from {c.get("business_name","")}</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>Please find attached invoice <strong>{c.get("document_number","")}</strong> '
+            f'for <strong>${c.get("total","")}</strong>.</p>'
+            f'{due_line}'
+            f'{_email_button(context.get("pay_link"), "Pay Now")}'
+        )
+        return _email_shell(business, f'Invoice {c.get("document_number","")} — ${c.get("total","")}', body)
+
+    if template_key == 'job_complete':
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">Your order is ready 🎉</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>Good news — your order <strong>{c.get("document_number","")}</strong> '
+            f'({c.get("job_title","")}) is complete.</p>'
+        )
+        return _email_shell(business, f'Order {c.get("document_number","")} is ready', body)
+
+    if template_key == 'overdue_reminder':
+        days = context.get('days_overdue')
+        overdue_line = (
+            f'is now <strong>{c["days_overdue"]} day{"s" if str(days) != "1" else ""} overdue</strong>'
+            if days and str(days) != '0' else f'is due on <strong>{c.get("due_date","")}</strong>'
+        )
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">Payment Reminder</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>This is a friendly reminder that invoice <strong>{c.get("document_number","")}</strong> '
+            f'for <strong>${c.get("total","")}</strong> {overdue_line}.</p>'
+            f'<p>The invoice is attached again for your convenience.</p>'
+            f'{_email_button(context.get("pay_link"), "Pay Now")}'
+        )
+        return _email_shell(business, f'Payment reminder — {c.get("document_number","")}', body)
+
+    if template_key == 'contact_notification':
+        mailto = f'mailto:{context.get("contact_email", "")}'
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">New contact form message</h2>'
+            f'<p><strong>{c.get("contact_name","")}</strong> ({c.get("contact_email","")}) wrote:</p>'
+            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;'
+            f'white-space:pre-wrap;">{c.get("message","")}</div>'
+            f'{_email_button(mailto, "Reply")}'
+        )
+        return _email_shell(business, f'New message from {c.get("contact_name","")}', body)
+
+    if template_key == 'order_notification':
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">New order request</h2>'
+            f'<p>Reference <strong>{c.get("document_number","")}</strong> from '
+            f'<strong>{c.get("contact_name","")}</strong> ({c.get("contact_email","")}).</p>'
+            f'<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">'
+            f'{c.get("summary","")}</div>'
+            f'{_email_button(context.get("dashboard_link"), "Review in Dashboard")}'
+        )
+        return _email_shell(business, f'New order request — {c.get("document_number","")}', body)
+
+    if template_key == 'invoice_paid_notification':
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">💰 Invoice Paid</h2>'
+            f'<p><strong>{client_name}</strong> just paid invoice <strong>{c.get("document_number","")}</strong> '
+            f'for <strong>${c.get("total","")}</strong> via Stripe.</p>'
+            f'<p style="color:#6b7280;font-size:13px;">Paid at {c.get("paid_at","")}</p>'
+            f'{_email_button(context.get("dashboard_link"), "View Invoice")}'
+        )
+        return _email_shell(business, f'Invoice {c.get("document_number","")} paid — ${c.get("total","")}', body)
+
+    if template_key == 'feedback_survey':
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">How did we do?</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>We\u2019d love to hear how your order <strong>{c.get("document_number","")}</strong> '
+            f'({c.get("job_title","")}) went. It only takes a minute.</p>'
+            f'{_email_button(context.get("survey_url"), "Leave Feedback")}'
+        )
+        return _email_shell(business, f'How did we do? — {c.get("document_number","")}', body)
+
+    return _email_shell(business, '', '<p>Notification</p>')
+
+
 def verify_turnstile(secret_key, token, remote_ip=None):
     """Verify a Cloudflare Turnstile token server-side. Returns True/False — fails
     closed (False) on any network or parsing error rather than raising, so a broken
@@ -405,18 +573,14 @@ def send_job_complete_notification(job, business):
         return False
 
     default_subject = f'Your order {job.display_number} is ready — {business.name or ""}'.strip()
-    default_body = (
-        f"Hi {job.client.name},\n\n"
-        f"Good news — your order {job.display_number} ({job.title}) is complete.\n\n"
-        f"Kind regards,\n{business.name or ''}"
-    )
     context = {
         'client_name': job.client.name, 'business_name': business.name or '',
         'document_number': job.display_number, 'job_title': job.title or '',
     }
     subject = render_email_template(business.job_complete_email_subject, context) or default_subject
-    html_body = render_email_template(business.job_complete_email_body_html, context, escape_html=True)
-    body = html_to_text(html_body) if html_body else default_body
+    custom_html = render_email_template(business.job_complete_email_body_html, context, escape_html=True)
+    html_body = custom_html or default_email_html('job_complete', context, business)
+    body = html_to_text(html_body)
 
     send_plain_email(business, job.client.email, subject, body, html_body=html_body)
     from app import db
@@ -462,21 +626,13 @@ def send_feedback_survey_email(job, business=None):
     survey_url = url_for('public.feedback_survey', token=survey.token, _external=True)
 
     subject = f'How did we do? — {job.display_number} from {business.name or "us"}'
-    body = (
-        f"Hi {job.client.name},\n\n"
-        f"We'd love to hear how your order {job.display_number} ({job.title}) went. "
-        f"It only takes a minute:\n\n{survey_url}\n\n"
-        f"Thanks for your time,\n{business.name or ''}"
-    )
-    html_body = (
-        f"<p>Hi {job.client.name},</p>"
-        f"<p>We'd love to hear how your order <strong>{job.display_number}</strong> "
-        f"({job.title}) went. It only takes a minute.</p>"
-        f'<p><a href="{survey_url}" style="display:inline-block;padding:10px 20px;'
-        f'background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">'
-        f"Leave feedback</a></p>"
-        f"<p>Thanks for your time,<br>{business.name or ''}</p>"
-    )
+    context = {
+        'client_name': job.client.name, 'business_name': business.name or '',
+        'document_number': job.display_number, 'job_title': job.title or '',
+        'survey_url': survey_url,
+    }
+    html_body = default_email_html('feedback_survey', context, business)
+    body = html_to_text(html_body)
 
     send_plain_email(business, job.client.email, subject, body, html_body=html_body)
     survey.sent_at = datetime.utcnow()

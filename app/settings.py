@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from app import db
 from app.models import BusinessSettings, User, AuditLog
-from app.helpers import get_business_settings, log_audit, render_email_template, render_template
+from app.helpers import get_business_settings, log_audit, render_email_template, render_template, default_email_html
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/dash/settings')
 
@@ -276,6 +276,7 @@ EMAIL_PREVIEW_SAMPLES = {
             'client_name': 'Jamie Smith', 'business_name': '{business_name}',
             'document_number': 'INV-2026-0091', 'total': '184.50',
             'due_date': '07 August 2026',
+            'pay_link': 'https://example.com/pay/sample-token',
         },
     },
     'job_complete': {
@@ -293,6 +294,7 @@ EMAIL_PREVIEW_SAMPLES = {
             'client_name': 'Jamie Smith', 'business_name': '{business_name}',
             'document_number': 'INV-2026-0091', 'total': '184.50',
             'due_date': '07 August 2026', 'days_overdue': '5',
+            'pay_link': 'https://example.com/pay/sample-token',
         },
     },
     'contact_notification': {
@@ -311,6 +313,7 @@ EMAIL_PREVIEW_SAMPLES = {
             'business_name': '{business_name}', 'contact_name': 'Jamie Smith',
             'contact_email': 'jamie@example.com', 'document_number': 'REQ-2026-0017',
             'summary': 'Type: Has model \u00b7 Materials: PLA, PETG',
+            'dashboard_link': 'https://example.com/dash/requests/17',
         },
     },
     'invoice_paid_notification': {
@@ -320,6 +323,7 @@ EMAIL_PREVIEW_SAMPLES = {
             'business_name': '{business_name}', 'client_name': 'Jamie Smith',
             'document_number': 'INV-2026-0091', 'total': '184.50',
             'paid_at': '24 July 2026, 09:14 AM UTC',
+            'dashboard_link': 'https://example.com/dash/invoices/91',
         },
     },
 }
@@ -350,10 +354,11 @@ def email_preview(template_key):
 
     subject = render_email_template(subject_raw, context) or \
         render_email_template(sample['default_subject'], context)
-    html_body = render_email_template(body_raw, context, escape_html=True)
+    custom_html = render_email_template(body_raw, context, escape_html=True)
+    html_body = custom_html or default_email_html(template_key, context, business)
 
     return render_template(
         'settings_email_preview.html',
         label=sample['label'], subject=subject, html_body=html_body,
-        is_custom=bool(body_raw),
+        is_custom=bool(custom_html),
     )

@@ -154,9 +154,10 @@
   <div class="form-section">
     <h3>Custom Email Templates</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
-      Optional, per email type. Leave blank to use the plain default message. Custom bodies support
-      raw HTML for branded emails. Click Preview to see how a template renders with sample data —
-      it previews whatever's currently typed in the box, even before you save.
+      Optional, per email type. Leave the body blank to use our built-in styled HTML template —
+      it's not plain text, it already looks like a real branded email. Fill in a custom body only
+      if you want full control over the wording and layout. Click Preview to see either version
+      rendered with sample data, even before you save.
     </p>
 
     {% macro email_template_fields(key, title, subject_placeholder, placeholders) %}
@@ -185,8 +186,8 @@
 
     <h3 style="margin-top: 1.5rem;">Notifications To You</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
-      Sent to your business email when something happens — customizing these is optional, the plain
-      default is perfectly readable.
+      Sent to your business email when something happens — customizing these is optional, the
+      built-in styled default is perfectly good on its own.
     </p>
 
     {{ email_template_fields('contact_notification', 'Contact Form Notification', 'New contact form message from {{contact_name}}',

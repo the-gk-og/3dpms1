@@ -18,11 +18,11 @@
       }
       .preview-chrome strong { color: #fff; }
       .preview-note {
-        background: #fef3c7;
-        color: #92400e;
+        background: #eef2ff;
+        color: #3730a3;
         padding: 0.65rem 1.5rem;
         font-size: 0.82rem;
-        border-bottom: 1px solid #fde68a;
+        border-bottom: 1px solid #c7d2fe;
       }
       .email-shell {
         max-width: 640px;
@@ -46,6 +46,7 @@
       }
       .email-body { padding: 1.5rem; color: #1e293b; line-height: 1.6; }
       .email-body p { margin: 0 0 1em; }
+      .email-frame { width: 100%; border: 0; display: block; }
     </style>
   </head>
   <body>
@@ -54,23 +55,20 @@
     </div>
     {% if not is_custom %}
     <div class="preview-note">
-      No custom HTML body is set for this email — it'll be sent as plain text using the built-in
-      default wording instead. This preview shows what the email would look like <em>if</em> you add
-      a custom HTML body.
+      No custom body is set for this email — this is our default styled template, and it's what
+      actually gets sent as-is. Type your own HTML below and click Preview to see your version instead.
     </div>
-    {% endif %}
+    <iframe class="email-frame" style="height: 900px; max-width: 640px; margin: 2rem auto; display: block;" srcdoc="{{ html_body | e }}"></iframe>
+    {% else %}
     <div class="email-shell">
       <div class="email-header">
         <div class="subject">{{ subject }}</div>
         <div>To: sample-client@example.com</div>
       </div>
       <div class="email-body">
-        {% if html_body %}
-          {{ html_body | safe }}
-        {% else %}
-          <p style="color: #94a3b8; font-style: italic;">No custom HTML body configured yet — type one in and click Preview again.</p>
-        {% endif %}
+        {{ html_body | safe }}
       </div>
     </div>
+    {% endif %}
   </body>
 </html>

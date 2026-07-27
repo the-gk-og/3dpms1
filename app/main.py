@@ -17,7 +17,7 @@ from app.helpers import (
     generate_upload_token, render_email_template, html_to_text,
     signed_uploads_dir, job_should_notify, send_job_complete_notification,
     order_uploads_dir, log_audit, render_template,
-    send_feedback_survey_email,
+    send_feedback_survey_email, default_email_html,
 )
 from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_pdf
 
@@ -219,21 +219,8 @@ def send_invoice_reminder(invoice, business=None):
 
     pdf = _invoice_pdf_bytes(invoice)
     days_overdue = (datetime.utcnow().date() - invoice.due_date).days if invoice.due_date else 0
-    if invoice.due_date and days_overdue > 0:
-        overdue_phrase = f"and is now {days_overdue} day{'s' if days_overdue != 1 else ''} overdue"
-    elif invoice.due_date:
-        overdue_phrase = f"and is due on {invoice.due_date.strftime('%d %B %Y')}"
-    else:
-        overdue_phrase = "and payment is still outstanding"
 
     default_subject = f'Payment reminder: Invoice {invoice.display_number} from {business.name or "us"}'
-    default_body = (
-        f"Hi {invoice.client.name},\n\n"
-        f"This is a friendly reminder that invoice {invoice.display_number} for "
-        f"${invoice.total:,.2f} {overdue_phrase}.\n\n"
-        f"The invoice is attached again for your convenience.\n\n"
-        f"Kind regards,\n{business.name or ''}"
-    )
     context = {
         'client_name': invoice.client.name,
         'business_name': business.name or '',
@@ -242,9 +229,13 @@ def send_invoice_reminder(invoice, business=None):
         'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
         'days_overdue': str(max(days_overdue, 0)),
     }
+    if business.stripe_secret_key and invoice.stripe_enabled and invoice.status != 'Paid' and invoice.pay_token:
+        context['pay_link'] = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
+
     subject = render_email_template(business.overdue_reminder_email_subject, context) or default_subject
-    html_body = render_email_template(business.overdue_reminder_email_body_html, context, escape_html=True)
-    body_text = html_to_text(html_body) if html_body else default_body
+    custom_html = render_email_template(business.overdue_reminder_email_body_html, context, escape_html=True)
+    html_body = custom_html or default_email_html('overdue_reminder', context, business)
+    body_text = html_to_text(html_body)
 
     send_document_email(
         business, invoice.client.email,
@@ -615,15 +606,6 @@ def generate_quote_email(quote_id):
             db.session.commit()
         upload_link = url_for('public.upload_signed_quote', token=quote.upload_token, _external=True)
 
-        default_body = (
-            f"Hi {quote.client.name},\n\n"
-            f"Please find attached your quote {quote.display_number} "
-            f"for ${quote.total:,.2f}.\n\n"
-            + (f"This quote is valid until {quote.valid_until.strftime('%d %B %Y')}.\n\n"
-               if quote.valid_until else '')
-            + f"If you'd like to proceed, you can upload a signed copy of this quote here:\n{upload_link}\n\n"
-            + f"Kind regards,\n{business.name or ''}"
-        )
         default_subject = f'Quote {quote.display_number} from {business.name or "us"}'
 
         context = {
@@ -635,8 +617,9 @@ def generate_quote_email(quote_id):
             'upload_link': upload_link,
         }
         subject = render_email_template(business.quote_email_subject, context) or default_subject
-        html_body = render_email_template(business.quote_email_body_html, context, escape_html=True)
-        body_text = html_to_text(html_body) if html_body else default_body
+        custom_html = render_email_template(business.quote_email_body_html, context, escape_html=True)
+        html_body = custom_html or default_email_html('quote', context, business)
+        body_text = html_to_text(html_body)
 
         send_document_email(
             business, quote.client.email,
@@ -941,14 +924,6 @@ def generate_invoice_email(invoice_id):
     business = get_business_settings()
     try:
         pdf = _invoice_pdf_bytes(invoice)
-        default_body = (
-            f"Hi {invoice.client.name},\n\n"
-            f"Please find attached invoice {invoice.display_number} "
-            f"for ${invoice.total:,.2f}.\n\n"
-            + (f"Payment is due by {invoice.due_date.strftime('%d %B %Y')}.\n\n"
-               if invoice.due_date else '')
-            + f"Kind regards,\n{business.name or ''}"
-        )
         default_subject = f'Invoice {invoice.display_number} from {business.name or "us"}'
 
         context = {
@@ -958,9 +933,13 @@ def generate_invoice_email(invoice_id):
             'total': f'{invoice.total:,.2f}',
             'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
         }
+        if business.stripe_secret_key and invoice.stripe_enabled and invoice.status != 'Paid' and invoice.pay_token:
+            context['pay_link'] = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
+
         subject = render_email_template(business.invoice_email_subject, context) or default_subject
-        html_body = render_email_template(business.invoice_email_body_html, context, escape_html=True)
-        body_text = html_to_text(html_body) if html_body else default_body
+        custom_html = render_email_template(business.invoice_email_body_html, context, escape_html=True)
+        html_body = custom_html or default_email_html('invoice', context, business)
+        body_text = html_to_text(html_body)
 
         send_document_email(
             business, invoice.client.email,
