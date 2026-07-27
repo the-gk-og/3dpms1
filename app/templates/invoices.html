@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block page_title %}Invoices{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Invoices</h2>
+  <a href="{{ url_for('main.new_invoice') }}" class="btn">New Invoice</a>
+</div>
+
+<div class="panel" style="margin-bottom: 1.25rem;">
+  <form method="get" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+    <label style="flex: 1; min-width: 200px; margin: 0;">Search
+      <input type="text" name="q" value="{{ q }}" placeholder="Invoice number or customer name">
+    </label>
+    <label class="checkbox-item" style="background: transparent; padding: 0; margin: 0 0 0.6rem;">
+      <input type="checkbox" name="archived" value="1" onchange="this.form.submit()"{% if show_archived %} checked{% endif %}> Show archived
+    </label>
+    <button type="submit" class="btn-secondary" style="margin-bottom: 0;">Search</button>
+  </form>
+</div>
+
+{% if invoices %}
+<div class="panel" style="padding: 0; overflow: hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Invoice</th>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Total</th>
+        <th>Due</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for invoice in invoices %}
+      <tr>
+        <td><strong>{{ invoice.display_number }}</strong></td>
+        <td>{{ invoice.client.name }}</td>
+        <td>
+          {% if invoice.archived %}<span class="badge badge-muted">Archived</span>{% endif %}
+          {% if invoice.is_overdue %}
+          <span class="badge badge-danger">Overdue</span>
+          {% else %}
+          <span class="badge badge-success">{{ invoice.status }}</span>
+          {% endif %}
+        </td>
+        <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</td>
+        <td style="white-space: nowrap;">
+          <a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a>
+          <a href="{{ url_for('main.preview_invoice_pdf', invoice_id=invoice.id) }}" target="_blank" style="color: var(--text-muted); text-decoration: none; font-weight: 500; margin-left: 0.5rem;" title="Preview PDF">PDF</a>
+          {% if invoice.archived %}
+          <form method="post" action="{{ url_for('main.unarchive_invoice', invoice_id=invoice.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">Restore</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('main.archive_invoice', invoice_id=invoice.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">Archive</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-state">
+  <p>{% if q or show_archived %}No invoices match.{% else %}No invoices yet.{% endif %}</p>
+  <p style="font-size: 0.85rem;">Create one directly, or convert a quote once it's accepted.</p>
+  <a href="{{ url_for('main.new_invoice') }}" class="btn" style="margin-top: 1rem;">New Invoice</a>
+</div>
+{% endif %}
+{% endblock %}

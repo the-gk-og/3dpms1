@@ -1,0 +1,216 @@
+{% extends 'base.mobile.html' %}
+{% from '_item_form_fields.mobile.html' import item_type_fields_mobile %}
+{% from '_payment_fields.mobile.html' import payment_surcharge_fields_mobile %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
+{% block page_title %}{{ invoice.display_number }}{% endblock %}
+{% block content %}
+
+<div class="m-card">
+  <div class="m-card-row" style="margin-bottom: 0.75rem;">
+    <div>
+      <div class="m-card-title" style="font-size: 1.15rem;">{{ invoice.display_number }}</div>
+      <div class="m-card-sub">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</div>
+    </div>
+    {% if invoice.is_overdue %}
+    <span class="m-badge m-badge-danger">Overdue</span>
+    {% else %}
+    <span class="m-badge m-badge-success">{{ invoice.status }}</span>
+    {% endif %}
+  </div>
+
+  {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
+
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Client</span>
+    <strong>{{ invoice.client.name }}</strong>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Subtotal</span>
+    <span>${{ "%.2f"|format(invoice.subtotal) }}</span>
+  </div>
+  {% if invoice.surcharge_percent %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Surcharge</span>
+    <span>{{ invoice.surcharge_percent }}%</span>
+  </div>
+  {% endif %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Amount Due</span>
+    <span class="m-card-amount">${{ "%.2f"|format(invoice.total) }}</span>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Due Date</span>
+    <span style="font-size: 0.85rem;">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else 'Not set' }}</span>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Payment</span>
+    <span style="font-size: 0.85rem;">{{ invoice.payment_method }}</span>
+  </div>
+  {% if invoice.paid_at %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Paid On</span>
+    <span style="font-size: 0.85rem;">{{ invoice.paid_at.strftime('%d %b %Y') }}</span>
+  </div>
+  {% endif %}
+  {% if invoice.quote %}
+  <div class="m-card-row">
+    <span class="m-card-sub">From Quote</span>
+    <a href="{{ url_for('main.quote_detail', quote_id=invoice.quote_id) }}" class="m-link-btn">{{ invoice.quote.display_number }}</a>
+  </div>
+  {% endif %}
+
+  {% if invoice.notes %}
+  <hr class="m-divider">
+  <div class="m-card-sub" style="margin-bottom: 0.3rem;">Notes</div>
+  <p style="margin: 0; font-size: 0.9rem;">{{ invoice.notes }}</p>
+  {% endif %}
+
+  <hr class="m-divider">
+  <div class="m-card-sub" style="margin-bottom: 0.3rem;">Pay with Stripe</div>
+  {% if not business.stripe_secret_key %}
+  <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">Stripe isn\u2019t configured for this site yet.</p>
+  {% elif invoice.status == 'Paid' %}
+  <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">This invoice is already paid.</p>
+  {% else %}
+    {% if invoice.stripe_enabled %}
+    <p style="margin: 0 0 0.5rem; font-size: 0.8rem; word-break: break-all;">
+      <span class="m-badge m-badge-success" style="margin-right: 0.4rem;">On</span>
+      <a href="{{ url_for('public.pay_invoice', token=invoice.pay_token, _external=True) }}" target="_blank">{{ url_for('public.pay_invoice', token=invoice.pay_token, _external=True) }}</a>
+    </p>
+    {% else %}
+    <p style="margin: 0 0 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+      <span class="m-badge m-badge-muted" style="margin-right: 0.4rem;">Off</span>
+      No online payment option shown to the client.
+    </p>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.toggle_invoice_stripe', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn {{ 'm-btn-secondary' if invoice.stripe_enabled else 'm-btn-primary' }} m-btn-sm">{{ 'Disable' if invoice.stripe_enabled else 'Enable' }}</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="m-section-title">Line Items</div>
+{% if invoice.items %}
+  {% for item in invoice.items %}
+  <div class="m-card">
+    <div class="m-card-row">
+      <strong style="font-size: 0.92rem;">{{ item.description }}</strong>
+      <span class="m-card-amount" style="font-size: 0.95rem;">${{ "%.2f"|format(item.unit_price) }}</span>
+    </div>
+    <div class="m-card-meta">
+      <span>{{ item.detail_line }}</span>
+      {% if item.item_type != 'print' %}<span class="m-badge m-badge-muted">{{ 'Flat Fee' if item.item_type == 'flat' else 'Hourly' }}</span>{% endif %}
+    </div>
+    <div class="m-card-actions">
+      <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('inv-item-edit-{{ item.id }}')">Edit</button>
+      <form method="post" action="{{ url_for('main.delete_invoice_item', invoice_id=invoice.id, item_id=item.id) }}" onsubmit="return confirm('Remove this item?')" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
+      </form>
+    </div>
+    <div id="inv-item-edit-{{ item.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+      <form method="post" action="{{ url_for('main.edit_invoice_item', invoice_id=invoice.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ item_type_fields_mobile(filaments, business, item) }}
+        <button type="submit" class="m-btn m-btn-primary">Save Item</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="m-empty">No line items yet.</div>
+{% endif %}
+
+<div class="m-section-title">Add Line Item</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('main.add_invoice_item', invoice_id=invoice.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ item_type_fields_mobile(filaments, business) }}
+    <button type="submit" class="m-btn m-btn-primary">Add Item</button>
+  </form>
+</div>
+
+<div class="m-section-title">Edit Invoice</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('main.edit_invoice', invoice_id=invoice.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field">
+      <label>Status</label>
+      <select name="status">
+        {% for s in ['Draft','Sent','Paid','Overdue','Cancelled'] %}
+        <option value="{{ s }}"{% if invoice.status == s %} selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="m-field">
+      <label>Due Date</label>
+      <input type="date" name="due_date" value="{{ invoice.due_date.isoformat() if invoice.due_date else '' }}">
+    </div>
+    <div class="m-field">
+      <label>Notes</label>
+      <textarea name="notes" rows="2">{{ invoice.notes or '' }}</textarea>
+    </div>
+    {{ payment_surcharge_fields_mobile(business, invoice) }}
+    <div class="m-section-title" style="margin-top: 1.25rem;">Order Notifications</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.5rem;">
+      The customer already gets this option on the order form and quote upload page. Tick this
+      if you're setting up this job manually and still want them emailed when it's marked complete.
+    </p>
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="notify_me"{% if invoice.notify_me %} checked{% endif %}>
+      <label style="margin: 0;">Notify me about my order status</label>
+    </div>
+    <div class="m-section-title" style="margin-top: 1.25rem;">Internal Markup</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.5rem;">
+      Adds a margin on top of your costs. It's baked into the prices either way — this only
+      controls whether it's disclosed to the client as its own line, or folded invisibly into the total.
+    </p>
+    <div class="m-field">
+      <label>Markup %</label>
+      <input type="number" step="0.01" name="markup_percent" value="{{ invoice.markup_percent or 0 }}">
+    </div>
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="show_markup_to_client"{% if invoice.show_markup_to_client %} checked{% endif %}>
+      <label style="margin: 0;">Show markup as a line item on the PDF</label>
+    </div>
+    <button type="submit" class="m-btn m-btn-primary">Save Invoice</button>
+  </form>
+</div>
+
+<div class="m-section-title">Actions</div>
+<div class="m-card">
+  <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+    <form method="post" action="{{ url_for('main.generate_invoice_pdf', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Download PDF</button>
+    </form>
+    <a href="{{ url_for('main.preview_invoice_pdf', invoice_id=invoice.id) }}" target="_blank" class="m-btn m-btn-secondary">Preview PDF</a>
+    <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" onsubmit="return confirm('Send this invoice to {{ invoice.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Send Email</button>
+    </form>
+    {% if invoice.status not in ('Paid', 'Cancelled') %}
+    <form method="post" action="{{ url_for('main.send_invoice_reminder_route', invoice_id=invoice.id) }}" onsubmit="return confirm('Send a payment reminder to {{ invoice.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Send Payment Reminder</button>
+    </form>
+    {% if invoice.last_reminder_sent_at %}
+    <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Last reminder sent {{ invoice.last_reminder_sent_at.strftime('%d %b %Y') }}</div>
+    {% endif %}
+    {% endif %}
+    <form method="post" action="{{ url_for('main.delete_invoice', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-danger">Delete Invoice</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
+{% endblock %}

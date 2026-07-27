@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block page_title %}Quotes{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Quotes</h2>
+  <a href="{{ url_for('main.new_quote') }}" class="btn">+ New Quote</a>
+</div>
+
+<div class="panel" style="margin-bottom: 1.25rem;">
+  <form method="get" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+    <label style="flex: 1; min-width: 200px; margin: 0;">Search
+      <input type="text" name="q" value="{{ q }}" placeholder="Quote number or customer name">
+    </label>
+    <label class="checkbox-item" style="background: transparent; padding: 0; margin: 0 0 0.6rem;">
+      <input type="checkbox" name="archived" value="1" onchange="this.form.submit()"{% if show_archived %} checked{% endif %}> Show archived
+    </label>
+    <button type="submit" class="btn-secondary" style="margin-bottom: 0;">Search</button>
+  </form>
+</div>
+
+{% if quotes %}
+<div class="panel" style="padding: 0; overflow: hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Quote</th>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Items</th>
+        <th>Total</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for quote in quotes %}
+      <tr>
+        <td><strong>{{ quote.display_number }}</strong></td>
+        <td>{{ quote.client.name }}</td>
+        <td>
+          {% if quote.archived %}<span class="badge badge-muted">Archived</span>{% endif %}
+          <span class="badge badge-accent">{{ quote.status }}</span>
+        </td>
+        <td>{{ quote.items|length }}</td>
+        <td style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(quote.total) }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ quote.created_at.strftime('%d %b %Y') if quote.created_at else '—' }}</td>
+        <td style="white-space: nowrap;">
+          <a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" style="color: var(--accent); text-decoration: none; font-weight: 500;">Open →</a>
+          <a href="{{ url_for('main.preview_quote_pdf', quote_id=quote.id) }}" target="_blank" style="color: var(--text-muted); text-decoration: none; font-weight: 500; margin-left: 0.5rem;" title="Preview PDF">PDF</a>
+          {% if quote.archived %}
+          <form method="post" action="{{ url_for('main.unarchive_quote', quote_id=quote.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">Restore</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('main.archive_quote', quote_id=quote.id) }}" style="display:inline; margin-left: 0.5rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">Archive</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-state">
+  <p>{% if q or show_archived %}No quotes match.{% else %}No quotes yet.{% endif %}</p>
+  <a href="{{ url_for('main.new_quote') }}" class="btn" style="margin-top: 1rem;">Create your first quote</a>
+</div>
+{% endif %}
+{% endblock %}

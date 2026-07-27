@@ -1,0 +1,213 @@
+{% extends 'base.mobile.html' %}
+{% from '_item_form_fields.mobile.html' import item_type_fields_mobile %}
+{% from '_payment_fields.mobile.html' import payment_surcharge_fields_mobile %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
+{% block page_title %}{{ quote.display_number }}{% endblock %}
+{% block content %}
+
+<div class="m-card">
+  <div class="m-card-row" style="margin-bottom: 0.75rem;">
+    <div>
+      <div class="m-card-title" style="font-size: 1.15rem;">{{ quote.display_number }}</div>
+      <div class="m-card-sub">v{{ quote.version or '1' }} · {{ quote.created_at.strftime('%d %b %Y') if quote.created_at else '—' }}</div>
+    </div>
+    <div style="text-align: right;">
+      <span class="m-badge">{{ quote.status }}</span>
+      {% if quote.is_expired %}<div style="margin-top: 0.3rem;"><span class="m-badge m-badge-danger">Expired</span></div>{% endif %}
+    </div>
+  </div>
+
+  {{ pipeline_chain(quote=quote, current='quote') }}
+
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Client</span>
+    <strong>{{ quote.client.name }}</strong>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Subtotal</span>
+    <span>${{ "%.2f"|format(quote.subtotal) }}</span>
+  </div>
+  {% if quote.surcharge_percent %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Surcharge</span>
+    <span>{{ quote.surcharge_percent }}%</span>
+  </div>
+  {% endif %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Total</span>
+    <span class="m-card-amount">${{ "%.2f"|format(quote.total) }}</span>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Payment</span>
+    <span style="font-size: 0.85rem;">{{ quote.payment_method }}</span>
+  </div>
+  <div class="m-card-row">
+    <span class="m-card-sub">Valid Until</span>
+    <span style="font-size: 0.85rem;">{{ quote.valid_until.strftime('%d %b %Y') if quote.valid_until else 'Not set' }}</span>
+  </div>
+
+  {% if quote.notes %}
+  <hr class="m-divider">
+  <div class="m-card-sub" style="margin-bottom: 0.3rem;">Notes</div>
+  <p style="margin: 0; font-size: 0.9rem;">{{ quote.notes }}</p>
+  {% endif %}
+
+  <hr class="m-divider">
+  <div class="m-card-sub" style="margin-bottom: 0.5rem;">Signed Copy</div>
+  {% if quote.signed_copy_filename %}
+  <p style="margin: 0 0 0.5rem; font-size: 0.88rem;">
+    <span class="m-badge m-badge-success">Received</span>
+    {{ quote.signed_copy_uploaded_at.strftime('%d %b %Y, %I:%M %p') if quote.signed_copy_uploaded_at else '' }}
+  </p>
+  <a href="{{ url_for('main.download_signed_copy', quote_id=quote.id) }}" class="m-link-btn">Download →</a>
+  {% else %}
+  <p style="margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Not yet uploaded by client.</p>
+  {% endif %}
+  <input type="text" readonly value="{{ url_for('public.upload_signed_quote', token=quote.upload_token, _external=True) }}" style="width: 100%; margin-top: 0.5rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-muted); font-size: 0.75rem;" onclick="this.select()">
+</div>
+
+<div class="m-section-title">Line Items</div>
+{% if quote.items %}
+  {% for item in quote.items %}
+  <div class="m-card">
+    <div class="m-card-row">
+      <strong style="font-size: 0.92rem;">{{ item.description }}</strong>
+      <span class="m-card-amount" style="font-size: 0.95rem;">${{ "%.2f"|format(item.unit_price) }}</span>
+    </div>
+    <div class="m-card-meta">
+      <span>{{ item.detail_line }}</span>
+      {% if item.item_type != 'print' %}<span class="m-badge m-badge-muted">{{ 'Flat Fee' if item.item_type == 'flat' else 'Hourly' }}</span>{% endif %}
+    </div>
+    <div class="m-card-actions">
+      <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('item-edit-{{ item.id }}')">Edit</button>
+      <form method="post" action="{{ url_for('main.delete_quote_item', quote_id=quote.id, item_id=item.id) }}" onsubmit="return confirm('Remove this item?')" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
+      </form>
+    </div>
+    <div id="item-edit-{{ item.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+      <form method="post" action="{{ url_for('main.edit_quote_item', quote_id=quote.id, item_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ item_type_fields_mobile(filaments, business, item) }}
+        <button type="submit" class="m-btn m-btn-primary">Save Item</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="m-empty">No line items yet.</div>
+{% endif %}
+
+<div class="m-section-title">Add Line Item</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('main.add_quote_item', quote_id=quote.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ item_type_fields_mobile(filaments, business) }}
+    <button type="submit" class="m-btn m-btn-primary">Add Item</button>
+  </form>
+</div>
+
+<div class="m-section-title">Edit Quote</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('main.edit_quote', quote_id=quote.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field">
+      <label>Status</label>
+      <select name="status">
+        {% for s in ['Draft','Sent','Accepted','In Production','Invoiced','Completed','Cancelled'] %}
+        <option value="{{ s }}"{% if quote.status == s %} selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="m-field">
+      <label>Valid Until</label>
+      <input type="date" name="valid_until" value="{{ quote.valid_until.isoformat() if quote.valid_until else '' }}">
+    </div>
+    <div class="m-field">
+      <label>Notes</label>
+      <textarea name="notes" rows="3">{{ quote.notes or '' }}</textarea>
+    </div>
+    {{ payment_surcharge_fields_mobile(business, quote) }}
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="digital_signature_enabled"{% if quote.digital_signature_enabled %} checked{% endif %}>
+      <label style="margin: 0;">Include signature area on PDF</label>
+    </div>
+    <div class="m-section-title" style="margin-top: 1.25rem;">Internal Markup</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.5rem;">
+      Adds a margin on top of your costs. It's baked into the prices either way — this only
+      controls whether it's disclosed to the client as its own line, or folded invisibly into the total.
+    </p>
+    <div class="m-field">
+      <label>Markup %</label>
+      <input type="number" step="0.01" name="markup_percent" value="{{ quote.markup_percent or 0 }}">
+    </div>
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="show_markup_to_client"{% if quote.show_markup_to_client %} checked{% endif %}>
+      <label style="margin: 0;">Show markup as a line item on the PDF</label>
+    </div>
+    <button type="submit" class="m-btn m-btn-primary">Save Quote</button>
+  </form>
+</div>
+
+<div class="m-section-title">Revision</div>
+<div class="m-card">
+  <div class="m-card-row" style="margin-bottom: 0.75rem;">
+    <span class="m-card-sub">Current version</span>
+    <strong>v{{ quote.version or '1' }}</strong>
+  </div>
+  <form method="post" action="{{ url_for('main.set_quote_version', quote_id=quote.id) }}" style="display: flex; gap: 0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="version" placeholder="e.g. 2 or 1.1" required style="flex: 1; padding: 0.7rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text);">
+    <button type="submit" class="m-btn m-btn-secondary" style="width: auto; padding: 0 1rem;">New Revision</button>
+  </form>
+  {% if quote.version_history %}
+  <details style="margin-top: 0.75rem;">
+    <summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Revision history</summary>
+    <pre style="font-size: 0.78rem; color: var(--text-muted); white-space: pre-wrap; margin: 0.5rem 0 0;">{{ quote.version_history }}</pre>
+  </details>
+  {% endif %}
+</div>
+
+<div class="m-section-title">Actions</div>
+<div class="m-card">
+  <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+    <form method="post" action="{{ url_for('main.generate_quote_pdf', quote_id=quote.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Download PDF</button>
+    </form>
+    <a href="{{ url_for('main.preview_quote_pdf', quote_id=quote.id) }}" target="_blank" class="m-btn m-btn-secondary">Preview PDF</a>
+    {% if existing_invoice %}
+    <a href="{{ url_for('main.invoice_detail', invoice_id=existing_invoice.id) }}" class="m-btn" style="background: var(--success); color: white;">View Invoice</a>
+    {% else %}
+    <form method="post" action="{{ url_for('main.convert_quote_to_invoice', quote_id=quote.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn" style="background: var(--success); color: white;">Create Invoice</button>
+    </form>
+    {% endif %}
+    {% if existing_job %}
+    <a href="{{ url_for('main.jobs') }}" class="m-btn" style="background: #8b5cf6; color: white;">View Job</a>
+    {% else %}
+    <form method="post" action="{{ url_for('main.create_job_from_quote', quote_id=quote.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn" style="background: #8b5cf6; color: white;">Create Job</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.generate_quote_email', quote_id=quote.id) }}" onsubmit="return confirm('Send this quote to {{ quote.client.email }}?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Send Email</button>
+    </form>
+    <form method="post" action="{{ url_for('main.delete_quote', quote_id=quote.id) }}" onsubmit="return confirm('Delete this quote permanently?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-danger">Delete Quote</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
+{% endblock %}

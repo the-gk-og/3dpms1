@@ -1,0 +1,25 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Set Up 2FA{% endblock %}
+{% block content %}
+
+<div class="m-card">
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">
+    Scan this QR code with an authenticator app (Google Authenticator, 1Password, Authy, etc.),
+    then enter the 6-digit code it shows to confirm setup.
+  </p>
+  <div style="background: white; padding: 1rem; border-radius: 8px; display: flex; justify-content: center; margin: 1rem 0;">
+    <img src="{{ url_for('settings.totp_qr_svg') }}" alt="2FA QR code" width="220" height="220">
+  </div>
+  <p style="font-size: 0.82rem; color: var(--text-muted); word-break: break-all;">
+    Can't scan it? Enter this key manually: <code>{{ secret }}</code>
+  </p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field">
+      <label>6-digit code</label>
+      <input type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autofocus style="text-align: center; letter-spacing: 0.3em; font-size: 1.3rem;">
+    </div>
+    <button type="submit" class="m-btn m-btn-primary">Confirm and Enable</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Filament{% endblock %}
+{% block content %}
+
+<div class="m-stats-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Types</div>
+    <div class="m-stat-value">{{ filaments|length }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Spools</div>
+    <div class="m-stat-value">{{ total_spools }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Stock</div>
+    <div class="m-stat-value">{{ "%.1f"|format(total_weight / 1000) }}kg</div>
+  </div>
+</div>
+
+{% if filaments %}
+  {% for f in filaments %}
+  <div class="m-card">
+    <div class="m-card-row" style="margin-bottom: 0.6rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="font-size: 1.4rem;">{{ f.material_emoji }}</span>
+        <div>
+          <div class="m-card-title">{{ f.name }}</div>
+          {% if f.brand or f.material %}
+          <div class="m-card-sub">{{ f.brand or '' }}{% if f.brand and f.material %} · {% endif %}{{ f.material or '' }}{% if f.color %} · {{ f.color }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="m-stats-grid" style="margin-bottom: 0.6rem;">
+      <div class="m-stat-tile" style="padding: 0.6rem;">
+        <div class="m-stat-label">Cost/kg</div>
+        <div class="m-stat-value" style="font-size: 1.05rem;">${{ "%.2f"|format(f.cost_per_kg) }}</div>
+      </div>
+      <div class="m-stat-tile" style="padding: 0.6rem;">
+        <div class="m-stat-label">Sell/kg</div>
+        <div class="m-stat-value" style="font-size: 1.05rem;">${{ "%.2f"|format(f.sell_price_per_kg) }}</div>
+      </div>
+      <div class="m-stat-tile" style="padding: 0.6rem;">
+        <div class="m-stat-label">Spools</div>
+        <div class="m-stat-value" style="font-size: 1.05rem;">{{ f.total_spools }}</div>
+      </div>
+      <div class="m-stat-tile" style="padding: 0.6rem;">
+        <div class="m-stat-label">In Stock</div>
+        <div class="m-stat-value" style="font-size: 1.05rem;">{{ "%.0f"|format(f.total_weight_g) }}g</div>
+      </div>
+    </div>
+
+    {% if f.notes %}
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.6rem;">{{ f.notes }}</p>
+    {% endif %}
+
+    {% if f.spools %}
+    <div class="m-card-sub" style="text-transform: uppercase; font-size: 0.7rem; font-weight: 700; margin-bottom: 0.5rem;">Spools</div>
+    {% for spool in f.spools %}
+    <div style="background: var(--bg-secondary); border-radius: 8px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem;">
+      <div style="font-size: 0.88rem;">
+        <strong>{{ "%.0f"|format(spool.weight_remaining_g) }}g</strong> / {{ "%.0f"|format(spool.initial_weight_g) }}g
+        {% if spool.location %}<span style="color: var(--text-muted);"> · {{ spool.location }}</span>{% endif %}
+      </div>
+      <div style="height: 6px; background: var(--border); border-radius: 3px; margin: 0.4rem 0 0.6rem; overflow: hidden;">
+        <div style="height: 100%; background: var(--accent); width: {{ 100 - spool.used_percent }}%;"></div>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('spool-edit-{{ spool.id }}')">Edit</button>
+        <form method="post" action="{{ url_for('filament.delete_spool', spool_id=spool.id) }}" onsubmit="return confirm('Remove this spool?')" style="flex: 1;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Remove</button>
+        </form>
+      </div>
+      <div id="spool-edit-{{ spool.id }}" class="collapsible-form" style="margin-top: 0.6rem;">
+        <form method="post" action="{{ url_for('filament.edit_spool', spool_id=spool.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="m-field-row">
+            <div class="m-field"><label>Remaining (g)</label><input type="number" step="1" name="weight_remaining_g" value="{{ spool.weight_remaining_g }}"></div>
+            <div class="m-field"><label>Initial (g)</label><input type="number" step="1" name="initial_weight_g" value="{{ spool.initial_weight_g }}"></div>
+          </div>
+          <div class="m-field-row">
+            <div class="m-field"><label>Cost</label><input type="number" step="0.01" name="purchase_cost" value="{{ spool.purchase_cost }}"></div>
+            <div class="m-field"><label>Location</label><input type="text" name="location" value="{{ spool.location or '' }}"></div>
+          </div>
+          <div class="m-field"><label>Notes</label><textarea name="notes" rows="2">{{ spool.notes or '' }}</textarea></div>
+          <button type="submit" class="m-btn m-btn-primary">Save Spool</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="m-card-actions" style="margin-top: 0.75rem;">
+      <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('spool-add-{{ f.id }}')">+ Spool</button>
+      <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('filament-edit-{{ f.id }}')">Edit</button>
+      <form method="post" action="{{ url_for('filament.delete_filament', filament_id=f.id) }}" onsubmit="return confirm('Delete {{ f.name }} and all spools?')" style="flex: 1;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
+      </form>
+    </div>
+
+    <div id="spool-add-{{ f.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+      <form method="post" action="{{ url_for('filament.add_spool', filament_id=f.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="m-field-row">
+          <div class="m-field"><label>Weight (g)</label><input type="number" step="1" name="weight_g" value="1000"></div>
+          <div class="m-field"><label>Purchase Cost</label><input type="number" step="0.01" name="purchase_cost" value="0"></div>
+        </div>
+        <div class="m-field"><label>Location</label><input type="text" name="location" placeholder="Shelf A, etc."></div>
+        <div class="m-field"><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
+        <button type="submit" class="m-btn m-btn-primary">Add Spool</button>
+      </form>
+    </div>
+
+    <div id="filament-edit-{{ f.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+      <form method="post" action="{{ url_for('filament.edit_filament', filament_id=f.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="m-field"><label>Name</label><input type="text" name="name" value="{{ f.name }}" required></div>
+        <div class="m-field"><label>Brand</label><input type="text" name="brand" value="{{ f.brand or '' }}"></div>
+        <div class="m-field">
+          <label>Material</label>
+          <select name="material">
+            {% for m in ['PLA','ABS','PETG','TPU','Nylon','Carbon Fiber','Wood','Resin'] %}
+            <option value="{{ m }}"{% if f.material == m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="m-field"><label>Color</label><input type="text" name="color" value="{{ f.color or '' }}"></div>
+        <div class="m-field-row">
+          <div class="m-field"><label>Cost/kg</label><input type="number" step="0.01" name="cost_per_kg" value="{{ f.cost_per_kg }}"></div>
+          <div class="m-field"><label>Sell Price/kg</label><input type="number" step="0.01" name="price_per_kg" value="{{ f.price_per_kg or f.sell_price_per_kg }}"></div>
+        </div>
+        <div class="m-field"><label>Notes</label><textarea name="notes" rows="2">{{ f.notes or '' }}</textarea></div>
+        <button type="submit" class="m-btn m-btn-primary">Save Changes</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="m-empty">
+  🎨<br>
+  No filament in your inventory yet.<br>
+  <span style="font-size: 0.85rem;">Add your first filament type below.</span>
+</div>
+{% endif %}
+
+<div class="m-section-title">➕ Add Filament</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('filament.add_filament') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Name</label><input type="text" name="name" placeholder="e.g. eSun PLA+ Black" required></div>
+    <div class="m-field"><label>Brand</label><input type="text" name="brand" placeholder="eSun, Bambu, etc."></div>
+    <div class="m-field-row">
+      <div class="m-field">
+        <label>Material</label>
+        <select name="material">
+          <option value="">Select...</option>
+          {% for m, emoji in [('PLA','🌿'),('ABS','🔥'),('PETG','💎'),('TPU','🧊'),('Nylon','⚙️'),('Carbon Fiber','🏎️'),('Wood','🪵'),('Resin','💧')] %}
+          <option value="{{ m }}">{{ emoji }} {{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="m-field"><label>Color</label><input type="text" name="color" placeholder="Black, Red..."></div>
+    </div>
+    <div class="m-field-row">
+      <div class="m-field"><label>Cost/kg ($)</label><input type="number" step="0.01" name="cost_per_kg" placeholder="22.00"></div>
+      <div class="m-field"><label>Sell Price/kg ($)</label><input type="number" step="0.01" name="price_per_kg" placeholder="45.00"></div>
+    </div>
+    <div class="m-field"><label>Notes</label><textarea name="notes" rows="2" placeholder="Optional notes..."></textarea></div>
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="add_spool" checked>
+      <label style="margin: 0;">Add initial spool (1kg)</label>
+    </div>
+    <div class="m-field-row">
+      <div class="m-field"><label>Spool Weight (g)</label><input type="number" step="1" name="spool_weight" value="1000"></div>
+      <div class="m-field"><label>Spool Cost ($)</label><input type="number" step="0.01" name="spool_cost" value="0"></div>
+    </div>
+    <div class="m-field"><label>Spool Location</label><input type="text" name="spool_location" placeholder="Shelf location"></div>
+    <button type="submit" class="m-btn m-btn-primary">Add Filament</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
+{% endblock %}

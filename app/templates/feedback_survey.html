@@ -1,0 +1,248 @@
+{% from '_turnstile.html' import turnstile_script, turnstile_widget %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Feedback — {{ business.name or 'Survey' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {{ turnstile_script(business) }}
+    <style>
+      body.public-page {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 3rem 1.25rem;
+      }
+      .upload-card { width: 100%; max-width: 520px; }
+      .upload-brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+      .upload-brand img { max-height: 44px; max-width: 120px; }
+      .upload-brand-name { font-weight: 700; font-size: 1.1rem; }
+      .quote-summary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+      }
+      .quote-summary div { margin-bottom: 0.25rem; }
+      .quote-summary div:last-child { margin-bottom: 0; }
+      .success-icon {
+        width: 48px; height: 48px; border-radius: 50%;
+        background: var(--success); color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; margin-bottom: 1rem;
+      }
+      .survey-section { margin-bottom: 1.5rem; }
+      .survey-section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+        margin-bottom: 0.6rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+      }
+      .survey-section:first-of-type .survey-section-title { border-top: none; padding-top: 0; }
+      .field-label { font-size: 0.88rem; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+      .star-rating {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        gap: 0.2rem;
+        font-size: 1.9rem;
+        margin: 0.15rem 0 1.1rem;
+      }
+      .star-rating.star-rating-lg { font-size: 2.25rem; margin-bottom: 1.25rem; }
+      .star-rating input { display: none; }
+      .star-rating label { color: var(--border); cursor: pointer; transition: color 0.1s; }
+      .star-rating input:checked ~ label,
+      .star-rating label:hover,
+      .star-rating label:hover ~ label { color: #f5b301; }
+      .category-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+      .category-row .field-label { margin-bottom: 0; white-space: nowrap; }
+      .category-row .star-rating { margin: 0; font-size: 1.3rem; }
+      .toggle-row { display: flex; gap: 0.75rem; margin-bottom: 1.1rem; }
+      .toggle-row label {
+        flex: 1; text-align: center; padding: 0.6rem;
+        border: 1px solid var(--border); border-radius: 8px;
+        cursor: pointer; font-size: 0.88rem;
+      }
+      .toggle-row input { display: none; }
+      .toggle-row input:checked + label {
+        border-color: var(--accent); background: var(--bg-secondary); font-weight: 600;
+      }
+      .checkbox-field { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+      .checkbox-field input { margin-top: 0.2rem; }
+    </style>
+  </head>
+  <body class="public-page">
+    <div class="upload-card">
+      <div class="upload-brand">
+        {% if business.logo_path %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+        {% endif %}
+        <span class="upload-brand-name">{{ business.name or 'Feedback Survey' }}</span>
+      </div>
+
+      <div class="panel">
+        {% if submitted %}
+          <div class="success-icon">✓</div>
+          <h2 style="margin-top: 0;">Thanks for the feedback!</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            We really appreciate you taking the time to let us know how things went.
+          </p>
+          {% if survey.rating %}
+          <div class="quote-summary" style="margin-top: 1rem;">
+            <div><strong>Your rating:</strong> {{ '★' * survey.rating }}{{ '☆' * (5 - survey.rating) }}</div>
+          </div>
+          {% endif %}
+        {% else %}
+          <h2 style="margin-top: 0;">How did we do?</h2>
+          <div class="quote-summary">
+            {% if survey.job %}
+            <div><strong>Order:</strong> {{ survey.job.display_number }} — {{ survey.job.title }}</div>
+            {% endif %}
+          </div>
+
+          <form method="post" action="{{ url_for('public.feedback_survey', token=survey.token) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="survey-section">
+              <div class="survey-section-title">Your Details</div>
+              <label class="field-label" for="respondent_name">Name</label>
+              <input type="text" id="respondent_name" name="respondent_name" value="{{ survey.respondent_name or '' }}" style="width: 100%; margin-bottom: 0.85rem;">
+              <label class="field-label" for="respondent_email">Email</label>
+              <input type="email" id="respondent_email" name="respondent_email" value="{{ survey.respondent_email or '' }}" style="width: 100%;">
+            </div>
+
+            <div class="survey-section">
+              <div class="survey-section-title">Overall</div>
+              <label class="field-label">Overall rating</label>
+              <div class="star-rating star-rating-lg">
+                <input type="radio" name="rating" value="5" id="r5"><label for="r5">★</label>
+                <input type="radio" name="rating" value="4" id="r4"><label for="r4">★</label>
+                <input type="radio" name="rating" value="3" id="r3"><label for="r3">★</label>
+                <input type="radio" name="rating" value="2" id="r2"><label for="r2">★</label>
+                <input type="radio" name="rating" value="1" id="r1"><label for="r1">★</label>
+              </div>
+
+              <label class="field-label">Would you recommend us to others?</label>
+              <div class="toggle-row">
+                <input type="radio" name="would_recommend" value="yes" id="rec-yes"><label for="rec-yes">👍 Yes</label>
+                <input type="radio" name="would_recommend" value="no" id="rec-no"><label for="rec-no">👎 No</label>
+              </div>
+
+              <label class="field-label">Would you order from us again?</label>
+              <div class="toggle-row">
+                <input type="radio" name="would_order_again" value="yes" id="again-yes"><label for="again-yes">Yes</label>
+                <input type="radio" name="would_order_again" value="no" id="again-no"><label for="again-no">No</label>
+              </div>
+            </div>
+
+            <div class="survey-section">
+              <div class="survey-section-title">Rate Your Experience</div>
+
+              <div class="category-row">
+                <span class="field-label">Print Quality</span>
+                <div class="star-rating">
+                  <input type="radio" name="print_quality_rating" value="5" id="pq5"><label for="pq5">★</label>
+                  <input type="radio" name="print_quality_rating" value="4" id="pq4"><label for="pq4">★</label>
+                  <input type="radio" name="print_quality_rating" value="3" id="pq3"><label for="pq3">★</label>
+                  <input type="radio" name="print_quality_rating" value="2" id="pq2"><label for="pq2">★</label>
+                  <input type="radio" name="print_quality_rating" value="1" id="pq1"><label for="pq1">★</label>
+                </div>
+              </div>
+
+              <div class="category-row">
+                <span class="field-label">Customer Service</span>
+                <div class="star-rating">
+                  <input type="radio" name="customer_service_rating" value="5" id="cs5"><label for="cs5">★</label>
+                  <input type="radio" name="customer_service_rating" value="4" id="cs4"><label for="cs4">★</label>
+                  <input type="radio" name="customer_service_rating" value="3" id="cs3"><label for="cs3">★</label>
+                  <input type="radio" name="customer_service_rating" value="2" id="cs2"><label for="cs2">★</label>
+                  <input type="radio" name="customer_service_rating" value="1" id="cs1"><label for="cs1">★</label>
+                </div>
+              </div>
+
+              <div class="category-row">
+                <span class="field-label">Communication</span>
+                <div class="star-rating">
+                  <input type="radio" name="communication_rating" value="5" id="cm5"><label for="cm5">★</label>
+                  <input type="radio" name="communication_rating" value="4" id="cm4"><label for="cm4">★</label>
+                  <input type="radio" name="communication_rating" value="3" id="cm3"><label for="cm3">★</label>
+                  <input type="radio" name="communication_rating" value="2" id="cm2"><label for="cm2">★</label>
+                  <input type="radio" name="communication_rating" value="1" id="cm1"><label for="cm1">★</label>
+                </div>
+              </div>
+
+              <div class="category-row">
+                <span class="field-label">Turnaround Time</span>
+                <div class="star-rating">
+                  <input type="radio" name="turnaround_rating" value="5" id="tr5"><label for="tr5">★</label>
+                  <input type="radio" name="turnaround_rating" value="4" id="tr4"><label for="tr4">★</label>
+                  <input type="radio" name="turnaround_rating" value="3" id="tr3"><label for="tr3">★</label>
+                  <input type="radio" name="turnaround_rating" value="2" id="tr2"><label for="tr2">★</label>
+                  <input type="radio" name="turnaround_rating" value="1" id="tr1"><label for="tr1">★</label>
+                </div>
+              </div>
+
+              <div class="category-row" style="margin-bottom: 0;">
+                <span class="field-label">Value for Money</span>
+                <div class="star-rating">
+                  <input type="radio" name="value_rating" value="5" id="vl5"><label for="vl5">★</label>
+                  <input type="radio" name="value_rating" value="4" id="vl4"><label for="vl4">★</label>
+                  <input type="radio" name="value_rating" value="3" id="vl3"><label for="vl3">★</label>
+                  <input type="radio" name="value_rating" value="2" id="vl2"><label for="vl2">★</label>
+                  <input type="radio" name="value_rating" value="1" id="vl1"><label for="vl1">★</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="survey-section">
+              <div class="survey-section-title">A Bit More</div>
+              <label class="field-label" for="referral_source">How did you hear about us? (optional)</label>
+              <select id="referral_source" name="referral_source" style="width: 100%; margin-bottom: 0.85rem;">
+                <option value="">— Select —</option>
+                <option value="Google / Search">Google / Search</option>
+                <option value="Social Media">Social Media</option>
+                <option value="Friend / Referral">Friend / Referral</option>
+                <option value="Marketplace">Marketplace (Etsy, etc.)</option>
+                <option value="Returning Customer">Returning Customer</option>
+                <option value="Other">Other</option>
+              </select>
+
+              <label class="field-label" for="comments">What went well? (optional)</label>
+              <textarea id="comments" name="comments" rows="3" style="width: 100%; margin-bottom: 0.85rem;" placeholder="Tell us more..."></textarea>
+
+              <label class="field-label" for="improvements">Anything we could improve? (optional)</label>
+              <textarea id="improvements" name="improvements" rows="3" style="width: 100%;" placeholder="Be honest — it helps us get better"></textarea>
+
+              <div class="checkbox-field">
+                <input type="checkbox" name="testimonial_ok" id="testimonial_ok">
+                <label for="testimonial_ok" style="margin: 0;">It's OK to quote this feedback publicly as a testimonial (e.g. on our website)</label>
+              </div>
+            </div>
+
+            <div style="margin: 1rem 0;">{{ turnstile_widget(business) }}</div>
+
+            <button type="submit" class="btn-block" style="margin-top: 0.5rem;">Submit Feedback</button>
+          </form>
+        {% endif %}
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flash-list" style="margin-top: 1rem;">
+          {% for message in messages %}
+          <li class="flash-message">{{ message }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </body>
+</html>

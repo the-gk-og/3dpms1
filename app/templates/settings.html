@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Settings</h2>
+</div>
+
+<div class="tabs">
+  <a href="{{ url_for('settings.settings', tab='business') }}" class="tab-link{% if active_tab == 'business' %} active{% endif %}">Business</a>
+  <a href="{{ url_for('settings.settings', tab='payment') }}" class="tab-link{% if active_tab == 'payment' %} active{% endif %}">Payment Details</a>
+  <a href="{{ url_for('settings.settings', tab='templates') }}" class="tab-link{% if active_tab == 'templates' %} active{% endif %}">PDF Templates</a>
+  <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
+  <a href="{{ url_for('settings.settings', tab='security') }}" class="tab-link{% if active_tab == 'security' %} active{% endif %}">Security</a>
+  <a href="{{ url_for('settings.settings', tab='users') }}" class="tab-link{% if active_tab == 'users' %} active{% endif %}">Users</a>
+  <a href="{{ url_for('settings.settings', tab='export') }}" class="tab-link{% if active_tab == 'export' %} active{% endif %}">Data Export</a>
+  <a href="{{ url_for('settings.audit_log') }}" class="tab-link">Audit Log</a>
+</div>
+
+{% if active_tab == 'business' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" enctype="multipart/form-data" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="business">
+  <h3 style="margin-top: 0;">Business Details</h3>
+  <div class="form-grid-2">
+    <label>Business Name<input type="text" name="name" value="{{ business.name }}" required></label>
+    <label>ABN<input type="text" name="abn" value="{{ business.abn or '' }}" placeholder="12 345 678 901"></label>
+    <label>Contact Email<input type="email" name="contact_email" value="{{ business.contact_email or '' }}"></label>
+    <label>Phone<input type="text" name="phone" value="{{ business.phone or '' }}"></label>
+    <label>Website<input type="text" name="website" value="{{ business.website or '' }}"></label>
+    <label style="grid-column: 1 / -1;">Address<textarea name="address" rows="2">{{ business.address or '' }}</textarea></label>
+    <label>Hourly Print Rate ($)<input type="number" step="0.01" name="hourly_rate" value="{{ business.hourly_rate or 0 }}" placeholder="Used in quote pricing"></label>
+  </div>
+  <div class="form-section">
+    <h3>Logo</h3>
+    {% if business.logo_path %}
+    <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="Logo" class="logo-preview">
+    {% endif %}
+    <label>Upload Logo<input type="file" name="logo" accept="image/*"></label>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Used on PDF quotes and invoices</p>
+  </div>
+  <button type="submit">Save Business Settings</button>
+</form>
+
+{% elif active_tab == 'payment' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="payment">
+  <h3 style="margin-top: 0;">Payment Details</h3>
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">These details appear on quotes, invoices, and PDF exports.</p>
+
+  <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
+    <h3>PayID</h3>
+    <label>PayID (email or phone)<input type="text" name="pay_id" value="{{ business.pay_id or '' }}" placeholder="your@email.com or 0412 345 678"></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Bank Transfer</h3>
+    <div class="form-grid-2">
+      <label>Bank Name<input type="text" name="bank_name" value="{{ business.bank_name or '' }}" placeholder="Commonwealth Bank"></label>
+      <label>Account Name<input type="text" name="bank_account_name" value="{{ business.bank_account_name or '' }}"></label>
+      <label>BSB<input type="text" name="bank_bsb" value="{{ business.bank_bsb or '' }}" placeholder="062-000"></label>
+      <label>Account Number<input type="text" name="bank_account_number" value="{{ business.bank_account_number or '' }}"></label>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3>Other Payment Methods</h3>
+    <div class="form-grid-2">
+      <label>PayPal Email<input type="email" name="paypal_email" value="{{ business.paypal_email or '' }}"></label>
+      <label>Stripe Payment Link<input type="url" name="stripe_link" value="{{ business.stripe_link or '' }}" placeholder="https://buy.stripe.com/..."></label>
+    </div>
+    <div class="form-grid-2">
+      <label>Stripe Secret Key {% if business.stripe_secret_key %}<span style="color: var(--text-muted); font-weight: normal;">(set — leave blank to keep)</span>{% endif %}
+        <input type="password" name="stripe_secret_key" value="" placeholder="sk_live_...">
+      </label>
+      <label>Stripe Webhook Secret {% if business.stripe_webhook_secret %}<span style="color: var(--text-muted); font-weight: normal;">(set — leave blank to keep)</span>{% endif %}
+        <input type="password" name="stripe_webhook_secret" value="" placeholder="whsec_...">
+      </label>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.85rem;">
+      Needed for the per-invoice "Pay Now" Checkout link. Find these in your
+      <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe Dashboard</a> —
+      the webhook secret comes from the endpoint you register at
+      <code>https://your-domain/webhooks/stripe</code>.
+    </p>
+  </div>
+
+  <div class="form-section">
+    <h3>Default Surcharges</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Different payment methods can carry different processing costs. Set a default surcharge % per
+      method here — it'll prefill new quotes and invoices, and can still be adjusted per document.
+    </p>
+    <div class="form-grid-2">
+      <label>Bank Transfer %<input type="number" step="0.01" name="surcharge_bank_transfer" value="{{ business.surcharge_bank_transfer or 0 }}"></label>
+      <label>Pay ID %<input type="number" step="0.01" name="surcharge_pay_id" value="{{ business.surcharge_pay_id or 0 }}"></label>
+      <label>Cash %<input type="number" step="0.01" name="surcharge_cash" value="{{ business.surcharge_cash or 0 }}"></label>
+      <label>EFT %<input type="number" step="0.01" name="surcharge_eft" value="{{ business.surcharge_eft or 0 }}"></label>
+      <label>Credit Card %<input type="number" step="0.01" name="surcharge_credit_card" value="{{ business.surcharge_credit_card or 0 }}"></label>
+      <label>Stripe %<input type="number" step="0.01" name="surcharge_stripe" value="{{ business.surcharge_stripe or 0 }}"></label>
+    </div>
+  </div>
+
+  <button type="submit">Save Payment Details</button>
+</form>
+
+{% elif active_tab == 'templates' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="templates">
+  <h3 style="margin-top: 0;">PDF Templates</h3>
+
+  <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
+    <h3>Quote Templates</h3>
+    <label>Quote Header<textarea name="quote_header" rows="3" placeholder="Text shown at the top of quote PDFs">{{ business.quote_header or '' }}</textarea></label>
+    <label>Quote Footer<textarea name="quote_footer" rows="3" placeholder="Text shown at the bottom of quote PDFs">{{ business.quote_footer or '' }}</textarea></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Invoice Templates</h3>
+    <label>Invoice Header<textarea name="invoice_header" rows="3">{{ business.invoice_header or '' }}</textarea></label>
+    <label>Invoice Footer<textarea name="invoice_footer" rows="3">{{ business.invoice_footer or '' }}</textarea></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Terms & Conditions</h3>
+    <div class="form-grid-2">
+      <label>Payment Terms<textarea name="payment_terms" rows="3" placeholder="e.g. 50% deposit required. Balance due on completion.">{{ business.payment_terms or '' }}</textarea></label>
+      <label>Payment Terms Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="payment_terms_font_size" value="{{ business.payment_terms_font_size or 9 }}"></label>
+    </div>
+    <div class="form-grid-2">
+      <label>Terms of Service / Agreement<textarea name="terms_of_service" rows="5" placeholder="Agreement text shown on PDF with signature area">{{ business.terms_of_service or '' }}</textarea></label>
+      <label>Terms of Service Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="tos_font_size" value="{{ business.tos_font_size or 8 }}"></label>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Smaller sizes fit more fine print; larger sizes are easier to read. Applies to both quote and invoice PDFs.</p>
+  </div>
+
+  <button type="submit">Save Templates</button>
+</form>
+
+{% elif active_tab == 'email' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="email">
+  <h3 style="margin-top: 0;">Email / SMTP Settings</h3>
+  <div class="form-grid-2">
+    <label>SMTP Host<input type="text" name="smtp_host" value="{{ business.smtp_host or '' }}"></label>
+    <label>Port<input type="number" name="smtp_port" value="{{ business.smtp_port or 587 }}"></label>
+    <label>Username<input type="text" name="smtp_username" value="{{ business.smtp_username or '' }}"></label>
+    <label>Password<input type="password" name="smtp_password" placeholder="Leave blank to keep current"></label>
+    <label>From Email<input type="email" name="smtp_from_email" value="{{ business.smtp_from_email or '' }}"></label>
+  </div>
+
+  <div class="form-section">
+    <h3>Custom Email Templates</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Optional, per email type. Leave the body blank to use our built-in styled HTML template —
+      it's not plain text, it already looks like a real branded email. Fill in a custom body only
+      if you want full control over the wording and layout. Click Preview to see either version
+      rendered with sample data, even before you save.
+    </p>
+
+    {% macro email_template_fields(key, title, subject_placeholder, placeholders) %}
+    <div class="panel" style="margin: 1rem 0; background: var(--bg-secondary);">
+      <h4 style="margin-top: 0;">{{ title }}</h4>
+      <p style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace; line-height: 1.6; margin-top: -0.25rem;">
+        {{ placeholders }}
+      </p>
+      <label>Subject<input type="text" name="{{ key }}_email_subject" value="{{ business[key ~ '_email_subject'] or '' }}" placeholder="{{ subject_placeholder }}"></label>
+      <label>Body (HTML)<textarea name="{{ key }}_email_body_html" id="{{ key }}_email_body_html" rows="7" style="font-family: monospace; font-size: 0.8rem;" placeholder="<p>Hi {{ '{{client_name}}' }},</p><p>...</p>">{{ business[key ~ '_email_body_html'] or '' }}</textarea></label>
+      <button type="button" class="btn-sm btn-secondary" onclick="previewEmailTemplate('{{ key }}')">Preview</button>
+    </div>
+    {% endmacro %}
+
+    {{ email_template_fields('quote', 'Quote Email', 'Quote {{document_number}} from {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{valid_until}} · {{upload_link}}') }}
+
+    {{ email_template_fields('invoice', 'Invoice Email', 'Invoice {{document_number}} from {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}}') }}
+
+    {{ email_template_fields('job_complete', 'Job Complete Notification', 'Your order {{document_number}} is ready — {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{document_number}} · {{job_title}}') }}
+
+    {{ email_template_fields('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
+
+    <h3 style="margin-top: 1.5rem;">Notifications To You</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Sent to your business email when something happens — customizing these is optional, the
+      built-in styled default is perfectly good on its own.
+    </p>
+
+    {{ email_template_fields('contact_notification', 'Contact Form Notification', 'New contact form message from {{contact_name}}',
+       '{{business_name}} · {{contact_name}} · {{contact_email}} · {{message}}') }}
+
+    {{ email_template_fields('order_notification', 'New Order Request Notification', 'New order request — {{document_number}}',
+       '{{business_name}} · {{contact_name}} · {{contact_email}} · {{document_number}} · {{summary}}') }}
+
+    {{ email_template_fields('invoice_paid_notification', 'Invoice Paid Notification', 'Invoice {{document_number}} paid — ${{total}}',
+       '{{business_name}} · {{client_name}} · {{document_number}} · {{total}} · {{paid_at}}') }}
+  </div>
+
+  <script>
+    function previewEmailTemplate(key) {
+      const subject = document.querySelector(`[name="${key}_email_subject"]`).value;
+      const body = document.getElementById(`${key}_email_body_html`).value;
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = "{{ url_for('settings.email_preview', template_key='__KEY__') }}".replace('__KEY__', key);
+      form.target = '_blank';
+      const csrf = document.createElement('input');
+      csrf.type = 'hidden'; csrf.name = 'csrf_token'; csrf.value = "{{ csrf_token() }}";
+      const subjectInput = document.createElement('input');
+      subjectInput.type = 'hidden'; subjectInput.name = 'subject'; subjectInput.value = subject;
+      const bodyInput = document.createElement('textarea');
+      bodyInput.name = 'body_html'; bodyInput.style.display = 'none'; bodyInput.value = body;
+      form.append(csrf, subjectInput, bodyInput);
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+    }
+  </script>
+
+
+  <button type="submit">Save Email Settings</button>
+</form>
+
+{% elif active_tab == 'security' %}
+{% if not business.turnstile_secret_key %}
+<div class="panel" style="border-left: 3px solid var(--warning, #d97706); margin-bottom: 1rem;">
+  <strong>Bot protection is off.</strong> Without a Turnstile key, your public login, order form,
+  contact form, and order tracking pages accept submissions from anyone — including bots — with
+  only basic rate limiting to fall back on. Recommended before going live on the public internet.
+</div>
+{% endif %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="security">
+  <h3 style="margin-top: 0;">Cloudflare Turnstile</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Bot protection for your public login, order form, contact form, and order tracking
+    pages. Get a site key and secret key from your
+    <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener" style="color: var(--accent);">Cloudflare Turnstile dashboard</a>.
+    Leave blank to disable — forms will work as normal without the challenge, but see the warning above.
+  </p>
+  <label>Site Key<input type="text" name="turnstile_site_key" value="{{ business.turnstile_site_key or '' }}" placeholder="0x4AAAAAAA..."></label>
+  <label>Secret Key<input type="password" name="turnstile_secret_key" value="{{ business.turnstile_secret_key or '' }}" placeholder="0x4AAAAAAA..."></label>
+  <button type="submit">Save Security Settings</button>
+</form>
+
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel" style="margin-top: 1.25rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="security">
+  <h3 style="margin-top: 0;">Google Sign-In</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Lets dashboard users log in with Google instead of a password. This only signs in an
+    <strong>existing</strong> user whose email matches their Google account — it never creates new
+    accounts, so add users under the Users tab first. Two-factor authentication, if enabled on an
+    account, is still required after Google sign-in.
+  </p>
+  <p style="color: var(--text-muted); font-size: 0.85rem;">
+    Create credentials in the
+    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" style="color: var(--accent);">Google Cloud Console</a>
+    (OAuth client ID, type "Web application") and add this as an Authorized redirect URI:<br>
+    <code>{{ url_for('auth.login_google_callback', _external=True) }}</code>
+  </p>
+  <label>Client ID<input type="text" name="google_oauth_client_id" value="{{ business.google_oauth_client_id or '' }}" placeholder="123456789-abc.apps.googleusercontent.com"></label>
+  <label>Client Secret {% if business.google_oauth_client_secret %}<span style="color: var(--text-muted); font-weight: normal;">(set — leave blank to keep)</span>{% endif %}
+    <input type="password" name="google_oauth_client_secret" value="" placeholder="GOCSPX-...">
+  </label>
+  <button type="submit">Save Security Settings</button>
+</form>
+
+{% elif active_tab == 'users' %}
+<div class="panel">
+  <h3 style="margin-top: 0;">Two-Factor Authentication</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Applies to your own account ({{ current_user.username }}). Each user sets this up individually.
+  </p>
+  {% if current_user.two_factor_enabled %}
+  <p><span class="badge badge-success">Enabled</span></p>
+  <form method="post" action="{{ url_for('settings.disable_2fa') }}" onsubmit="return confirm('Disable two-factor authentication on your account?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Confirm your password to disable<input type="password" name="password" required></label>
+    <button type="submit" class="btn-sm btn-danger">Disable 2FA</button>
+  </form>
+  {% else %}
+  <p><span class="badge badge-muted">Not enabled</span></p>
+  <a href="{{ url_for('settings.setup_2fa') }}" class="btn-sm">Set up 2FA</a>
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Google Account</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Applies to your own account ({{ current_user.username }}). Connecting lets you sign in with
+    Google instead of a password. This never creates a new account \u2014 it only links Google to the
+    account you're already logged into.
+    {% if not business.google_oauth_client_id %}
+    <br>Google sign-in isn\u2019t configured for this site yet \u2014 set it up under the Security tab first.
+    {% endif %}
+  </p>
+  {% if current_user.google_sub %}
+  <p><span class="badge badge-success">Connected</span></p>
+  <form method="post" action="{{ url_for('auth.disconnect_google') }}" onsubmit="return confirm('Disconnect your Google account? You\u2019ll need your password to sign in.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-sm btn-danger">Disconnect Google</button>
+  </form>
+  {% else %}
+  <p><span class="badge badge-muted">Not connected</span></p>
+  {% if business.google_oauth_client_id %}
+  <a href="{{ url_for('auth.connect_google') }}" class="btn-sm">Connect Google Account</a>
+  {% endif %}
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Dashboard Users</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    There's no public sign-up — accounts are only created here, or via the <code>flask create-admin</code>
+    CLI command on the server.
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr><th>Username</th><th>Email</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>{{ user.username }}{% if user.id == current_user.id %} <span class="badge badge-muted">You</span>{% endif %}</td>
+        <td>{{ user.email }}</td>
+        <td style="text-align: right;">
+          {% if user.id != current_user.id %}
+          <form method="post" action="{{ url_for('settings.delete_user', user_id=user.id) }}" onsubmit="return confirm('Remove user {{ user.username }}?')" style="display: inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-danger">Remove</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Add User</h3>
+  <form method="post" action="{{ url_for('settings.add_user') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid-2">
+      <label>Username<input type="text" name="username" required></label>
+      <label>Email<input type="email" name="email" required></label>
+    </div>
+    <label>Password <span style="font-weight: 400;">(at least 8 characters)</span><input type="password" name="password" minlength="8" required></label>
+    <button type="submit">Create User</button>
+  </form>
+</div>
+{% elif active_tab == 'export' %}
+<div class="panel">
+  <h3 style="margin-top: 0;">Export Everything</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    One zip containing a CSV for every table below.
+  </p>
+  <a href="{{ url_for('export.export_all') }}" class="btn-sm">Download All (.zip)</a>
+</div>
+
+<div class="panel" style="margin-top: 1.25rem;">
+  <h3 style="margin-top: 0;">Individual CSVs</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Each export includes reference numbers linking it back through the pipeline (request → quote → job → invoice) where applicable.
+  </p>
+  <table class="data-table">
+    <tbody>
+      <tr><td>Customers</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='customers') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Filament</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='filament') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Filament Spools</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='spools') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Quotes</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='quotes') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Invoices</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='invoices') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Jobs</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='jobs') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Requests</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='requests') }}" class="btn-sm">Download CSV</a></td></tr>
+      <tr><td>Feedback Responses</td><td style="text-align: right;"><a href="{{ url_for('export.export_csv', key='feedback') }}" class="btn-sm">Download CSV</a></td></tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

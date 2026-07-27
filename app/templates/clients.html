@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block page_title %}Clients{% endblock %}
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem;">
+  <div>
+    <h2 style="margin-top: 0;">Client Directory</h2>
+
+    <div class="panel" style="margin-bottom: 1.25rem;">
+      <form method="get" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+        <label style="flex: 1; min-width: 200px; margin: 0;">Search
+          <input type="text" name="q" value="{{ q }}" placeholder="Name, email or phone">
+        </label>
+        <button type="submit" class="btn-secondary" style="margin-bottom: 0;">Search</button>
+        {% if q %}<a href="{{ url_for('main.clients') }}" class="btn-sm btn-secondary" style="margin-bottom: 0;">Clear</a>{% endif %}
+      </form>
+    </div>
+
+    <div class="cards" style="grid-template-columns: 1fr;">
+      {% for client in clients %}
+      <div class="card">
+        <div class="item-actions" style="float: right; margin: 0;">
+          <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('client-edit-{{ client.id }}')">Edit</button>
+          <form method="post" action="{{ url_for('main.delete_client', client_id=client.id) }}" style="display: inline;" onsubmit="return confirm('Delete {{ client.name }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-danger">Delete</button>
+          </form>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">{{ client.name }}</h3>
+        {% if client.email %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">{{ client.email }}</div>
+        {% endif %}
+        {% if client.phone %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ client.phone }}</div>
+        {% endif %}
+        {% if client.notes %}
+        <div style="font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem;">{{ client.notes }}</div>
+        {% endif %}
+
+        <div id="client-edit-{{ client.id }}" class="collapsible-form">
+          <form method="post" action="{{ url_for('main.edit_client', client_id=client.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <div class="form-grid-2">
+              <label>Name<input type="text" name="name" value="{{ client.name }}" required></label>
+              <label>Phone<input type="text" name="phone" value="{{ client.phone or '' }}"></label>
+            </div>
+            <label>Email<input type="email" name="email" value="{{ client.email or '' }}"></label>
+            <label>Notes<textarea name="notes" rows="2">{{ client.notes or '' }}</textarea></label>
+            <button type="submit" class="btn-sm">Save Changes</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <div class="card">
+        <p>{% if q %}No clients match &ldquo;{{ q }}&rdquo;.{% else %}No clients yet. Add one to get started.{% endif %}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Add Client</h3>
+      <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Name
+          <input type="text" name="name" required>
+        </label>
+        <label>Email
+          <input type="email" name="email">
+        </label>
+        <label>Phone
+          <input type="text" name="phone">
+        </label>
+        <label>Notes
+          <textarea name="notes" rows="3"></textarea>
+        </label>
+        <button type="submit">Save client</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+</script>
+{% endblock %}
