@@ -369,11 +369,23 @@ def new_quote():
     business = get_business_settings()
     if request.method == 'POST':
         client = Client.query.get(request.form.get('client_id'))
-        if not client:
+        client_name = (request.form.get('client_name') or '').strip()
+        client_email = (request.form.get('client_email') or '').strip()
+        client_phone = (request.form.get('client_phone') or '').strip()
+        if client:
+            # The name/email/phone fields double as an inline editor for the
+            # selected client — whatever's in them when the form is submitted
+            # becomes that client's record, whether the user changed them or not.
+            if client_name:
+                client.name = client_name
+            client.email = client_email
+            client.phone = client_phone
+            db.session.commit()
+        else:
             client = Client(
-                name=request.form.get('client_name', 'New Client'),
-                email=request.form.get('client_email', ''),
-                phone=request.form.get('client_phone', ''),
+                name=client_name or 'New Client',
+                email=client_email,
+                phone=client_phone,
             )
             db.session.add(client)
             db.session.commit()
@@ -711,11 +723,20 @@ def new_invoice():
     business = get_business_settings()
     if request.method == 'POST':
         client = Client.query.get(request.form.get('client_id'))
-        if not client:
+        client_name = (request.form.get('client_name') or '').strip()
+        client_email = (request.form.get('client_email') or '').strip()
+        client_phone = (request.form.get('client_phone') or '').strip()
+        if client:
+            if client_name:
+                client.name = client_name
+            client.email = client_email
+            client.phone = client_phone
+            db.session.commit()
+        else:
             client = Client(
-                name=request.form.get('client_name', 'New Client'),
-                email=request.form.get('client_email', ''),
-                phone=request.form.get('client_phone', ''),
+                name=client_name or 'New Client',
+                email=client_email,
+                phone=client_phone,
             )
             db.session.add(client)
             db.session.commit()
@@ -1007,11 +1028,26 @@ def edit_client(client_id):
 def delete_client(client_id):
     client = Client.query.get_or_404(client_id)
     client_name = client.name
+    q = request.form.get('q', '')
+
+    linked = []
+    if client.quotes:
+        linked.append(f'{len(client.quotes)} quote(s)')
+    if client.invoices:
+        linked.append(f'{len(client.invoices)} invoice(s)')
+    if client.jobs:
+        linked.append(f'{len(client.jobs)} job(s)')
+    if client.requests:
+        linked.append(f'{len(client.requests)} request(s)')
+    if linked:
+        flash(f'Can\u2019t delete {client_name} \u2014 they still have {", ".join(linked)} on file. Delete or reassign those first.')
+        return redirect(url_for('main.clients', q=q))
+
     db.session.delete(client)
     db.session.commit()
     log_audit('client_deleted', target_type='client', target_id=client_id, detail=client_name)
     flash('Client deleted')
-    return redirect(url_for('main.clients'))
+    return redirect(url_for('main.clients', q=q))
 
 
 @main_bp.route('/jobs')

@@ -22,6 +22,7 @@
           <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('client-edit-{{ client.id }}')">Edit</button>
           <form method="post" action="{{ url_for('main.delete_client', client_id=client.id) }}" style="display: inline;" onsubmit="return confirm('Delete {{ client.name }}?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="q" value="{{ q }}">
             <button type="submit" class="btn-sm btn-danger">Delete</button>
           </form>
         </div>
@@ -31,6 +32,14 @@
         {% endif %}
         {% if client.phone %}
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ client.phone }}</div>
+        {% endif %}
+        {% if client.quotes or client.invoices or client.jobs or client.requests %}
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+          {% if client.requests %}<span class="badge badge-muted" style="font-size: 0.72rem;">{{ client.requests|length }} request{{ 's' if client.requests|length != 1 else '' }}</span>{% endif %}
+          {% if client.quotes %}<span class="badge badge-muted" style="font-size: 0.72rem;">{{ client.quotes|length }} quote{{ 's' if client.quotes|length != 1 else '' }}</span>{% endif %}
+          {% if client.jobs %}<span class="badge badge-muted" style="font-size: 0.72rem;">{{ client.jobs|length }} job{{ 's' if client.jobs|length != 1 else '' }}</span>{% endif %}
+          {% if client.invoices %}<span class="badge badge-muted" style="font-size: 0.72rem;">{{ client.invoices|length }} invoice{{ 's' if client.invoices|length != 1 else '' }}</span>{% endif %}
+        </div>
         {% endif %}
         {% if client.notes %}
         <div style="font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem;">{{ client.notes }}</div>

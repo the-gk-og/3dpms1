@@ -15,6 +15,14 @@
   <div class="m-card-title">{{ client.name }}</div>
   {% if client.email %}<div class="m-card-sub">{{ client.email }}</div>{% endif %}
   {% if client.phone %}<div class="m-card-sub">{{ client.phone }}</div>{% endif %}
+  {% if client.quotes or client.invoices or client.jobs or client.requests %}
+  <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.4rem;">
+    {% if client.requests %}<span class="m-badge m-badge-muted">{{ client.requests|length }} request{{ 's' if client.requests|length != 1 else '' }}</span>{% endif %}
+    {% if client.quotes %}<span class="m-badge m-badge-muted">{{ client.quotes|length }} quote{{ 's' if client.quotes|length != 1 else '' }}</span>{% endif %}
+    {% if client.jobs %}<span class="m-badge m-badge-muted">{{ client.jobs|length }} job{{ 's' if client.jobs|length != 1 else '' }}</span>{% endif %}
+    {% if client.invoices %}<span class="m-badge m-badge-muted">{{ client.invoices|length }} invoice{{ 's' if client.invoices|length != 1 else '' }}</span>{% endif %}
+  </div>
+  {% endif %}
   {% if client.notes %}
   <hr class="m-divider">
   <p style="margin: 0; font-size: 0.85rem;">{{ client.notes }}</p>
@@ -24,6 +32,7 @@
     <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('client-edit-{{ client.id }}')">Edit</button>
     <form method="post" action="{{ url_for('main.delete_client', client_id=client.id) }}" onsubmit="return confirm('Delete {{ client.name }}?')" style="flex: 1;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="q" value="{{ q }}">
       <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
     </form>
   </div>
