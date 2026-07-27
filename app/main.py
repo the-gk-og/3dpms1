@@ -993,21 +993,34 @@ def clients():
         db.session.commit()
         flash('Client saved')
         return redirect(url_for('main.clients'))
-    clients = Client.query.order_by(Client.name).all()
-    return render_template('clients.html', clients=clients)
+    q = (request.args.get('q') or '').strip()
+    query = Client.query
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(
+            Client.name.ilike(like),
+            Client.email.ilike(like),
+            Client.phone.ilike(like),
+        ))
+    clients = query.order_by(Client.name).all()
+    return render_template('clients.html', clients=clients, q=q)
 
 
 @main_bp.route('/clients/<int:client_id>/edit', methods=['POST'])
 @login_required
 def edit_client(client_id):
     client = Client.query.get_or_404(client_id)
-    client.name = request.form['name']
-    client.phone = request.form.get('phone', '')
-    client.email = request.form.get('email', '')
-    client.notes = request.form.get('notes', '')
+    name = (request.form.get('name') or '').strip()
+    if not name:
+        flash('Client name is required')
+        return redirect(url_for('main.clients', q=request.form.get('q', '')))
+    client.name = name
+    client.phone = request.form.get('phone', '').strip()
+    client.email = request.form.get('email', '').strip()
+    client.notes = request.form.get('notes', '').strip()
     db.session.commit()
     flash('Client updated')
-    return redirect(url_for('main.clients'))
+    return redirect(url_for('main.clients', q=request.form.get('q', '')))
 
 
 @main_bp.route('/clients/<int:client_id>/delete', methods=['POST'])
