@@ -109,6 +109,7 @@
           </div>
 
           <form method="post" action="{{ url_for('public.feedback_survey', token=survey.token) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="survey-section">
               <div class="survey-section-title">Your Details</div>
