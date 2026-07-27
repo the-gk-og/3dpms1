@@ -7,7 +7,7 @@
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <h2 style="margin: 0;">{{ survey.respondent_name or (survey.client.name if survey.client else 'Unknown client') }}</h2>
+          <h2 style="margin: 0;">{{ survey.respondent_name or (survey.client.name if survey.client else ('Standalone Link' if not survey.job else 'Unknown client')) }}</h2>
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
             {% if survey.respondent_email %}{{ survey.respondent_email }}{% elif survey.client %}{{ survey.client.email }}{% endif %}
             {% if survey.job %} · {{ survey.job.display_number }} — {{ survey.job.title }}{% endif %}
@@ -103,6 +103,10 @@
         <a href="{{ url_for('main.jobs') }}#job-{{ survey.job.id }}" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">View Job</a>
         {% endif %}
         <a href="{{ url_for('feedback.dashboard') }}" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">Back to Feedback</a>
+        <form method="post" action="{{ url_for('feedback.delete', survey_id=survey.id) }}" onsubmit="return confirm('Delete this feedback entry? This can\'t be undone.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-block btn-danger">Delete Entry</button>
+        </form>
       </div>
     </div>
   </div>

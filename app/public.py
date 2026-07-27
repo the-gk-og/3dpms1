@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 from app import db, limiter
 from app.models import Client, Filament, Invoice, Job, Quote, Request
 from app.helpers import (
-    get_business_settings, generate_request_number, send_plain_email,
+    get_business_settings, generate_request_number, generate_reference_number, send_plain_email,
     notify_admin_new_submission, render_email_template, html_to_text,
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
@@ -210,6 +210,7 @@ def order_form():
 
         new_request = Request(
             request_number=request_number,
+            reference_number=generate_reference_number(),
             client_id=client.id,
             status='New',
             notify_me=notify_me,

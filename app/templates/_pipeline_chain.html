@@ -1,8 +1,10 @@
 {#
-  Renders the full reference-number chain for one job/order: the originating
-  public Request (if any) -> Quote -> Job(s) -> Invoice(s). Every stage keeps its
-  own independent reference number (REQ-/Q-/JOB-/INV-...); this just makes the
-  links between them visible so any one number can be traced back to the rest.
+  Renders the tracking reference number for one job/order, followed by the full
+  chain of per-stage documents it ties together: the originating public Request
+  (if any) -> Quote -> Job(s) -> Invoice(s). The reference number (REF-2026-0001)
+  is the SAME string on every stage of one chain \u2014 it's what to search or ask a
+  customer for. Each stage also keeps its own document number (REQ-/Q-/JOB-/INV-)
+  for that document specifically; this macro shows both.
 
   Usage: {% from '_pipeline_chain.html' import pipeline_chain %}
          {{ pipeline_chain(quote=quote, current='quote') }}
@@ -14,9 +16,17 @@
   {% set req = standalone_request or (quote.originating_request if quote else none) %}
   {% set jobs = quote.jobs if quote else [] %}
   {% set invs = quote.invoices if quote else [] %}
+  {% set ref_number = (quote.reference_number if quote else none) or (req.reference_number if req else none) %}
   {% if req or quote or jobs or invs %}
-  <div class="pipeline-chain" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.82rem; margin: 0.5rem 0 1rem;">
-    <span style="color: var(--text-muted); margin-right: 0.15rem;">Pipeline:</span>
+  <div class="pipeline-chain" style="margin: 0.5rem 0 1rem;">
+    {% if ref_number %}
+    <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;">
+      <span style="color: var(--text-muted); font-size: 0.82rem;">Reference:</span>
+      <span class="badge" style="background: var(--accent); color: #fff; font-weight: 700; letter-spacing: 0.02em;">{{ ref_number }}</span>
+    </div>
+    {% endif %}
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.82rem;">
+    <span style="color: var(--text-muted); margin-right: 0.15rem;">Documents:</span>
 
     {% if req %}
       {% if current == 'request' %}
@@ -56,6 +66,7 @@
         {% endif %}
       {% endfor %}
     {% endif %}
+    </div>
   </div>
   {% endif %}
 {% endmacro %}

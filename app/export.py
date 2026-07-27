@@ -69,14 +69,14 @@ def _spools_rows():
 
 def _quotes_rows():
     header = [
-        'Quote Number', 'Status', 'Client', 'Total', 'Version', 'Created At',
+        'Reference Number', 'Quote Number', 'Status', 'Client', 'Total', 'Version', 'Created At',
         'Valid Until', 'Originating Request', 'Linked Jobs', 'Linked Invoices',
     ]
     rows = []
     for q in Quote.query.order_by(Quote.created_at.desc()).all():
         req = q.originating_request
         rows.append([
-            q.display_number, q.status, q.client.name if q.client else '', q.total,
+            q.reference_number or '', q.display_number, q.status, q.client.name if q.client else '', q.total,
             q.version or '1', q.created_at.isoformat() if q.created_at else '',
             q.valid_until.isoformat() if q.valid_until else '',
             req.display_number if req else '',
@@ -88,14 +88,14 @@ def _quotes_rows():
 
 def _invoices_rows():
     header = [
-        'Invoice Number', 'Status', 'Client', 'Total', 'Created At', 'Due Date', 'Paid At',
+        'Reference Number', 'Invoice Number', 'Status', 'Client', 'Total', 'Created At', 'Due Date', 'Paid At',
         'Quote', 'Originating Request', 'Stripe Pay Link Enabled',
     ]
     rows = []
     for inv in Invoice.query.order_by(Invoice.created_at.desc()).all():
         req = inv.originating_request
         rows.append([
-            inv.display_number, inv.status, inv.client.name if inv.client else '', inv.total,
+            inv.reference_number or '', inv.display_number, inv.status, inv.client.name if inv.client else '', inv.total,
             inv.created_at.isoformat() if inv.created_at else '',
             inv.due_date.isoformat() if inv.due_date else '',
             inv.paid_at.isoformat() if inv.paid_at else '',
@@ -108,13 +108,13 @@ def _invoices_rows():
 
 def _jobs_rows():
     header = [
-        'Job Number', 'Title', 'Status', 'Client', 'Created At', 'Quote', 'Originating Request',
+        'Reference Number', 'Job Number', 'Title', 'Status', 'Client', 'Created At', 'Quote', 'Originating Request',
     ]
     rows = []
     for j in Job.query.order_by(Job.created_at.desc()).all():
         req = j.originating_request
         rows.append([
-            j.display_number, j.title, j.status, j.client.name if j.client else '',
+            j.reference_number or '', j.display_number, j.title, j.status, j.client.name if j.client else '',
             j.created_at.isoformat() if j.created_at else '',
             j.quote.display_number if j.quote else '',
             req.display_number if req else '',
@@ -123,11 +123,11 @@ def _jobs_rows():
 
 
 def _requests_rows():
-    header = ['Request Number', 'Status', 'Client', 'Model Source', 'Created At', 'Converted Quote']
+    header = ['Reference Number', 'Request Number', 'Status', 'Client', 'Model Source', 'Created At', 'Converted Quote']
     rows = []
     for r in OrderRequest.query.order_by(OrderRequest.created_at.desc()).all():
         rows.append([
-            r.display_number, r.status, r.client.name if r.client else '',
+            r.reference_number or '', r.display_number, r.status, r.client.name if r.client else '',
             r.model_source or '', r.created_at.isoformat() if r.created_at else '',
             r.quote.display_number if r.quote else '',
         ])

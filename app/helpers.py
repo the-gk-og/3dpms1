@@ -195,6 +195,30 @@ def generate_request_number():
     return f'REQ-{year}-{count:04d}'
 
 
+def generate_reference_number():
+    """One tracking number assigned once at the start of a pipeline (a public
+    Request, or a Quote created directly with no request) and copied unchanged to
+    every stage that follows it (Quote, Job, Invoice) \u2014 REF-2026-0001 stays the
+    same number all the way through, unlike the per-document Q-/JOB-/INV- numbers.
+
+    Since the same string ends up stored on multiple rows for one chain, the next
+    number is the highest suffix seen anywhere this year, not a row count.
+    """
+    year = datetime.utcnow().year
+    prefix = f'REF-{year}-'
+    highest = 0
+    for model in (Request, Quote, Job, Invoice):
+        values = model.query.with_entities(model.reference_number).filter(
+            model.reference_number.like(f'{prefix}%')
+        ).all()
+        for (value,) in values:
+            try:
+                highest = max(highest, int(value.rsplit('-', 1)[-1]))
+            except (ValueError, AttributeError, IndexError):
+                continue
+    return f'{prefix}{highest + 1:04d}'
+
+
 def default_due_date(days=14):
     return (datetime.utcnow() + timedelta(days=days)).date()
 
@@ -416,14 +440,24 @@ def default_email_html(template_key, context, business):
         return _email_shell(business, f'Invoice {c.get("document_number","")} paid — ${c.get("total","")}', body)
 
     if template_key == 'feedback_survey':
+        doc_num = context.get('document_number')
+        job_title = context.get('job_title')
+        if doc_num:
+            detail = f' <strong>{c.get("document_number","")}</strong>'
+            if job_title:
+                detail += f' ({c.get("job_title","")})'
+            order_line = f'<p>We\u2019d love to hear how your order{detail} went. It only takes a minute.</p>'
+            preheader = f'How did we do? — {c.get("document_number","")}'
+        else:
+            order_line = '<p>We\u2019d love to hear about your recent experience with us. It only takes a minute.</p>'
+            preheader = 'How did we do?'
         body = (
             f'<h2 style="margin:0 0 16px;color:#111827;">How did we do?</h2>'
             f'<p>Hi {client_name},</p>'
-            f'<p>We\u2019d love to hear how your order <strong>{c.get("document_number","")}</strong> '
-            f'({c.get("job_title","")}) went. It only takes a minute.</p>'
+            f'{order_line}'
             f'{_email_button(context.get("survey_url"), "Leave Feedback")}'
         )
-        return _email_shell(business, f'How did we do? — {c.get("document_number","")}', body)
+        return _email_shell(business, preheader, body)
 
     return _email_shell(business, '', '<p>Notification</p>')
 
@@ -635,6 +669,29 @@ def send_feedback_survey_email(job, business=None):
     body = html_to_text(html_body)
 
     send_plain_email(business, job.client.email, subject, body, html_body=html_body)
+    survey.sent_at = datetime.utcnow()
+    db.session.commit()
+    return survey
+
+
+def send_feedback_link_email(survey, to_email, business=None):
+    """Emails a standalone (not job-linked) feedback survey link to an arbitrary
+    address the user typed in \u2014 for purchases that never went through a job/quote,
+    e.g. a walk-in or marketplace sale. Raises EmailNotConfiguredError if SMTP isn't
+    set up.
+    """
+    from flask import url_for
+    from app import db
+
+    business = business or get_business_settings()
+    survey_url = url_for('public.feedback_survey', token=survey.token, _external=True)
+
+    subject = f'We\u2019d love your feedback \u2014 {business.name or "us"}'
+    context = {'business_name': business.name or '', 'survey_url': survey_url}
+    html_body = default_email_html('feedback_survey', context, business)
+    body = html_to_text(html_body)
+
+    send_plain_email(business, to_email, subject, body, html_body=html_body)
     survey.sent_at = datetime.utcnow()
     db.session.commit()
     return survey

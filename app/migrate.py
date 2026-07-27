@@ -66,6 +66,7 @@ def run_migrations(db):
             'notify_me': 'BOOLEAN DEFAULT 0',
             'archived': 'BOOLEAN DEFAULT 0',
             'stripe_enabled': 'BOOLEAN DEFAULT 1',
+            'reference_number': 'VARCHAR(50)',
         },
         'quote': {
             'valid_until': 'DATE',
@@ -79,6 +80,7 @@ def run_migrations(db):
             'signed_copy_uploaded_at': 'DATETIME',
             'notify_me': 'BOOLEAN DEFAULT 0',
             'archived': 'BOOLEAN DEFAULT 0',
+            'reference_number': 'VARCHAR(50)',
         },
         'job': {
             'notify_me': 'BOOLEAN DEFAULT 0',
@@ -86,6 +88,7 @@ def run_migrations(db):
             'model_source': 'VARCHAR(20)',
             'order_details': 'TEXT',
             'archived': 'BOOLEAN DEFAULT 0',
+            'reference_number': 'VARCHAR(50)',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",
@@ -100,6 +103,9 @@ def run_migrations(db):
         'user': {
             'totp_secret': 'TEXT',
             'google_sub': 'VARCHAR(255)',
+        },
+        'request': {
+            'reference_number': 'VARCHAR(50)',
         },
         'feedback_survey': {
             'respondent_name': 'VARCHAR(200)',
@@ -152,6 +158,49 @@ def run_migrations(db):
         ).all():
             invoice.pay_token = secrets.token_hex(32)
         db.session.commit()
+
+    # Backfill reference numbers for existing pipeline rows created before this
+    # feature existed, so REF-xxxx ties old requests/quotes/jobs/invoices together
+    # retroactively instead of leaving them blank. Requests go first (they're the
+    # earliest possible origin point), then quotes inherit from their originating
+    # request if any, then jobs/invoices inherit from their quote.
+    if 'request' in existing_tables and 'quote' in existing_tables:
+        from app.models import Request as OrderRequest, Quote, Job, Invoice
+        from app.helpers import generate_reference_number
+
+        for req in OrderRequest.query.filter(
+            (OrderRequest.reference_number.is_(None)) | (OrderRequest.reference_number == '')
+        ).order_by(OrderRequest.created_at).all():
+            req.reference_number = generate_reference_number()
+            db.session.commit()
+
+        for quote in Quote.query.filter(
+            (Quote.reference_number.is_(None)) | (Quote.reference_number == '')
+        ).order_by(Quote.created_at).all():
+            origin = OrderRequest.query.filter_by(quote_id=quote.id).first()
+            quote.reference_number = (
+                origin.reference_number if origin and origin.reference_number
+                else generate_reference_number()
+            )
+            db.session.commit()
+
+        for job in Job.query.filter(
+            (Job.reference_number.is_(None)) | (Job.reference_number == '')
+        ).order_by(Job.created_at).all():
+            job.reference_number = (
+                job.quote.reference_number if job.quote and job.quote.reference_number
+                else generate_reference_number()
+            )
+            db.session.commit()
+
+        for invoice in Invoice.query.filter(
+            (Invoice.reference_number.is_(None)) | (Invoice.reference_number == '')
+        ).order_by(Invoice.created_at).all():
+            invoice.reference_number = (
+                invoice.quote.reference_number if invoice.quote and invoice.quote.reference_number
+                else generate_reference_number()
+            )
+            db.session.commit()
 
     _encrypt_legacy_secrets(db, existing_tables)
 

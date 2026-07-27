@@ -165,6 +165,7 @@ class Client(db.Model):
 class Quote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     quote_number = db.Column(db.String(50), unique=True)
+    reference_number = db.Column(db.String(50), index=True)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
     client = db.relationship('Client', backref='quotes')
     status = db.Column(db.String(50), default='Draft')
@@ -257,6 +258,7 @@ class QuoteItem(db.Model):
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(50), unique=True)
+    reference_number = db.Column(db.String(50), index=True)
     pay_token = db.Column(db.String(64), unique=True, index=True, default=lambda: secrets.token_hex(32))
     stripe_enabled = db.Column(db.Boolean, default=True, nullable=False)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
@@ -330,6 +332,7 @@ class InvoiceItem(db.Model):
 class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     job_number = db.Column(db.String(50), unique=True)
+    reference_number = db.Column(db.String(50), index=True)
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
     quote = db.relationship('Quote', backref='jobs')
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
@@ -371,6 +374,7 @@ class Request(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     request_number = db.Column(db.String(50), unique=True)
+    reference_number = db.Column(db.String(50), index=True)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
     client = db.relationship('Client', backref='requests')
     status = db.Column(db.String(50), default='New')  # New, Reviewed, Converted, Archived

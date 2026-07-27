@@ -10,7 +10,7 @@ from app import db
 from app.models import Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings, Request
 from app.helpers import (
     calculate_line_price, recalculate_quote_total, recalculate_invoice_total,
-    generate_quote_number, generate_invoice_number, generate_job_number,
+    generate_quote_number, generate_invoice_number, generate_job_number, generate_reference_number,
     copy_quote_items_to_invoice, get_business_settings, default_due_date,
     send_document_email, EmailNotConfiguredError,
     parse_payment_methods_and_surcharges, compute_marked_items,
@@ -358,7 +358,7 @@ def quotes():
         query = query.filter(Quote.archived.is_(False))
     if q:
         like = f'%{q}%'
-        query = query.filter(db.or_(Quote.quote_number.ilike(like), Client.name.ilike(like)))
+        query = query.filter(db.or_(Quote.quote_number.ilike(like), Quote.reference_number.ilike(like), Client.name.ilike(like)))
     quotes = query.order_by(Quote.created_at.desc()).all()
     return render_template('quotes.html', quotes=quotes, show_archived=show_archived, q=q)
 
@@ -396,6 +396,7 @@ def new_quote():
 
         quote = Quote(
             quote_number=generate_quote_number(),
+            reference_number=generate_reference_number(),
             client=client,
             notes=request.form.get('notes', ''),
             payment_method=payment_method_str,
@@ -661,6 +662,7 @@ def convert_quote_to_invoice(quote_id):
 
     invoice = Invoice(
         invoice_number=generate_invoice_number(),
+        reference_number=quote.reference_number or generate_reference_number(),
         client=quote.client,
         quote_id=quote.id,
         status='Draft',
@@ -669,6 +671,9 @@ def convert_quote_to_invoice(quote_id):
     db.session.add(invoice)
     quote.status = 'Invoiced'
     db.session.commit()
+    if not quote.reference_number:
+        quote.reference_number = invoice.reference_number
+        db.session.commit()
     flash('Invoice created from quote.')
     return redirect(url_for('main.invoice_detail', invoice_id=invoice.id))
 
@@ -688,6 +693,7 @@ def create_job_from_quote(quote_id):
 
     job = Job(
         job_number=generate_job_number(),
+        reference_number=quote.reference_number or generate_reference_number(),
         quote_id=quote.id,
         client_id=quote.client_id,
         title=title,
@@ -698,6 +704,9 @@ def create_job_from_quote(quote_id):
     db.session.add(job)
     quote.status = 'In Production'
     db.session.commit()
+    if not quote.reference_number:
+        quote.reference_number = job.reference_number
+        db.session.commit()
     flash('Job created from quote.')
     return redirect(url_for('main.jobs'))
 
@@ -712,7 +721,7 @@ def invoices():
         query = query.filter(Invoice.archived.is_(False))
     if q:
         like = f'%{q}%'
-        query = query.filter(db.or_(Invoice.invoice_number.ilike(like), Client.name.ilike(like)))
+        query = query.filter(db.or_(Invoice.invoice_number.ilike(like), Invoice.reference_number.ilike(like), Client.name.ilike(like)))
     invoices = query.order_by(Invoice.created_at.desc()).all()
     return render_template('invoices.html', invoices=invoices, show_archived=show_archived, q=q)
 
@@ -1060,7 +1069,7 @@ def jobs():
         query = query.filter(Job.archived.is_(False))
     if q:
         like = f'%{q}%'
-        query = query.filter(db.or_(Job.title.ilike(like), Client.name.ilike(like)))
+        query = query.filter(db.or_(Job.title.ilike(like), Job.reference_number.ilike(like), Client.name.ilike(like)))
     jobs = query.order_by(Job.created_at.desc()).all()
     return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q)
 
@@ -1161,7 +1170,7 @@ def requests_list():
         query = query.filter(Request.status != 'Archived')
     if q:
         like = f'%{q}%'
-        query = query.filter(db.or_(Client.name.ilike(like), Request.request_number.ilike(like)))
+        query = query.filter(db.or_(Client.name.ilike(like), Request.request_number.ilike(like), Request.reference_number.ilike(like)))
     reqs = query.order_by(Request.created_at.desc()).all()
     return render_template('requests.html', requests=reqs, show_archived=show_archived, q=q)
 
@@ -1200,6 +1209,7 @@ def convert_request_to_quote(request_id):
 
     quote = Quote(
         quote_number=generate_quote_number(),
+        reference_number=req.reference_number or generate_reference_number(),
         client_id=req.client_id,
         notes='\n'.join(notes_parts),
         notify_me=req.notify_me,
@@ -1207,6 +1217,10 @@ def convert_request_to_quote(request_id):
     )
     db.session.add(quote)
     db.session.commit()
+
+    if not req.reference_number:
+        req.reference_number = quote.reference_number
+        db.session.commit()
 
     req.status = 'Converted'
     req.quote_id = quote.id

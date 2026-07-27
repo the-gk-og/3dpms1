@@ -6,6 +6,10 @@
     <h2>Feedback</h2>
     <p style="color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem;">Surveys sent to clients from the Jobs page, and their responses</p>
   </div>
+  <form method="post" action="{{ url_for('feedback.new_link') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-sm">Create Feedback Link</button>
+  </form>
 </div>
 
 <div class="cards">
@@ -83,13 +87,22 @@
         <th>Rating</th>
         <th>Sent</th>
         <th>Status</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for s in surveys %}
       <tr>
         <td>
-          {{ s.client.name if s.client else '—' }}
+          {% if s.client %}
+          {{ s.client.name }}
+          {% elif s.respondent_name %}
+          {{ s.respondent_name }}
+          {% elif not s.job %}
+          <span style="color: var(--text-muted);">Standalone link</span>
+          {% else %}
+          —
+          {% endif %}
           {% if s.testimonial_ok %}<span class="badge badge-accent" style="margin-left: 0.3rem; font-size: 0.7rem;" title="OK to use as testimonial">💬</span>{% endif %}
         </td>
         <td>{% if s.job %}<a href="{{ url_for('main.jobs') }}#job-{{ s.job.id }}" style="color: var(--accent);">{{ s.job.display_number }}</a>{% else %}—{% endif %}</td>
@@ -98,9 +111,17 @@
         <td>
           {% if s.responded %}
           <a href="{{ url_for('feedback.detail', survey_id=s.id) }}" class="badge badge-success" style="text-decoration: none;">View Response</a>
+          {% elif not s.job and not s.client %}
+          <a href="{{ url_for('feedback.link', survey_id=s.id) }}" class="badge badge-muted" style="text-decoration: none;">View Link</a>
           {% else %}
           <span class="badge badge-muted">Awaiting response</span>
           {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('feedback.delete', survey_id=s.id) }}" onsubmit="return confirm('Delete this feedback entry? This can\'t be undone.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-danger" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">Delete</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
