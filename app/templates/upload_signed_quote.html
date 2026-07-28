@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Upload Signed {{ quote.display_number }} — {{ business.name or 'Quote' }}</title>
+    <title>Upload Signed {{ quote.client_number }} — {{ business.name or 'Quote' }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
       body.public-page {
@@ -69,7 +69,7 @@
           <div class="success-icon">✓</div>
           <h2 style="margin-top: 0;">Signed copy received</h2>
           <p style="color: var(--text-muted); font-size: 0.9rem;">
-            Thanks — we've received your signed copy of quote {{ quote.display_number }}.
+            Thanks — we've received your signed copy of quote {{ quote.client_number }}.
             {{ business.name or 'We' }} will be in touch shortly to confirm next steps.
           </p>
           {% if quote.signed_copy_uploaded_at %}
@@ -87,7 +87,7 @@
         {% else %}
           <h2 style="margin-top: 0;">Upload your signed quote</h2>
           <div class="quote-summary">
-            <div><strong>Quote:</strong> {{ quote.display_number }} · v{{ quote.version or '1' }}</div>
+            <div><strong>Quote:</strong> {{ quote.client_number }} · v{{ quote.version or '1' }}</div>
             <div><strong>Client:</strong> {{ quote.client.name }}</div>
             <div><strong>Total:</strong> ${{ '%.2f'|format(quote.total) }}</div>
           </div>

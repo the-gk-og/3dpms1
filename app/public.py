@@ -135,7 +135,7 @@ def track_order():
         verify_method = request.form.get('verify_method', 'email')
         contact_value = (request.form.get('contact_value') or '').strip().lower()
 
-        candidate = Request.query.filter(Request.request_number.ilike(order_number)).first() if order_number else None
+        candidate = Request.query.filter(Request.reference_number.ilike(order_number)).first() if order_number else None
         matched = False
         if candidate and candidate.client and contact_value:
             if verify_method == 'phone':
@@ -409,7 +409,7 @@ def pay_invoice(token):
         'price_data': {
             'currency': 'aud',
             'unit_amount': round(invoice.total * 100),
-            'product_data': {'name': f'Invoice {invoice.display_number}'},
+            'product_data': {'name': f'Invoice {invoice.client_number}'},
         },
         'quantity': 1,
     }]

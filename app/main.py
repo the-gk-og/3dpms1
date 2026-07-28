@@ -139,7 +139,7 @@ def _quote_pdf_bytes(quote):
         from flask import current_app
         logo_path = current_app.root_path + '/static/uploads/' + business.logo_path
 
-    document_number = quote.display_number
+    document_number = quote.client_number
     if quote.version:
         document_number = f'{document_number} · v{quote.version}'
 
@@ -190,7 +190,7 @@ def _invoice_pdf_bytes(invoice):
         payment_method=invoice.payment_method or '',
         payment_details=payment_details,
         payment_terms=business.payment_terms or '',
-        document_number=invoice.display_number,
+        document_number=invoice.client_number,
         subtotal=subtotal,
         surcharge_percent=invoice.surcharge_percent or 0,
         markup_percent=markup_percent,
@@ -221,11 +221,11 @@ def send_invoice_reminder(invoice, business=None):
     pdf = _invoice_pdf_bytes(invoice)
     days_overdue = (datetime.utcnow().date() - invoice.due_date).days if invoice.due_date else 0
 
-    default_subject = f'Payment reminder: Invoice {invoice.display_number} from {business.name or "us"}'
+    default_subject = f'Payment reminder: Invoice {invoice.client_number} from {business.name or "us"}'
     context = {
         'client_name': invoice.client.name,
         'business_name': business.name or '',
-        'document_number': invoice.display_number,
+        'document_number': invoice.client_number,
         'total': f'{invoice.total:,.2f}',
         'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
         'days_overdue': str(max(days_overdue, 0)),
@@ -241,7 +241,7 @@ def send_invoice_reminder(invoice, business=None):
     send_document_email(
         business, invoice.client.email,
         subject=subject, body_text=body_text, html_body=html_body,
-        pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
+        pdf_bytes=pdf, filename=f'{invoice.client_number}.pdf',
     )
     invoice.last_reminder_sent_at = datetime.utcnow()
     db.session.commit()
@@ -279,7 +279,7 @@ def generate_job_packing_slip(job_id):
     pdf = _job_packing_slip_bytes(job)
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
-        as_attachment=True, download_name=f'{job.display_number}-delivery-slip.pdf',
+        as_attachment=True, download_name=f'{job.client_number}-delivery-slip.pdf',
     )
 
 
@@ -293,7 +293,7 @@ def preview_job_packing_slip(job_id):
     pdf = _job_packing_slip_bytes(job)
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
-        as_attachment=False, download_name=f'{job.display_number}-delivery-slip.pdf',
+        as_attachment=False, download_name=f'{job.client_number}-delivery-slip.pdf',
     )
 
 
@@ -582,7 +582,7 @@ def delete_quote_item(quote_id, item_id):
 def generate_quote_pdf(quote_id):
     quote = Quote.query.get_or_404(quote_id)
     pdf = _quote_pdf_bytes(quote)
-    filename = _safe_filename_part(quote.display_number)
+    filename = _safe_filename_part(quote.client_number)
     if quote.version:
         filename += f'-v{_safe_filename_part(quote.version)}'
     return send_file(
@@ -599,7 +599,7 @@ def preview_quote_pdf(quote_id):
     """
     quote = Quote.query.get_or_404(quote_id)
     pdf = _quote_pdf_bytes(quote)
-    filename = _safe_filename_part(quote.display_number)
+    filename = _safe_filename_part(quote.client_number)
     if quote.version:
         filename += f'-v{_safe_filename_part(quote.version)}'
     return send_file(
@@ -620,12 +620,12 @@ def generate_quote_email(quote_id):
             db.session.commit()
         upload_link = url_for('public.upload_signed_quote', token=quote.upload_token, _external=True)
 
-        default_subject = f'Quote {quote.display_number} from {business.name or "us"}'
+        default_subject = f'Quote {quote.client_number} from {business.name or "us"}'
 
         context = {
             'client_name': quote.client.name,
             'business_name': business.name or '',
-            'document_number': quote.display_number,
+            'document_number': quote.client_number,
             'total': f'{quote.total:,.2f}',
             'valid_until': quote.valid_until.strftime('%d %B %Y') if quote.valid_until else '',
             'upload_link': upload_link,
@@ -639,7 +639,7 @@ def generate_quote_email(quote_id):
             business, quote.client.email,
             subject=subject,
             body_text=body_text, html_body=html_body,
-            pdf_bytes=pdf, filename=f'{quote.display_number}.pdf',
+            pdf_bytes=pdf, filename=f'{quote.client_number}.pdf',
         )
         if quote.status == 'Draft':
             quote.status = 'Sent'
@@ -930,7 +930,7 @@ def generate_invoice_pdf(invoice_id):
     pdf = _invoice_pdf_bytes(invoice)
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
-        as_attachment=True, download_name=f'{invoice.display_number}.pdf',
+        as_attachment=True, download_name=f'{invoice.client_number}.pdf',
     )
 
 
@@ -944,7 +944,7 @@ def preview_invoice_pdf(invoice_id):
     pdf = _invoice_pdf_bytes(invoice)
     return send_file(
         __import__('io').BytesIO(pdf), mimetype='application/pdf',
-        as_attachment=False, download_name=f'{invoice.display_number}.pdf',
+        as_attachment=False, download_name=f'{invoice.client_number}.pdf',
     )
 
 
@@ -955,12 +955,12 @@ def generate_invoice_email(invoice_id):
     business = get_business_settings()
     try:
         pdf = _invoice_pdf_bytes(invoice)
-        default_subject = f'Invoice {invoice.display_number} from {business.name or "us"}'
+        default_subject = f'Invoice {invoice.client_number} from {business.name or "us"}'
 
         context = {
             'client_name': invoice.client.name,
             'business_name': business.name or '',
-            'document_number': invoice.display_number,
+            'document_number': invoice.client_number,
             'total': f'{invoice.total:,.2f}',
             'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
         }
@@ -976,7 +976,7 @@ def generate_invoice_email(invoice_id):
             business, invoice.client.email,
             subject=subject,
             body_text=body_text, html_body=html_body,
-            pdf_bytes=pdf, filename=f'{invoice.display_number}.pdf',
+            pdf_bytes=pdf, filename=f'{invoice.client_number}.pdf',
         )
         if invoice.status == 'Draft':
             invoice.status = 'Sent'

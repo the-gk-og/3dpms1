@@ -193,6 +193,13 @@ class Quote(db.Model):
         return self.quote_number or f'Q-{self.id:04d}'
 
     @property
+    def client_number(self):
+        """Client-facing identifier — the shared reference number if one has been
+        assigned, falling back to the internal document number for older records
+        that predate the reference-number system."""
+        return self.reference_number or self.display_number
+
+    @property
     def subtotal(self):
         return sum(item.unit_price for item in self.items)
 
@@ -286,6 +293,13 @@ class Invoice(db.Model):
         return self.invoice_number or f'INV-{self.id:04d}'
 
     @property
+    def client_number(self):
+        """Client-facing identifier — the shared reference number if one has been
+        assigned, falling back to the internal document number for older records
+        that predate the reference-number system."""
+        return self.reference_number or self.display_number
+
+    @property
     def subtotal(self):
         return sum(item.unit_price for item in self.items)
 
@@ -352,6 +366,13 @@ class Job(db.Model):
         return self.job_number or f'JOB-{self.id:04d}'
 
     @property
+    def client_number(self):
+        """Client-facing identifier — the shared reference number if one has been
+        assigned, falling back to the internal document number for older records
+        that predate the reference-number system."""
+        return self.reference_number or self.display_number
+
+    @property
     def order_data(self):
         import json
         try:
@@ -388,6 +409,13 @@ class Request(db.Model):
     @property
     def display_number(self):
         return self.request_number or f'REQ-{self.id:04d}'
+
+    @property
+    def client_number(self):
+        """Client-facing identifier — the shared reference number if one has been
+        assigned, falling back to the internal document number for older records
+        that predate the reference-number system."""
+        return self.reference_number or self.display_number
 
     @property
     def title(self):

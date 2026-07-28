@@ -684,10 +684,10 @@ def send_job_complete_notification(job, business):
     if not job.client or not job.client.email:
         return False
 
-    default_subject = f'Your order {job.display_number} is ready — {business.name or ""}'.strip()
+    default_subject = f'Your order {job.client_number} is ready — {business.name or ""}'.strip()
     context = {
         'client_name': job.client.name, 'business_name': business.name or '',
-        'document_number': job.display_number, 'job_title': job.title or '',
+        'document_number': job.client_number, 'job_title': job.title or '',
     }
     subject = render_email_template(business.job_complete_email_subject, context) or default_subject
     custom_html = render_email_template(business.job_complete_email_body_html, context, escape_html=True)
@@ -737,10 +737,10 @@ def send_feedback_survey_email(job, business=None):
     survey = get_or_create_job_survey(job)
     survey_url = url_for('public.feedback_survey', token=survey.token, _external=True)
 
-    subject = f'How did we do? — {job.display_number} from {business.name or "us"}'
+    subject = f'How did we do? — {job.client_number} from {business.name or "us"}'
     context = {
         'client_name': job.client.name, 'business_name': business.name or '',
-        'document_number': job.display_number, 'job_title': job.title or '',
+        'document_number': job.client_number, 'job_title': job.title or '',
         'survey_url': survey_url,
     }
     html_body = default_email_html('feedback_survey', context, business)

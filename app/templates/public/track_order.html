@@ -6,13 +6,13 @@
 {% block content %}
 <h1 style="text-align: center;">Track Your Order</h1>
 <p style="text-align: center; color: var(--text-muted);">
-  Enter your job number and the email or phone number you used when ordering.
+  Enter your reference number and the email or phone number you used when ordering.
 </p>
 
 <div class="pub-panel" style="margin-top: 2rem;">
   <form method="post" class="pub-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>Order Number<input type="text" name="job_number" placeholder="REQ-2026-0001" required value="{{ request.form.get('job_number', '') }}"></label>
+    <label>Reference Number<input type="text" name="job_number" placeholder="REF-2026-0001" required value="{{ request.form.get('job_number', '') }}"></label>
 
     <label>Verify With</label>
     <div class="pub-radio-group">
@@ -38,7 +38,7 @@
   {% if order %}
   <div class="pub-track-result">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-      <strong>{{ order.display_number }}</strong>
+      <strong>{{ order.client_number }}</strong>
       <span class="pub-status-badge">{{ order.tracking_status }}</span>
     </div>
     <p style="color: var(--text-muted); margin: 0;">{{ order.title }}</p>

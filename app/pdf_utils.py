@@ -431,7 +431,7 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
 
     doc_info = [
         Paragraph('DELIVERY SLIP', styles['DocTitle']),
-        Paragraph(f'<b>{_esc(job.display_number)}</b>', styles['Muted']),
+        Paragraph(f'<b>{_esc(job.client_number)}</b>', styles['Muted']),
         Paragraph(f'Date: {_dt.utcnow().strftime("%d %B %Y")}', styles['Muted']),
     ]
 
@@ -454,7 +454,7 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
     if job.client and job.client.phone:
         detail_rows.append(['Phone:', _esc(job.client.phone)])
     if job.quote:
-        detail_rows.append(['Quote Ref:', _esc(job.quote.display_number)])
+        detail_rows.append(['Quote Ref:', _esc(job.quote.client_number)])
     order = job.order_data
     if order.get('materials'):
         materials = order['materials']
@@ -518,7 +518,7 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
         ]))
         story.append(status_table)
         story.append(Paragraph(
-            f'See page 2 for the tax invoice / receipt ({_esc(invoice.display_number)}).',
+            f'See page 2 for the tax invoice / receipt ({_esc(invoice.client_number)}).',
             styles['Muted'],
         ))
     else:
@@ -571,8 +571,8 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
         story.append(Spacer(1, 0.15 * inch))
 
         meta_rows = [
-            ['Invoice Number:', _esc(invoice.display_number)],
-            ['Job Reference:', _esc(job.display_number)],
+            ['Invoice Number:', _esc(invoice.client_number)],
+            ['Job Reference:', _esc(job.client_number)],
             ['Date:', _dt.utcnow().strftime('%d %B %Y')],
             ['Client:', _esc(job.client.name if job.client else 'Walk-in / Internal')],
         ]
