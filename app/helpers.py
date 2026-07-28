@@ -171,28 +171,38 @@ def recalculate_invoice_total(invoice):
     return invoice.total
 
 
-def generate_quote_number():
+def _next_numbered(model, column, prefix):
+    """Next 'PREFIX-YEAR-NNNN' value for a model, based on the highest suffix
+    currently in use for this year rather than a row count \u2014 a row count breaks
+    the moment the sequence has any gap (a deleted row, an out-of-sequence number
+    from a CSV import, etc.) and produces a duplicate that then fails to save.
+    """
     year = datetime.utcnow().year
-    count = Quote.query.filter(Quote.quote_number.like(f'Q-{year}-%')).count() + 1
-    return f'Q-{year}-{count:04d}'
+    full_prefix = f'{prefix}-{year}-'
+    highest = 0
+    values = model.query.with_entities(column).filter(column.like(f'{full_prefix}%')).all()
+    for (value,) in values:
+        try:
+            highest = max(highest, int(value.rsplit('-', 1)[-1]))
+        except (ValueError, AttributeError, IndexError):
+            continue
+    return f'{full_prefix}{highest + 1:04d}'
+
+
+def generate_quote_number():
+    return _next_numbered(Quote, Quote.quote_number, 'Q')
 
 
 def generate_invoice_number():
-    year = datetime.utcnow().year
-    count = Invoice.query.filter(Invoice.invoice_number.like(f'INV-{year}-%')).count() + 1
-    return f'INV-{year}-{count:04d}'
+    return _next_numbered(Invoice, Invoice.invoice_number, 'INV')
 
 
 def generate_job_number():
-    year = datetime.utcnow().year
-    count = Job.query.filter(Job.job_number.like(f'JOB-{year}-%')).count() + 1
-    return f'JOB-{year}-{count:04d}'
+    return _next_numbered(Job, Job.job_number, 'JOB')
 
 
 def generate_request_number():
-    year = datetime.utcnow().year
-    count = Request.query.filter(Request.request_number.like(f'REQ-{year}-%')).count() + 1
-    return f'REQ-{year}-{count:04d}'
+    return _next_numbered(Request, Request.request_number, 'REQ')
 
 
 def generate_reference_number():

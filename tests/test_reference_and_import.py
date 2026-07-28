@@ -161,3 +161,26 @@ def test_csv_import_reports_unresolvable_row_as_error(client):
     r = client.post('/dash/import/run', data={'type': 'spools', 'csv_content': csv_bad}, follow_redirects=True)
     assert r.status_code == 200
     assert b'need fixing' in r.data.lower()
+
+
+def test_job_number_generation_tolerates_gaps(client):
+    """Regression test: generate_job_number() must not collide when the sequence
+    has a gap (e.g. a manually-numbered row from a CSV import, or a deleted job) \u2014
+    a plain row-count-based generator produces a duplicate in that situation."""
+    from app import helpers
+    from datetime import datetime
+
+    with client.application.app_context():
+        c = Client(name='Gap Test')
+        db.session.add(c)
+        db.session.flush()
+        year = datetime.utcnow().year
+        # Only 1 row exists, but its number is far ahead of the count -> a
+        # count-based generator would produce a number that's already taken
+        # further down the line; the fix must look at the highest suffix instead.
+        db.session.add(Job(job_number=f'JOB-{year}-0006', title='Existing', client_id=c.id))
+        db.session.commit()
+
+        next_number = helpers.generate_job_number()
+        assert next_number == f'JOB-{year}-0007', next_number
+
