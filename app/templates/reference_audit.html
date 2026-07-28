@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block page_title %}Reference number audit{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Reference Number Audit</h2>
+</div>
+<p style="color: var(--text-muted); font-size: 0.9rem; max-width: 640px;">
+  Every quote's pipeline chain (request &rarr; quote &rarr; job(s) &rarr; invoice(s)) is meant to share one
+  reference number. The chains below have more than one distinct number somewhere in them &mdash; usually
+  left over from before this field existed, or from a CSV import that carried its own numbers. Open a chain
+  to pick which number should win.
+</p>
+
+{% if not mismatches %}
+<div class="panel" style="margin-top: 1rem;">
+  <p style="color: var(--text-muted); margin: 0;">No mismatches found &mdash; every chain is in sync.</p>
+</div>
+{% else %}
+<div class="panel" style="margin-top: 1rem; padding: 0;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Chain (anchored on quote)</th>
+        <th>Reference numbers found</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in mismatches %}
+      {% set quote = m.chain | selectattr('__class__.__name__', 'equalto', 'Quote') | first %}
+      <tr>
+        <td>
+          {% for r in m.chain %}
+            <span class="badge badge-muted" style="margin-right: 0.25rem;">{{ r.display_number }}</span>
+          {% endfor %}
+        </td>
+        <td style="font-size: 0.82rem;">
+          {% for number, records in m.numbers.items() %}
+            <div><span class="badge" style="background: var(--accent); color: #fff;">{{ number }}</span>
+              on {{ records | map(attribute='display_number') | join(', ') }}</div>
+          {% endfor %}
+        </td>
+        <td style="text-align: right;">
+          {% if quote %}
+          <a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" class="btn-sm">Resolve on quote</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

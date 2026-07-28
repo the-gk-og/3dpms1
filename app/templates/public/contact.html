@@ -1,0 +1,36 @@
+{% extends 'public/public_base.html' %}
+{% from '_turnstile.html' import turnstile_widget, turnstile_script %}
+{% block title %}Get in Touch — {{ business.name or '3D Printing' }}{% endblock %}
+{% block head %}{{ turnstile_script(business) }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+<h1 style="text-align: center;">Get in Touch</h1>
+<p style="text-align: center; color: var(--text-muted);">
+  Have a question before ordering? Send us a message and we'll get back to you.
+</p>
+
+<div class="pub-panel" style="margin-top: 2rem;">
+  {% if submitted %}
+  <div class="pub-flash">Thanks — your message has been sent. We'll be in touch shortly.</div>
+  {% else %}
+  <form method="post" class="pub-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="pub-form-row">
+      <label>Name<input type="text" name="name" required></label>
+      <label>Email<input type="email" name="email" required></label>
+    </div>
+    <label>Message<textarea name="message" rows="5" required></textarea></label>
+    {{ turnstile_widget(business) }}
+    <button type="submit" class="pub-btn">Send Message</button>
+  </form>
+  {% endif %}
+
+  {% if business.contact_email or business.phone %}
+  <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted);">
+    You can also reach us directly:
+    {% if business.contact_email %}<br>✉️ <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}
+    {% if business.phone %}<br>📞 {{ business.phone }}{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block page_title %}Import {{ type_label }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Import {{ type_label }}</h2>
+</div>
+
+{% if committed %}
+<div class="panel" style="max-width: 640px;">
+  <h3 style="margin-top: 0; color: var(--success);">Import complete</h3>
+  <p style="color: var(--text-muted);">
+    {{ counts['create'] }} created, {{ counts['update'] }} updated.
+  </p>
+  <a href="{{ url_for(list_endpoint) }}" class="btn-sm">View {{ type_label }}</a>
+  <a href="{{ url_for('import_data.import_home') }}" class="btn-sm btn-secondary">Import another file</a>
+</div>
+{% else %}
+<div class="panel" style="max-width: 640px;">
+  {% if counts['error'] %}
+  <h3 style="margin-top: 0; color: var(--danger);">{{ counts['error'] }} row{{ 's' if counts['error'] != 1 else '' }} need fixing</h3>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">
+    Nothing was saved. Fix the rows below in your CSV and re-upload &mdash; the other
+    {{ counts['create'] + counts['update'] }} row{{ 's' if counts['create'] + counts['update'] != 1 else '' }} looked fine and will import once the errors are resolved.
+  </p>
+  {% else %}
+  <h3 style="margin-top: 0;">Preview &mdash; nothing saved yet</h3>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">
+    {{ counts['create'] }} would be created, {{ counts['update'] }} would be updated. Review below, then confirm to save for real.
+  </p>
+  <form method="POST" action="{{ url_for('import_data.run_import') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="type" value="{{ type_key }}">
+    <textarea name="csv_content" style="display: none;">{{ csv_content }}</textarea>
+    <button type="submit">Confirm &amp; Import for Real</button>
+    <a href="{{ url_for('import_data.import_home') }}" style="margin-left: 0.6rem; color: var(--text-muted); font-size: 0.85rem;">Cancel</a>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="panel" style="margin-top: 1.25rem; padding: 0;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 4rem;">Row</th>
+        <th style="width: 6rem;">Result</th>
+        <th>Record</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      <tr>
+        <td>{{ r.row }}</td>
+        <td>
+          {% if r.action == 'create' %}<span class="badge badge-success">New</span>
+          {% elif r.action == 'update' %}<span class="badge badge-accent">Updated</span>
+          {% else %}<span class="badge badge-danger">Error</span>{% endif %}
+        </td>
+        <td>{{ r.label or '—' }}</td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ r.error or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

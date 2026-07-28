@@ -1,0 +1,76 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Clients{% endblock %}
+{% block content %}
+
+<div class="m-search-bar">
+  <form method="get" style="display: flex; gap: 0.5rem; width: 100%;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search name, email or phone">
+    <button type="submit" class="m-btn m-btn-secondary" style="width: auto; padding: 0 1rem;">Go</button>
+  </form>
+</div>
+
+<div class="m-section-title">Client Directory</div>
+{% for client in clients %}
+<div class="m-card">
+  <div class="m-card-title">{{ client.name }}</div>
+  {% if client.email %}<div class="m-card-sub">{{ client.email }}</div>{% endif %}
+  {% if client.phone %}<div class="m-card-sub">{{ client.phone }}</div>{% endif %}
+  {% if client.quotes or client.invoices or client.jobs or client.requests %}
+  <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.4rem;">
+    {% if client.requests %}<span class="m-badge m-badge-muted">{{ client.requests|length }} request{{ 's' if client.requests|length != 1 else '' }}</span>{% endif %}
+    {% if client.quotes %}<span class="m-badge m-badge-muted">{{ client.quotes|length }} quote{{ 's' if client.quotes|length != 1 else '' }}</span>{% endif %}
+    {% if client.jobs %}<span class="m-badge m-badge-muted">{{ client.jobs|length }} job{{ 's' if client.jobs|length != 1 else '' }}</span>{% endif %}
+    {% if client.invoices %}<span class="m-badge m-badge-muted">{{ client.invoices|length }} invoice{{ 's' if client.invoices|length != 1 else '' }}</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if client.notes %}
+  <hr class="m-divider">
+  <p style="margin: 0; font-size: 0.85rem;">{{ client.notes }}</p>
+  {% endif %}
+
+  <div class="m-card-actions" style="margin-top: 0.75rem;">
+    <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('client-edit-{{ client.id }}')">Edit</button>
+    <form method="post" action="{{ url_for('main.delete_client', client_id=client.id) }}" onsubmit="return confirm('Delete {{ client.name }}?')" style="flex: 1;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="q" value="{{ q }}">
+      <button type="submit" class="m-btn m-btn-danger m-btn-sm" style="width: 100%;">Delete</button>
+    </form>
+  </div>
+
+  <div id="client-edit-{{ client.id }}" class="collapsible-form" style="margin-top: 0.75rem;">
+    <form method="post" action="{{ url_for('main.edit_client', client_id=client.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="q" value="{{ q }}">
+      <div class="m-field"><label>Name</label><input type="text" name="name" value="{{ client.name }}" required></div>
+      <div class="m-field"><label>Phone</label><input type="text" name="phone" value="{{ client.phone or '' }}"></div>
+      <div class="m-field"><label>Email</label><input type="email" name="email" value="{{ client.email or '' }}"></div>
+      <div class="m-field"><label>Notes</label><textarea name="notes" rows="2">{{ client.notes or '' }}</textarea></div>
+      <button type="submit" class="m-btn m-btn-primary">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="m-empty">{% if q %}No clients match "{{ q }}".{% else %}No clients yet. Add one below to get started.{% endif %}</div>
+{% endfor %}
+
+<div class="m-section-title">Add Client</div>
+<div class="m-card">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Name</label><input type="text" name="name" required></div>
+    <div class="m-field"><label>Email</label><input type="email" name="email"></div>
+    <div class="m-field"><label>Phone</label><input type="text" name="phone"></div>
+    <div class="m-field"><label>Notes</label><textarea name="notes" rows="3"></textarea></div>
+    <button type="submit" class="m-btn m-btn-primary">Save Client</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% macro item_type_fields_mobile(filaments, business, item=None) %}
+<div class="item-form">
+  <div class="m-field">
+    <label>Item Type</label>
+    <select name="item_type" class="item-type-select">
+      <option value="print"{% if not item or item.item_type == 'print' %} selected{% endif %}>3D Print (filament + time)</option>
+      <option value="flat"{% if item and item.item_type == 'flat' %} selected{% endif %}>Flat Fee / Product (qty × price)</option>
+      <option value="hourly"{% if item and item.item_type == 'hourly' %} selected{% endif %}>Hourly Service (hours × rate)</option>
+    </select>
+  </div>
+  <div class="m-field">
+    <label>Description</label>
+    <input type="text" name="description" value="{{ item.description if item else '' }}" placeholder="Custom bracket, Design consultation, Bolts...">
+  </div>
+
+  <div class="field-group" data-type="print">
+    <div class="m-field-row">
+      <div class="m-field"><label>Weight (g)</label><input type="number" step="0.01" name="weight_g" value="{{ item.weight_g if item else 0 }}"></div>
+      <div class="m-field"><label>Print Time (h)</label><input type="number" step="0.01" name="print_time_hours" value="{{ item.print_time_hours if item else 0 }}"></div>
+    </div>
+    <div class="m-field"><label>Hardware Cost ($)</label><input type="number" step="0.01" name="hardware_cost" value="{{ item.hardware_cost if item else 0 }}"></div>
+    <div class="m-field">
+      <label>Filament</label>
+      <select name="filament_id">
+        <option value="">None</option>
+        {% for f in filaments %}
+        <option value="{{ f.id }}"{% if item and item.filament_id == f.id %} selected{% endif %}>{{ f.name }} (${{ "%.2f"|format(f.sell_price_per_kg) }}/kg)</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if business.hourly_rate %}
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Print time billed at ${{ business.hourly_rate }}/hr</p>
+    {% endif %}
+  </div>
+
+  <div class="field-group" data-type="flat" style="display:none;">
+    <div class="m-field-row">
+      <div class="m-field"><label>Quantity</label><input type="number" step="0.01" name="quantity" value="{{ item.quantity if item and item.item_type == 'flat' else 1 }}"></div>
+      <div class="m-field"><label>Price Each ($)</label><input type="number" step="0.01" name="rate" value="{{ item.rate if item and item.item_type == 'flat' else 0 }}"></div>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">For products or hardware sold per unit — e.g. bolts, inserts, packaging.</p>
+  </div>
+
+  <div class="field-group" data-type="hourly" style="display:none;">
+    <div class="m-field-row">
+      <div class="m-field"><label>Hours</label><input type="number" step="0.01" name="quantity" value="{{ item.quantity if item and item.item_type == 'hourly' else 1 }}"></div>
+      <div class="m-field"><label>Rate ($/hr)</label><input type="number" step="0.01" name="rate" value="{{ item.rate if item and item.item_type == 'hourly' else 0 }}"></div>
+    </div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">For time-based services — e.g. design consultation, modelling, post-processing.</p>
+  </div>
+</div>
+{% endmacro %}

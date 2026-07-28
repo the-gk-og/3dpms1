@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block page_title %}Feedback Link{% endblock %}
+{% block content %}
+<div class="layout-split-wide">
+  <div>
+    <div class="panel">
+      <h2 style="margin-top: 0;">Standalone Feedback Link</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: -0.5rem;">
+        Not tied to a specific job \u2014 use this for walk-ins, marketplace sales, or anything else
+        that didn't go through a quote or job in the system.
+      </p>
+
+      <div class="form-group">
+        <label>Link</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="survey-link-input" value="{{ survey_url }}" readonly style="flex: 1; font-size: 0.85rem;">
+          <button type="button" class="btn-sm" id="copy-link-btn" onclick="copyLink()">Copy</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin: 1rem 0;">
+        <a href="{{ survey_url }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Open Link</a>
+        <a href="{{ url_for('feedback.link_qr_png', survey_id=survey.id) }}" class="btn-sm btn-secondary" style="text-decoration: none;">Download QR Code</a>
+      </div>
+
+      <div style="text-align: center; padding: 1.25rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 1.25rem;">
+        <img src="{{ url_for('feedback.link_qr_svg', survey_id=survey.id) }}" alt="Feedback QR code" style="width: 200px; height: 200px; background: #fff; padding: 12px; border-radius: 6px;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Scan to leave feedback</div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+        <label>Email This Link</label>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.15rem 0 0.6rem;">Send it straight to a customer's inbox instead.</p>
+        <form method="post" action="{{ url_for('feedback.link_email', survey_id=survey.id) }}" style="display: flex; gap: 0.5rem;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="email" name="email" placeholder="customer@example.com" required style="flex: 1;">
+          <button type="submit" class="btn-sm">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Actions</h3>
+      <div class="actions-stack">
+        <form method="post" action="{{ url_for('feedback.new_link') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-block btn-secondary">Generate Another Link</button>
+        </form>
+        <a href="{{ url_for('feedback.dashboard') }}" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">Back to Feedback</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyLink() {
+  const input = document.getElementById('survey-link-input');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(input.value).then(function() {
+    const btn = document.getElementById('copy-link-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = original; }, 1500);
+  }).catch(function() {
+    document.execCommand('copy');
+  });
+}
+</script>
+{% endblock %}

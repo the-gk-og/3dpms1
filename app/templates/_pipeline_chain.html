@@ -1,0 +1,97 @@
+{#
+  Renders the tracking reference number for one job/order, followed by the full
+  chain of per-stage documents it ties together: the originating public Request
+  (if any) -> Quote -> Job(s) -> Invoice(s). The reference number (REF-2026-0001)
+  is the SAME string on every stage of one chain \u2014 it's what to search or ask a
+  customer for. Each stage also keeps its own document number (REQ-/Q-/JOB-/INV-)
+  for that document specifically; this macro shows both.
+
+  Usage: {% from '_pipeline_chain.html' import pipeline_chain %}
+         {{ pipeline_chain(quote=quote, current='quote') }}
+         {{ pipeline_chain(quote=job.quote, current='job', current_id=job.id) }}
+         {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
+         {{ pipeline_chain(quote=req.quote, standalone_request=req, current='request') }}
+#}
+{% macro pipeline_chain(quote=none, standalone_request=none, current='', current_id=none) %}
+  {% set req = standalone_request or (quote.originating_request if quote else none) %}
+  {% set jobs = quote.jobs if quote else [] %}
+  {% set invs = quote.invoices if quote else [] %}
+  {% set ref_number = (quote.reference_number if quote else none) or (req.reference_number if req else none) %}
+  {% set edit_entity_type = current if current in ('request', 'quote', 'job', 'invoice') else none %}
+  {% set edit_entity_id = (req.id if current == 'request' and req else quote.id if current == 'quote' and quote else current_id if current in ('job', 'invoice') else none) %}
+  {% set form_uid = 'ref-' ~ (edit_entity_type or 'x') ~ '-' ~ (edit_entity_id or '0') %}
+  {% if req or quote or jobs or invs %}
+  <div class="pipeline-chain" style="margin: 0.5rem 0 1rem;">
+    {% if ref_number or edit_entity_type %}
+    <div id="{{ form_uid }}-view" style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;">
+      <span style="color: var(--text-muted); font-size: 0.82rem;">Reference:</span>
+      {% if ref_number %}
+      <span class="badge" style="background: var(--accent); color: #fff; font-weight: 700; letter-spacing: 0.02em;">{{ ref_number }}</span>
+      {% else %}
+      <span style="color: var(--text-muted); font-size: 0.82rem; font-style: italic;">Not set</span>
+      {% endif %}
+      {% if edit_entity_type and edit_entity_id %}
+      <button type="button" onclick="document.getElementById('{{ form_uid }}-view').style.display='none'; document.getElementById('{{ form_uid }}-edit').style.display='flex'; document.getElementById('{{ form_uid }}-input').focus();"
+              style="font-size: 0.75rem; padding: 0.1rem 0.4rem; border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 4px; cursor: pointer;">edit</button>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if edit_entity_type and edit_entity_id %}
+    <form method="POST" action="{{ url_for('main.edit_reference_number', entity_type=edit_entity_type, entity_id=edit_entity_id) }}"
+          id="{{ form_uid }}-edit" style="display: none; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; flex-wrap: wrap;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input id="{{ form_uid }}-input" type="text" name="reference_number" value="{{ ref_number or '' }}" placeholder="e.g. REF-2026-0001"
+             style="font-size: 0.82rem; padding: 0.25rem 0.5rem; max-width: 180px; background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+      <button type="submit" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">Save</button>
+      <button type="button" onclick="document.getElementById('{{ form_uid }}-edit').style.display='none'; document.getElementById('{{ form_uid }}-view').style.display='flex';"
+              style="font-size: 0.78rem; padding: 0.25rem 0.6rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted);">Cancel</button>
+      {% if jobs or invs or req %}
+      <span style="font-size: 0.72rem; color: var(--text-muted); width: 100%;">Applies to every linked document in this chain (request/quote/job/invoice); differing numbers on linked stages will ask before overwriting.</span>
+      {% endif %}
+    </form>
+    {% endif %}
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.82rem;">
+    <span style="color: var(--text-muted); margin-right: 0.15rem;">Documents:</span>
+
+    {% if req %}
+      {% if current == 'request' %}
+        <span class="badge badge-accent">{{ req.display_number }}</span>
+      {% else %}
+        <a href="{{ url_for('main.request_detail', request_id=req.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ req.display_number }}</a>
+      {% endif %}
+      <span style="color: var(--text-muted);">→</span>
+    {% endif %}
+
+    {% if quote %}
+      {% if current == 'quote' %}
+        <span class="badge badge-accent">{{ quote.display_number }}</span>
+      {% else %}
+        <a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ quote.display_number }}</a>
+      {% endif %}
+    {% endif %}
+
+    {% if jobs %}
+      <span style="color: var(--text-muted);">→</span>
+      {% for job in jobs %}
+        {% if current == 'job' and current_id == job.id %}
+          <span class="badge badge-accent">{{ job.display_number }}</span>
+        {% else %}
+          <a href="{{ url_for('main.jobs') }}#job-{{ job.id }}" class="badge badge-muted" style="text-decoration: none;">{{ job.display_number }}</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% if invs %}
+      <span style="color: var(--text-muted);">→</span>
+      {% for inv in invs %}
+        {% if current == 'invoice' and current_id == inv.id %}
+          <span class="badge badge-accent">{{ inv.display_number }}</span>
+        {% else %}
+          <a href="{{ url_for('main.invoice_detail', invoice_id=inv.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ inv.display_number }}</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}

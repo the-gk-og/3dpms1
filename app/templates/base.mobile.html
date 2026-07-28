@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>3DPMS - Print Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    {% set ep = request.endpoint or '' %}
+    <header class="m-topbar">
+      <div class="m-brand-icon">3D</div>
+      <h1 class="m-page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    </header>
+
+    <div class="m-content">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul class="m-flash-list">
+            {% for message in messages %}
+              <li class="m-flash-message">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+
+    <nav class="m-tabbar">
+      <a href="{{ url_for('main.index') }}" class="m-tab{% if ep == 'main.index' %} active{% endif %}">
+        <span class="m-tab-icon">📊</span><span>Home</span>
+      </a>
+      <a href="{{ url_for('main.quotes') }}" class="m-tab{% if ep.startswith('main.quote') or ep == 'main.new_quote' %} active{% endif %}">
+        <span class="m-tab-icon">📄</span><span>Quotes</span>
+      </a>
+      <a href="{{ url_for('main.invoices') }}" class="m-tab{% if ep.startswith('main.invoice') %} active{% endif %}">
+        <span class="m-tab-icon">💰</span><span>Invoices</span>
+      </a>
+      <a href="{{ url_for('main.jobs') }}" class="m-tab{% if ep.startswith('main.job') %} active{% endif %}">
+        <span class="m-tab-icon">🎯</span><span>Jobs</span>
+      </a>
+      <a href="#" class="m-tab{% if ep.startswith('main.client') or ep.startswith('main.request') or ep.startswith('filament.') or ep.startswith('settings.') or ep.startswith('feedback.') %} active{% endif %}" onclick="document.getElementById('moreSheet').classList.add('open'); return false;">
+        <span class="m-tab-icon">⋯</span><span>More</span>
+      </a>
+    </nav>
+
+    <div class="m-more-sheet" id="moreSheet" onclick="if(event.target===this) this.classList.remove('open')">
+      <div class="m-more-panel">
+        <div class="m-more-handle"></div>
+        <a href="{{ url_for('main.requests_list') }}" class="m-more-item"><span>📥</span> Requests</a>
+        <a href="{{ url_for('feedback.dashboard') }}" class="m-more-item"><span>⭐</span> Feedback</a>
+        <a href="{{ url_for('filament.index') }}" class="m-more-item"><span>🎨</span> Filament</a>
+        <a href="{{ url_for('main.clients') }}" class="m-more-item"><span>👥</span> Clients</a>
+        <a href="{{ url_for('settings.settings') }}" class="m-more-item"><span>⚙️</span> Settings</a>
+        <hr class="m-divider" style="margin: 0.5rem 1.25rem; width: calc(100% - 2.5rem);">
+        <a href="{{ url_for('auth.logout') }}" class="m-more-item" style="color: #f87171;"><span>🚪</span> Logout</a>
+      </div>
+    </div>
+
+    <script>
+      // Same field-toggling behavior as the desktop base — line-item type switching
+      // and payment-method surcharge enabling — needed on the mobile quote/invoice forms too.
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.item-type-select').forEach(function(select) {
+          var form = select.closest('.item-form');
+          if (!form) return;
+          function update() {
+            form.querySelectorAll('.field-group').forEach(function(group) {
+              var show = group.dataset.type === select.value;
+              group.style.display = show ? '' : 'none';
+              group.querySelectorAll('input, select').forEach(function(inp) { inp.disabled = !show; });
+            });
+          }
+          select.addEventListener('change', update);
+          update();
+        });
+
+        document.querySelectorAll('.payment-method-toggle').forEach(function(cb) {
+          var target = document.getElementById(cb.dataset.surchargeTarget);
+          function update() { if (target) target.disabled = !cb.checked; }
+          cb.addEventListener('change', update);
+          update();
+        });
+      });
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

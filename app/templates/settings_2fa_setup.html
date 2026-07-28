@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block page_title %}Set Up Two-Factor Authentication{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Set Up Two-Factor Authentication</h2>
+</div>
+
+<div class="panel" style="max-width: 480px;">
+  <p style="color: var(--text-muted);">
+    Scan this QR code with an authenticator app (Google Authenticator, 1Password, Authy, etc.),
+    then enter the 6-digit code it shows to confirm setup.
+  </p>
+  <div style="background: white; padding: 1rem; border-radius: 8px; display: inline-block;">
+    <img src="{{ url_for('settings.totp_qr_svg') }}" alt="2FA QR code" width="220" height="220">
+  </div>
+  <p style="font-size: 0.85rem; color: var(--text-muted);">
+    Can't scan it? Enter this key manually: <code>{{ secret }}</code>
+  </p>
+  <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>6-digit code
+      <input type="text" name="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autofocus>
+    </label>
+    <button type="submit">Confirm and Enable</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% macro payment_surcharge_fields_mobile(business, doc=None) %}
+{% set method_defs = [('bank_transfer','Bank Transfer'),('pay_id','Pay ID'),('cash','Cash'),('eft','EFT'),('credit_card','Credit Card'),('stripe','Stripe')] %}
+{% set selected = doc.payment_method.split(', ') if doc and doc.payment_method else ['Bank Transfer'] %}
+{% set overrides = doc.surcharge_map if doc else {} %}
+<div class="m-field">
+  <label>Payment Methods Accepted</label>
+  <p style="font-size: 0.78rem; color: var(--text-muted); margin: -0.25rem 0 0.6rem;">Each method can carry its own surcharge % — e.g. EFT costs more to process than cash.</p>
+</div>
+{% for key, label in method_defs %}
+<div class="m-checkbox-field" style="justify-content: space-between;">
+  <label style="display: flex; align-items: center; gap: 0.65rem; margin: 0; font-weight: 500; flex: 1;">
+    <input type="checkbox" name="payment_{{ key }}" class="payment-method-toggle"
+      data-surcharge-target="surcharge_field_{{ key }}_{{ doc.id if doc else 'new' }}"
+      {% if label in selected %}checked{% endif %}> {{ label }}
+  </label>
+  <span style="display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0;">
+    <input type="number" step="0.01" name="surcharge_{{ key }}" id="surcharge_field_{{ key }}_{{ doc.id if doc else 'new' }}"
+      value="{{ overrides.get(label, business|attr('surcharge_' ~ key)) }}"
+      style="width: 4.5rem; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: 0.95rem; min-height: 40px;"
+      {% if label not in selected %}disabled{% endif %}> %
+  </span>
+</div>
+{% endfor %}
+{% endmacro %}

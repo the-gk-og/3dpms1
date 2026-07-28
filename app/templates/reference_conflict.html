@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block page_title %}Resolve reference number{% endblock %}
+{% block content %}
+<div class="panel" style="max-width: 720px;">
+  <h2 style="margin-top: 0;">Some linked documents disagree</h2>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">
+    You're setting the reference number on <strong>{{ record.display_number }}</strong> to
+    <span class="badge" style="background: var(--accent); color: #fff;">{{ new_value or '(blank)' }}</span>.
+    The documents below are in the same pipeline chain but already carry a <em>different</em> reference number
+    &mdash; usually because they predate this field or came in through a CSV import. Nothing has been changed yet.
+  </p>
+
+  <form method="POST" action="{{ url_for('main.edit_reference_number', entity_type=entity_type, entity_id=record.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="reference_number" value="{{ new_value }}">
+    <input type="hidden" name="confirmed" value="1">
+
+    <table class="data-table" style="margin: 1rem 0;">
+      <thead>
+        <tr>
+          <th style="width: 2.5rem;"></th>
+          <th>Document</th>
+          <th>Current reference number</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in conflicts %}
+        <tr>
+          <td><input type="checkbox" name="overwrite" value="{{ type_key(c) }}:{{ c.id }}" checked></td>
+          <td><a href="{{ detail_url(c) }}">{{ c.display_number }}</a> <span style="color: var(--text-muted); font-size: 0.8rem;">({{ type_key(c)|capitalize }})</span></td>
+          <td>{{ c.reference_number }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: -0.5rem;">
+      Checked rows get overwritten with the new reference number. Uncheck a row to leave that document's number as it is
+      &mdash; it will stay out of sync with the rest of the chain until you change it separately.
+    </p>
+
+    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.25rem;">
+      <button type="submit">Apply to checked documents</button>
+      <button type="submit" name="resolution" value="overwrite_all" class="btn-secondary">Apply to all, ignore checkboxes</button>
+      <a href="{{ detail_url(record) }}" style="align-self: center; color: var(--text-muted); font-size: 0.85rem;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

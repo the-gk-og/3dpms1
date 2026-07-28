@@ -1,0 +1,141 @@
+{% extends 'base.mobile.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
+{% block page_title %}{{ req.display_number }}{% endblock %}
+{% block content %}
+
+<div class="m-card">
+  <div class="m-card-row" style="margin-bottom: 0.75rem;">
+    <div>
+      <div class="m-card-title" style="font-size: 1.1rem;">{{ req.display_number }}</div>
+      <div class="m-card-sub">{{ req.title }}</div>
+    </div>
+    {% if req.status == 'Converted' %}
+    <span class="m-badge m-badge-success">Converted</span>
+    {% elif req.status == 'Archived' %}
+    <span class="m-badge m-badge-muted">Archived</span>
+    {% elif req.status == 'Reviewed' %}
+    <span class="m-badge">Reviewed</span>
+    {% else %}
+    <span class="m-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">New</span>
+    {% endif %}
+  </div>
+
+  {{ pipeline_chain(quote=req.quote, standalone_request=req, current='request') }}
+
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Client</span>
+    <strong>{{ req.client.name if req.client else '—' }}</strong>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Email</span>
+    <span style="font-size: 0.85rem;">{{ req.client.email if req.client else '—' }}</span>
+  </div>
+  <div class="m-card-row" style="margin-bottom: 0.5rem;">
+    <span class="m-card-sub">Phone</span>
+    <span style="font-size: 0.85rem;">{{ req.client.phone if req.client else '—' }}</span>
+  </div>
+  <div class="m-card-row">
+    <span class="m-card-sub">Type</span>
+    <span style="font-size: 0.85rem;">{{ 'Needs design' if req.model_source == 'need_design' else 'Has model' }}</span>
+  </div>
+  {% if req.notify_me %}
+  <hr class="m-divider">
+  <span style="font-size: 0.85rem;">🔔 Customer wants an email when complete</span>
+  {% endif %}
+</div>
+
+<div class="m-section-title">Order Details</div>
+<div class="m-card">
+  {% set order = req.order_data %}
+  {% if order.description %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Description</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.description }}</p>
+  </div>
+  {% endif %}
+  {% if order.materials %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Materials Requested</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.materials|join(', ') }}{% if order.other_material %}, {{ order.other_material }}{% endif %}</p>
+  </div>
+  {% elif order.other_material %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Materials Requested</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.other_material }}</p>
+  </div>
+  {% endif %}
+  {% if order.model_links %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Model Links</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem; word-break: break-all;">{{ order.model_links }}</p>
+  </div>
+  {% endif %}
+  {% if order.reference_links %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Reference Links</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem; word-break: break-all;">{{ order.reference_links }}</p>
+  </div>
+  {% endif %}
+  {% if order.shipping_address %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Shipping Address</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.shipping_address }}</p>
+  </div>
+  {% endif %}
+  {% if order.notes %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Customer Notes</div>
+    <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.notes }}</p>
+  </div>
+  {% endif %}
+  {% if order.model_files %}
+  <div style="margin-bottom: 0.75rem;">
+    <div class="m-card-sub">Uploaded Files</div>
+    {% for f in order.model_files %}
+    <a href="{{ url_for('main.download_request_file', request_id=req.id, filename=f) }}" class="m-link-btn" style="display: block; margin-top: 0.35rem;">📎 {{ f.split('_', 1)[-1] }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if order.reference_images %}
+  <div>
+    <div class="m-card-sub">Reference Images</div>
+    {% for f in order.reference_images %}
+    <a href="{{ url_for('main.download_request_file', request_id=req.id, filename=f) }}" class="m-link-btn" style="display: block; margin-top: 0.35rem;">🖼️ {{ f.split('_', 1)[-1] }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="m-section-title">Actions</div>
+<div class="m-card">
+  <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+    {% if req.status == 'Converted' and req.quote_id %}
+    <a href="{{ url_for('main.quote_detail', quote_id=req.quote_id) }}" class="m-btn m-btn-primary">View Quote {{ req.quote.display_number }}</a>
+    {% elif req.status == 'Archived' %}
+    <form method="post" action="{{ url_for('main.unarchive_request', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Unarchive</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('main.convert_request_to_quote', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-primary">Convert to Quote</button>
+    </form>
+    {% if req.status == 'New' %}
+    <form method="post" action="{{ url_for('main.mark_request_reviewed', request_id=req.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary">Mark Reviewed</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.archive_request', request_id=req.id) }}" onsubmit="return confirm('Archive this request? Its linked quote, jobs, and invoices will be archived too.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-danger">Archive</button>
+    </form>
+    {% endif %}
+  </div>
+  <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; margin-bottom: 0;">
+    Converting creates a new quote for this client. Add your line items and pricing there,
+    then use the existing quote → job → invoice flow as usual.
+  </p>
+</div>
+{% endblock %}

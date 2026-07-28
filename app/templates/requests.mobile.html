@@ -1,0 +1,49 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Requests{% endblock %}
+{% block content %}
+
+<div class="m-search-bar">
+  <form method="get" style="display: flex; gap: 0.5rem; width: 100%;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Request number or customer">
+    <button type="submit" class="m-btn m-btn-secondary" style="width: auto; padding: 0 1rem;">Go</button>
+  </form>
+</div>
+<div class="m-checkbox-field" style="margin-top: -0.5rem;">
+  <input type="checkbox" name="archived" value="1" onchange="window.location = '{{ url_for('main.requests_list') }}?archived=' + (this.checked ? '1' : '0') + '&q={{ q }}'"{% if show_archived %} checked{% endif %}>
+  <label style="margin: 0;">Show archived</label>
+</div>
+
+{% if requests %}
+  {% for req in requests %}
+  <a href="{{ url_for('main.request_detail', request_id=req.id) }}" style="text-decoration: none; color: inherit;">
+    <div class="m-card">
+      <div class="m-card-row">
+        <div>
+          <div class="m-card-title">{{ req.display_number }}</div>
+          <div class="m-card-sub">{{ req.client.name if req.client else '—' }}</div>
+        </div>
+      </div>
+      <div class="m-card-meta">
+        {% if req.status == 'Converted' %}
+        <span class="m-badge m-badge-success">Converted</span>
+        {% elif req.status == 'Archived' %}
+        <span class="m-badge m-badge-muted">Archived</span>
+        {% elif req.status == 'Reviewed' %}
+        <span class="m-badge">Reviewed</span>
+        {% else %}
+        <span class="m-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">New</span>
+        {% endif %}
+        {% if req.notify_me %}<span class="m-badge m-badge-muted">🔔</span>{% endif %}
+        <span>{{ 'Needs design' if req.model_source == 'need_design' else 'Has model' }}</span>
+        <span>{{ req.created_at.strftime('%d %b %Y') if req.created_at else '—' }}</span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+{% else %}
+<div class="m-empty">
+  {% if q or show_archived %}No requests match.{% else %}No requests yet.{% endif %}<br>
+  <span style="font-size: 0.85rem;">Requests come in through your public order form and appear here for review.</span>
+</div>
+{% endif %}
+{% endblock %}

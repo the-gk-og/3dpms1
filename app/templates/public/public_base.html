@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ business.name or '3D Printing' }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='public.css') }}">
+    {% if is_mobile_request() %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile-public.css') }}">
+    {% endif %}
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    {% set ep = request.endpoint or '' %}
+    <nav class="pub-nav">
+      <a href="{{ url_for('public.home') }}" class="pub-brand">
+        {% if business.logo_path %}
+        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+        {% else %}
+        <span>{{ business.name or '3D Printing' }}</span>
+        {% endif %}
+      </a>
+      <div class="pub-nav-links">
+        <a href="{{ url_for('public.home') }}"{% if ep == 'public.home' %} class="active"{% endif %}>Home</a>
+        <a href="{{ url_for('public.about') }}"{% if ep == 'public.about' %} class="active"{% endif %}>About Us</a>
+        <a href="{{ url_for('public.contact') }}"{% if ep == 'public.contact' %} class="active"{% endif %}>Get in Touch</a>
+        <a href="{{ url_for('public.track_order') }}"{% if ep == 'public.track_order' %} class="active"{% endif %}>Order Tracking</a>
+        <a href="{{ url_for('public.order_form') }}" class="pub-nav-cta">Start an Order</a>
+      </div>
+    </nav>
+
+    <main class="pub-main{% block main_class %}{% endblock %}">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="pub-flash warn">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="pub-footer">
+      <p>{{ business.name or 'Our workshop' }}{% if business.contact_email %} · <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}{% if business.phone %} · {{ business.phone }}{% endif %}</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

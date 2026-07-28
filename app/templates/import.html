@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block page_title %}Import Data{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Import Data</h2>
+</div>
+<p style="color: var(--text-muted); font-size: 0.9rem; max-width: 640px;">
+  Upload a CSV to bulk-create or update records. Column headers match the files under
+  <a href="{{ url_for('settings.settings', tab='export') }}">Data Export</a> exactly, so the easiest way to
+  build one is to export the type you want, edit it in a spreadsheet, and re-upload it here. Rows are matched
+  to existing records by number/name where possible, so re-importing the same file updates rather than duplicates.
+</p>
+
+<div class="panel" style="max-width: 640px; margin-top: 1rem;">
+  <form method="POST" action="{{ url_for('import_data.run_import') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Data type
+      <select name="type" id="import-type" required>
+        {% for key, (label, header, handler, endpoint) in importers.items() %}
+        <option value="{{ key }}" data-header="{{ header | join(', ') }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p id="import-type-hint" style="color: var(--text-muted); font-size: 0.8rem; margin: 0.35rem 0 1rem;"></p>
+
+    <label>CSV file
+      <input type="file" name="file" accept=".csv,text/csv" required>
+    </label>
+
+    <label style="display: flex; align-items: center; gap: 0.4rem; margin-top: 1rem; font-weight: 400;">
+      <input type="checkbox" name="dry_run" value="1" checked style="width: auto;">
+      Dry run first (recommended) &mdash; shows a preview, nothing is saved until you confirm
+    </label>
+
+    <button type="submit" style="margin-top: 1rem;">Upload &amp; Preview</button>
+  </form>
+</div>
+
+<script>
+  var select = document.getElementById('import-type');
+  var hint = document.getElementById('import-type-hint');
+  function updateHint() {
+    var opt = select.options[select.selectedIndex];
+    hint.textContent = 'Recognised columns: ' + (opt.getAttribute('data-header') || '');
+  }
+  select.addEventListener('change', updateHint);
+  updateHint();
+</script>
+{% endblock %}
