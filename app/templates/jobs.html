@@ -56,6 +56,9 @@
     {% if job.notes %}
     <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
     {% endif %}
+    {% if job.internal_notes %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;"><span class="internal-note-badge">🔒 staff only</span> {{ job.internal_notes[:100] }}{% if job.internal_notes|length > 100 %}...{% endif %}</p>
+    {% endif %}
 
     {% if job.model_source %}
     {% set order = job.order_data %}
@@ -126,7 +129,8 @@
             {% endfor %}
           </select>
         </label>
-        <label>Notes<textarea name="notes" rows="2">{{ job.notes or '' }}</textarea></label>
+        <label>Notes<textarea class="md-editor" data-placeholder="Visible to the client on the delivery slip..." name="notes" rows="2">{{ job.notes or '' }}</textarea></label>
+        <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client — printer settings, issues, reminders..." name="internal_notes" rows="2">{{ job.internal_notes or '' }}</textarea></label>
         <button type="submit" class="btn-sm">Save</button>
       </form>
     </div>

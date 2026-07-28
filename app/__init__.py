@@ -136,8 +136,9 @@ def create_app(test_config=None):
     _register_cli(app)
     _register_security_headers(app)
 
-    from app.helpers import is_mobile_request
+    from app.helpers import is_mobile_request, render_markdown
     app.jinja_env.globals['is_mobile_request'] = is_mobile_request
+    app.jinja_env.filters['markdown'] = render_markdown
 
     return app
 

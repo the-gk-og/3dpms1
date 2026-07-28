@@ -49,7 +49,12 @@
   {% if quote.notes %}
   <hr class="m-divider">
   <div class="m-card-sub" style="margin-bottom: 0.3rem;">Notes</div>
-  <p style="margin: 0; font-size: 0.9rem;">{{ quote.notes }}</p>
+  <div class="md-content" style="font-size: 0.9rem;">{{ quote.notes|markdown }}</div>
+  {% endif %}
+  {% if quote.internal_notes %}
+  <hr class="m-divider">
+  <div class="m-card-sub" style="margin-bottom: 0.3rem;">Internal Notes<span class="internal-note-badge">🔒 staff only</span></div>
+  <div class="md-content" style="font-size: 0.9rem;">{{ quote.internal_notes|markdown }}</div>
   {% endif %}
 
   <hr class="m-divider">
@@ -125,7 +130,11 @@
     </div>
     <div class="m-field">
       <label>Notes</label>
-      <textarea name="notes" rows="3">{{ quote.notes or '' }}</textarea>
+      <textarea class="md-editor" data-placeholder="Visible to the client..." name="notes" rows="3">{{ quote.notes or '' }}</textarea>
+    </div>
+    <div class="m-field">
+      <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label>
+      <textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3">{{ quote.internal_notes or '' }}</textarea>
     </div>
     {{ payment_surcharge_fields_mobile(business, quote) }}
     <div class="m-checkbox-field">

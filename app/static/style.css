@@ -628,3 +628,141 @@ button:hover, .btn:hover { background: var(--accent-hover); }
   .form-grid-2 { grid-template-columns: 1fr; }
   .sidebar { display: none; }
 }
+
+/* ---- Markdown live editor (notes / internal notes) ---- */
+.md-editor-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.md-editor-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.md-editor-surface {
+  min-height: 7rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding: 0.65rem 0.85rem;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+}
+
+.md-editor-surface:focus {
+  box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.md-editor-surface:empty::before,
+.md-editor-surface .md-line:only-child.md-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+}
+
+.md-editor-hint {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.md-line { display: block; }
+.md-syntax { color: var(--text-muted); opacity: 0.6; }
+.md-h { font-weight: 700; display: block; }
+.md-h1 { font-size: 1.5em; }
+.md-h2 { font-size: 1.3em; }
+.md-h3 { font-size: 1.15em; }
+.md-h4 { font-size: 1.05em; }
+.md-quote {
+  display: block;
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 3px solid var(--border);
+  padding-left: 0.6em;
+}
+.md-list-item { display: block; padding-left: 0.2em; }
+.md-editor-surface strong { color: var(--text); font-weight: 700; }
+.md-editor-surface em { font-style: italic; }
+.md-editor-surface code {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+/* Badge used next to internal-only note sections */
+.internal-note-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  margin-left: 0.5rem;
+}
+
+/* ---- Rendered Markdown output (read-only note display, {{ text|markdown }}) ---- */
+.md-content { line-height: 1.6; color: var(--text); }
+.md-content p { margin: 0 0 0.75em; }
+.md-content p:last-child { margin-bottom: 0; }
+.md-content strong { font-weight: 700; }
+.md-content em { font-style: italic; }
+.md-content h1, .md-content h2, .md-content h3, .md-content h4 {
+  margin: 0.9em 0 0.4em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.md-content h1:first-child, .md-content h2:first-child,
+.md-content h3:first-child, .md-content h4:first-child { margin-top: 0; }
+.md-content h1 { font-size: 1.4em; }
+.md-content h2 { font-size: 1.25em; }
+.md-content h3 { font-size: 1.1em; }
+.md-content h4 { font-size: 1em; }
+.md-content ul, .md-content ol { margin: 0 0 0.75em; padding-left: 1.4em; }
+.md-content li { margin: 0.2em 0; }
+.md-content blockquote {
+  margin: 0 0 0.75em;
+  padding-left: 0.8em;
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.md-content code {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.md-content pre {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.75em;
+  overflow-x: auto;
+  margin: 0 0 0.75em;
+}
+.md-content pre code { background: none; padding: 0; }
+.md-content a { color: var(--accent); }
+.md-content table { border-collapse: collapse; margin: 0 0 0.75em; width: 100%; }
+.md-content th, .md-content td {
+  border: 1px solid var(--border);
+  padding: 0.35em 0.6em;
+  text-align: left;
+}

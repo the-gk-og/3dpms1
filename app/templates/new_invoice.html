@@ -34,7 +34,8 @@
       <h3>Invoice Settings</h3>
       <label>Due Date<input type="date" name="due_date" value="{{ default_due_date.isoformat() }}"></label>
       {{ payment_surcharge_fields(business) }}
-      <label>Notes<textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></label>
+      <label>Notes<textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></label>
+      <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></label>
       <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">You'll add line items on the next screen.</p>
     </div>
 

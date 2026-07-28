@@ -42,6 +42,9 @@
     {% if job.notes %}
     <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.6rem 0 0;">{{ job.notes[:100] }}{% if job.notes|length > 100 %}...{% endif %}</p>
     {% endif %}
+    {% if job.internal_notes %}
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.6rem 0 0;"><span class="internal-note-badge">🔒 staff only</span> {{ job.internal_notes[:100] }}{% if job.internal_notes|length > 100 %}...{% endif %}</p>
+    {% endif %}
 
     {% if job.model_source %}
     {% set order = job.order_data %}
@@ -113,7 +116,8 @@
             {% endfor %}
           </select>
         </div>
-        <div class="m-field"><label>Notes</label><textarea name="notes" rows="2">{{ job.notes or '' }}</textarea></div>
+        <div class="m-field"><label>Notes</label><textarea class="md-editor" data-placeholder="Visible to the client..." name="notes" rows="2">{{ job.notes or '' }}</textarea></div>
+        <div class="m-field"><label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="2">{{ job.internal_notes or '' }}</textarea></div>
         <button type="submit" class="m-btn m-btn-primary">Save</button>
       </form>
     </div>
