@@ -1,0 +1,67 @@
+{% extends 'public/public_base.html' %}
+{% block title %}Terms of Service &amp; Payment Terms — {{ business.name or '3D Printing' }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+
+{% set default_tos %}
+These Terms of Service ("Terms") govern quotes, orders, and custom 3D printing services provided by {{ business.name or 'us' }}{% if business.abn %} (ABN {{ business.abn }}){% endif %}{% if business.address %} of {{ business.address }}{% endif %} ("we", "us", "our") to any person or business placing an order ("you", "the customer"). By submitting an order, request, or quote acceptance through this website, you agree to these Terms.
+
+### 1. Quotes and Orders
+Quotes are estimates based on the information, files, and specifications you provide and are valid for 14 days from issue unless stated otherwise. Prices may change if the design, materials, quantity, or finish requested changes after a quote is issued. An order is only confirmed once we accept it in writing (including by email) and, where a deposit is required, once that deposit is received.
+
+### 2. Custom-Made Goods
+Most items we produce are custom-made or made-to-order to your specifications. Because of this, change-of-mind returns are not available once production has started. This does not affect any rights you have under the Australian Consumer Law that cannot be excluded (see clause 8).
+
+### 3. Files, Designs, and Intellectual Property
+You are responsible for ensuring any file, model, or design you supply is accurate, printable, and that you own it or otherwise have the right to have it printed and to share it with us. You must not submit designs that infringe someone else's intellectual property, are unlawful, or that we reasonably consider unsafe or inappropriate to produce, and we may decline or cancel an order on that basis.
+
+You retain ownership of designs you provide to us. We retain ownership of any design work, drawings, or models we create for you until paid in full, after which ownership of files created specifically for your order transfers to you, unless we agree otherwise in writing. We may photograph completed work for our portfolio, website, or social media unless you ask us in writing not to.
+
+### 4. Production, Materials, and Variation
+3D printing involves natural variation. Colour, texture, layer lines, minor dimensional tolerances, and slight differences between batches of the same filament are normal and are not defects. Where a specific material is unavailable, we will contact you before substituting an equivalent, unless the substitution is minor (e.g. a different batch of the same filament and colour).
+
+### 5. Lead Times and Delivery
+Estimated turnaround and delivery times are provided in good faith but are not guaranteed, as they can be affected by printer availability, material supply, and order volume. Risk in the goods passes to you on collection, or on handover to a courier or postal service for delivery. Shipping costs and any packaging requirements will be confirmed with your quote.
+
+### 6. Cancellations
+You may request cancellation before production begins for a full refund of any amount paid, less any non-recoverable costs already incurred (such as materials ordered specifically for your job). Once production has started, cancellation may only be possible in part, and any materials, machine time, and labour already used will be charged.
+
+### 7. Inspection and Faults
+Please inspect your order on collection or as soon as possible after delivery and let us know of any fault or issue within 7 days. Where a part is genuinely defective due to our workmanship or materials, we will repair, reprint, or refund it at our discretion. We are not responsible for damage caused by misuse, normal wear, post-processing you carry out yourself, or use outside the part's intended purpose.
+
+### 8. Consumer Guarantees
+Nothing in these Terms excludes, restricts, or modifies any consumer guarantee, right, or remedy you have under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010 (Cth)) that cannot lawfully be excluded. Our goods and services come with guarantees that cannot be excluded under the Australian Consumer Law. To the extent we are permitted to limit our liability, our liability for a failure to comply with a consumer guarantee is limited, at our option, to resupplying the goods or services, or paying the cost of having them resupplied.
+
+### 9. Liability
+To the maximum extent permitted by law, our total liability arising out of or in connection with an order is limited to the amount you paid for that order. We are not liable for indirect or consequential loss, including loss of profits, arising from your use of a printed part.
+
+### 10. Governing Law
+These Terms are governed by the laws of the Australian Capital Territory, and you submit to the non-exclusive jurisdiction of the courts of the Australian Capital Territory and the Commonwealth of Australia.
+{% endset %}
+
+{% set default_payment_terms %}
+**Deposits and Payment Timing** — For custom or larger orders we may require a deposit before production begins, with the balance due on completion, before collection or dispatch. For smaller or standard orders, full payment is generally due before production starts. We reserve the right to withhold or refuse to hand over completed goods until payment in full has been received.
+
+**Accepted Payment Methods** — We accept payment by bank transfer, PayID, credit or debit card, and other methods shown on your quote or invoice (for example PayPal or a secure Stripe payment link). Card and online payments are processed by our third-party payment providers; we do not store your full card details ourselves. A surcharge may apply to some payment methods to cover processing fees, and any applicable surcharge will be shown on your invoice before you pay.
+
+**Late Payment** — If payment is not received by the due date shown on your invoice, we may pause work on outstanding orders, charge interest on overdue amounts at a reasonable commercial rate, and/or refer the debt for collection, with any reasonable recovery costs added to the amount owing.
+
+**Refunds** — Refunds are issued to the original payment method where a cancellation is accepted under clause 6, or where required under the Australian Consumer Law. Refunds are processed within a reasonable time of the refund being approved.
+{% endset %}
+
+<h1 style="text-align: center;">Terms of Service &amp; Payment Terms</h1>
+<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Last updated: 29 July 2026</p>
+
+<div class="pub-panel legal-content" style="margin-top: 2rem;">
+  {{ (business.terms_of_service or default_tos)|markdown }}
+  <h3 style="margin-top: 2.5rem;">Payment Terms</h3>
+  {{ (business.payment_terms or default_payment_terms)|markdown }}
+
+  <h3 style="margin-top: 2.5rem;">Questions</h3>
+  <p>
+    If you have any questions about these Terms, please
+    <a href="{{ url_for('public.contact') }}">get in touch</a>{% if business.contact_email %} or email
+    <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}.
+  </p>
+</div>
+{% endblock %}

@@ -28,7 +28,8 @@
     <div class="m-section-title">Quote Settings</div>
     <div class="m-field"><label>Valid Until</label><input type="date" name="valid_until"></div>
     {{ payment_surcharge_fields_mobile(business) }}
-    <div class="m-field"><label>Notes</label><textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></div>
+    <div class="m-field"><label>Notes</label><textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></div>
+    <div class="m-field"><label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></div>
     <div class="m-checkbox-field">
       <input type="checkbox" name="digital_signature_enabled">
       <label style="margin: 0;">Include signature area on PDF</label>

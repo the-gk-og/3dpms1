@@ -69,8 +69,11 @@ def save_settings():
         business.quote_footer = request.form.get('quote_footer', '')
         business.invoice_header = request.form.get('invoice_header', '')
         business.invoice_footer = request.form.get('invoice_footer', '')
+
+    elif tab == 'legal':
         business.payment_terms = request.form.get('payment_terms', '')
         business.terms_of_service = request.form.get('terms_of_service', '')
+        business.privacy_policy = request.form.get('privacy_policy', '')
         business.payment_terms_font_size = float(request.form.get('payment_terms_font_size', 9) or 9)
         business.tos_font_size = float(request.form.get('tos_font_size', 8) or 8)
 

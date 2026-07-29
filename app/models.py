@@ -39,6 +39,7 @@ class BusinessSettings(db.Model):
     invoice_footer = db.Column(db.Text)
     payment_terms = db.Column(db.Text)
     terms_of_service = db.Column(db.Text)
+    privacy_policy = db.Column(db.Text)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))
@@ -171,6 +172,7 @@ class Quote(db.Model):
     status = db.Column(db.String(50), default='Draft')
     total = db.Column(db.Float, default=0.0)
     notes = db.Column(db.Text)
+    internal_notes = db.Column(db.Text)  # staff-only — Markdown, never shown to the client or printed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     digital_signature_enabled = db.Column(db.Boolean, default=False)
     payment_method = db.Column(db.String(200), default='Bank Transfer')
@@ -281,6 +283,7 @@ class Invoice(db.Model):
     show_markup_to_client = db.Column(db.Boolean, default=False)
     notify_me = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
+    internal_notes = db.Column(db.Text)  # staff-only — Markdown, never shown to the client or printed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     due_date = db.Column(db.Date)
     paid_at = db.Column(db.DateTime)
@@ -354,6 +357,7 @@ class Job(db.Model):
     title = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), default='Queued')
     notes = db.Column(db.Text)
+    internal_notes = db.Column(db.Text)  # staff-only — Markdown, never shown to the client or printed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     notify_me = db.Column(db.Boolean, default=False)
     notify_sent_at = db.Column(db.DateTime)
@@ -401,6 +405,7 @@ class Request(db.Model):
     status = db.Column(db.String(50), default='New')  # New, Reviewed, Converted, Archived
     model_source = db.Column(db.String(20))  # 'has_model' | 'need_design'
     order_details = db.Column(db.Text)
+    internal_notes = db.Column(db.Text)  # staff-only triage notes — Markdown, never shown to the client
     notify_me = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))

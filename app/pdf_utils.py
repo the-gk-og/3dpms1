@@ -2,6 +2,8 @@ from io import BytesIO
 import os
 from xml.sax.saxutils import escape as _xml_escape
 
+from app.helpers import render_markdown_pdf
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.lib.pagesizes import letter
@@ -229,7 +231,7 @@ def build_pdf(document_title, business, client, items, total, footer_text,
     if notes:
         story.append(Spacer(1, 0.15 * inch))
         story.append(Paragraph('<b>Notes</b>', styles['SectionHead']))
-        story.append(Paragraph(_esc(notes).replace('\n', '<br/>'), styles['Muted']))
+        story.append(Paragraph(render_markdown_pdf(notes, _esc), styles['Muted']))
 
     # Payment details
     if payment_method or payment_details:
@@ -546,7 +548,7 @@ def build_packing_slip_pdf(business, job, invoice=None, logo_path=None,
     story.append(Spacer(1, 0.2 * inch))
     if job.notes:
         story.append(Paragraph('NOTES', styles['SectionHead']))
-        story.append(Paragraph(_esc(job.notes).replace('\n', '<br/>'), styles['Body']))
+        story.append(Paragraph(render_markdown_pdf(job.notes, _esc), styles['Body']))
 
     # --- Page 2: standalone tax invoice / receipt. Only added when there's a real
     # invoice to show — no invoice means no page 2, rather than an empty or fabricated

@@ -34,7 +34,8 @@
       <h3>Quote Settings</h3>
       <label>Valid Until<input type="date" name="valid_until"></label>
       {{ payment_surcharge_fields(business) }}
-      <label>Notes<textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></label>
+      <label>Notes<textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></label>
+      <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></label>
       <label class="checkbox-item" style="background: transparent; padding: 0;">
         <input type="checkbox" name="digital_signature_enabled"> Include signature area on PDF
       </label>

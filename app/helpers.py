@@ -5,9 +5,74 @@ import secrets
 import smtplib
 from email.message import EmailMessage
 
+import bleach
+import markdown as _markdown
 from flask import request, render_template as _flask_render_template
+from markupsafe import Markup
 
 from app.models import BusinessSettings, Quote, Invoice, Job, Request, AuditLog, FeedbackSurvey
+
+
+# Tags/attributes allowed through after Markdown conversion. Notes are written by
+# staff (not the public), but they're rendered back to other staff — and, for the
+# handful of fields that also land on client-facing documents, to clients too — so
+# the HTML is still sanitized rather than trusted outright.
+_MD_ALLOWED_TAGS = [
+    'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote', 'hr',
+    'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'a',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+]
+_MD_ALLOWED_ATTRS = {'a': ['href', 'title', 'rel']}
+
+
+def render_markdown(text):
+    """Render Markdown text to sanitized, safe-to-embed HTML for on-screen display
+    (note detail views, etc). Returns a Markup instance so Jinja won't re-escape it.
+    Empty input renders to an empty string rather than an empty <p></p>.
+    """
+    text = (text or '').strip()
+    if not text:
+        return Markup('')
+    html = _markdown.markdown(
+        text, extensions=['nl2br', 'sane_lists', 'fenced_code', 'tables'],
+    )
+    clean = bleach.clean(html, tags=_MD_ALLOWED_TAGS, attributes=_MD_ALLOWED_ATTRS, strip=True)
+    clean = bleach.linkify(clean, callbacks=[bleach.callbacks.nofollow])
+    return Markup(clean)
+
+
+# reportlab's Paragraph only understands a small, specific set of markup tags
+# (b, i, u, font, br, super, sub...) — it is not an HTML renderer. So PDF notes get
+# their own lightweight Markdown-ish pass rather than the full `markdown` library:
+# just the everyday inline styling someone would actually type into a notes box.
+def render_markdown_pdf(text, esc):
+    """Convert Markdown-ish text to reportlab mini-markup for use inside a
+    Paragraph. `esc` is the caller's existing HTML-escaping function — escaping
+    happens first so user text can never inject reportlab markup of its own.
+    """
+    text = (text or '').strip()
+    if not text:
+        return ''
+    lines = [esc(line) for line in text.split('\n')]
+    out_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('### '):
+            line = f'<b>{stripped[4:]}</b>'
+        elif stripped.startswith('## '):
+            line = f'<b>{stripped[3:]}</b>'
+        elif stripped.startswith('# '):
+            line = f'<b>{stripped[2:]}</b>'
+        elif stripped.startswith(('- ', '* ')):
+            line = f'&bull;&nbsp;{stripped[2:]}'
+        elif stripped.startswith('&gt; '):
+            line = f'<i>{stripped[5:]}</i>'
+        out_lines.append(line)
+    text = '<br/>'.join(out_lines)
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
+    text = re.sub(r'`(.+?)`', r'<font face="Courier">\1</font>', text)
+    return text
 
 
 # Matches common mobile/tablet user agents. Deliberately conservative — false

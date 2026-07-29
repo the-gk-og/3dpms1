@@ -400,6 +400,7 @@ def new_quote():
             reference_number=generate_reference_number(),
             client=client,
             notes=request.form.get('notes', ''),
+            internal_notes=request.form.get('internal_notes', ''),
             payment_method=payment_method_str,
             surcharge_overrides=json.dumps(overrides),
             surcharge_percent=effective_surcharge,
@@ -437,6 +438,7 @@ def edit_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
     business = get_business_settings()
     quote.notes = request.form.get('notes', '')
+    quote.internal_notes = request.form.get('internal_notes', '')
     quote.status = request.form.get('status', quote.status)
     quote.digital_signature_enabled = request.form.get('digital_signature_enabled') == 'on'
     quote.markup_percent = float(request.form.get('markup_percent', 0) or 0)
@@ -760,6 +762,7 @@ def new_invoice():
             invoice_number=generate_invoice_number(),
             client=client,
             notes=request.form.get('notes', ''),
+            internal_notes=request.form.get('internal_notes', ''),
             payment_method=payment_method_str,
             surcharge_overrides=json.dumps(overrides),
             surcharge_percent=effective_surcharge,
@@ -795,6 +798,7 @@ def edit_invoice(invoice_id):
     business = get_business_settings()
     new_status = request.form.get('status', invoice.status)
     invoice.notes = request.form.get('notes', '')
+    invoice.internal_notes = request.form.get('internal_notes', '')
     invoice.markup_percent = float(request.form.get('markup_percent', 0) or 0)
     invoice.show_markup_to_client = request.form.get('show_markup_to_client') == 'on'
     invoice.notify_me = request.form.get('notify_me') == 'on'
@@ -1083,6 +1087,7 @@ def edit_job(job_id):
     new_status = request.form.get('status', job.status)
     job.status = new_status
     job.notes = request.form.get('notes', '')
+    job.internal_notes = request.form.get('internal_notes', '')
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1318,6 +1323,16 @@ def mark_request_reviewed(request_id):
     req.status = 'Reviewed'
     db.session.commit()
     flash('Request marked as reviewed')
+    return redirect(url_for('main.request_detail', request_id=req.id))
+
+
+@main_bp.route('/requests/<int:request_id>/notes', methods=['POST'])
+@login_required
+def update_request_notes(request_id):
+    req = Request.query.get_or_404(request_id)
+    req.internal_notes = request.form.get('internal_notes', '')
+    db.session.commit()
+    flash('Internal notes saved')
     return redirect(url_for('main.request_detail', request_id=req.id))
 
 

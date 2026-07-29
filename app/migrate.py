@@ -11,6 +11,7 @@ def run_migrations(db):
             'phone': 'VARCHAR(50)',
             'abn': 'VARCHAR(20)',
             'terms_of_service': 'TEXT',
+            'privacy_policy': 'TEXT',
             'hourly_rate': 'FLOAT DEFAULT 0',
             'pay_id': 'VARCHAR(200)',
             'bank_name': 'VARCHAR(200)',
@@ -56,6 +57,7 @@ def run_migrations(db):
         },
         'invoice': {
             'notes': 'TEXT',
+            'internal_notes': 'TEXT',
             'pay_token': 'VARCHAR(64)',
             'due_date': 'DATE',
             'paid_at': 'DATETIME',
@@ -70,6 +72,7 @@ def run_migrations(db):
         },
         'quote': {
             'valid_until': 'DATE',
+            'internal_notes': 'TEXT',
             'surcharge_overrides': "TEXT DEFAULT '{}'",
             'markup_percent': 'FLOAT DEFAULT 0',
             'show_markup_to_client': 'BOOLEAN DEFAULT 0',
@@ -84,6 +87,7 @@ def run_migrations(db):
         },
         'job': {
             'notify_me': 'BOOLEAN DEFAULT 0',
+            'internal_notes': 'TEXT',
             'notify_sent_at': 'DATETIME',
             'model_source': 'VARCHAR(20)',
             'order_details': 'TEXT',
@@ -106,6 +110,7 @@ def run_migrations(db):
         },
         'request': {
             'reference_number': 'VARCHAR(50)',
+            'internal_notes': 'TEXT',
         },
         'feedback_survey': {
             'respondent_name': 'VARCHAR(200)',

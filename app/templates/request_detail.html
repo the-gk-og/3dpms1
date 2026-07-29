@@ -149,6 +149,15 @@
         then use the existing quote → job → invoice flow as usual.
       </p>
     </div>
+
+    <div class="panel" style="margin-top: 1.5rem;">
+      <h3 style="margin-top: 0;">Internal Notes<span class="internal-note-badge">🔒 staff only</span></h3>
+      <form method="post" action="{{ url_for('main.update_request_notes', request_id=req.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <textarea class="md-editor" data-placeholder="Never shown to the client — triage notes, follow-ups..." name="internal_notes" rows="4">{{ req.internal_notes or '' }}</textarea>
+        <button type="submit" class="btn-sm" style="margin-top: 0.75rem;">Save Notes</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

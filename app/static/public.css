@@ -328,3 +328,8 @@ form.pub-form { display: grid; gap: 1rem; }
   font-size: 0.8rem;
   font-weight: 600;
 }
+
+.legal-content h3 { margin-top: 1.75rem; margin-bottom: 0.5rem; }
+.legal-content h3:first-child { margin-top: 0; }
+.legal-content p { line-height: 1.6; margin: 0 0 1rem; }
+.legal-content ul, .legal-content ol { margin: 0 0 1rem; padding-left: 1.4rem; line-height: 1.6; }

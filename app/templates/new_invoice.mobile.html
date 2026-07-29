@@ -28,7 +28,8 @@
     <div class="m-section-title">Invoice Settings</div>
     <div class="m-field"><label>Due Date</label><input type="date" name="due_date" value="{{ default_due_date.isoformat() }}"></div>
     {{ payment_surcharge_fields_mobile(business) }}
-    <div class="m-field"><label>Notes</label><textarea name="notes" rows="3" placeholder="Project details, delivery info..."></textarea></div>
+    <div class="m-field"><label>Notes</label><textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></div>
+    <div class="m-field"><label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">You'll add line items on the next screen.</p>
 
     <div class="m-section-title">Internal Markup</div>
