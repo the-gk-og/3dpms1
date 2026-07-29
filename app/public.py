@@ -79,6 +79,18 @@ def about():
     return render_template('public/about.html', business=business)
 
 
+@public_bp.route('/terms')
+def terms():
+    business = get_business_settings()
+    return render_template('public/terms.html', business=business)
+
+
+@public_bp.route('/privacy')
+def privacy():
+    business = get_business_settings()
+    return render_template('public/privacy.html', business=business)
+
+
 @public_bp.route('/contact', methods=['GET', 'POST'])
 @limiter.limit('5 per minute', methods=['POST'])
 def contact():

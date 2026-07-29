@@ -1,0 +1,51 @@
+{% extends 'public/public_base.html' %}
+{% block title %}Privacy Policy — {{ business.name or '3D Printing' }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+
+{% set default_privacy %}
+This Privacy Policy explains how {{ business.name or 'we' }}{% if business.abn %} (ABN {{ business.abn }}){% endif %} ("we", "us", "our") collects, uses, stores, and discloses personal information through this website and in the course of providing 3D printing services.
+
+### 1. Information We Collect
+When you request a quote, place an order, or contact us, we may collect: your name, phone number, email address, and shipping or billing address; order details including model files, reference images, links, material choices, and any notes or instructions you provide; payment-related information such as which payment method you used and transaction status (we do not collect or store full card numbers ourselves — these are handled directly by our payment providers); correspondence you send us, including emails, contact form messages, and order feedback; and limited technical information, such as your IP address, collected automatically for security and fraud-prevention purposes (for example, by Cloudflare Turnstile when you submit a form).
+
+### 2. How We Use Your Information
+We use personal information to prepare quotes, process and produce orders, and arrange delivery or collection; communicate with you about your order, including status updates if you opt in to notifications; process payments and manage invoicing; respond to enquiries, feedback, and support requests; and meet our legal, accounting, and tax obligations, and protect against fraud or misuse of our website.
+
+### 3. Disclosure to Third Parties
+We do not sell your personal information. We may share limited information with trusted third parties who help us run our business, including payment processors (such as Stripe and/or PayPal) to process card and online payments; our email delivery provider, to send order and account notifications; Cloudflare, for website security and bot/spam protection (Turnstile); and delivery or courier providers, where an order needs to be shipped.
+
+Some of these providers may store or process information on servers located outside Australia. Where this happens, we take reasonable steps to ensure your information continues to be protected consistently with this Policy. We may also disclose information where required by law, or to protect our rights, property, or safety, or that of others.
+
+### 4. Design Files and Intellectual Property
+Files you upload are used only to produce your order and for reasonable quality-control and support purposes, and are not shared with anyone outside our business except where needed to fulfil your order (for example, a delivery label). See our [Terms of Service]({{ url_for('public.terms') }}) for how we handle ownership of files and designs.
+
+### 5. Cookies and Website Data
+Our website uses strictly necessary cookies and similar technologies — for example, to keep you logged in to an account area, remember your session while filling out an order form, and protect forms against spam and abuse. We do not use these for advertising or tracking you across other websites.
+
+### 6. Data Storage and Security
+We take reasonable technical and organisational steps to protect the personal information we hold from misuse, interference, loss, unauthorised access, modification, or disclosure, including access controls, encryption of sensitive stored data, and secure hosting. No method of transmission or storage is completely secure, and we cannot guarantee absolute security.
+
+### 7. Data Retention
+We keep order, invoice, and correspondence records for as long as reasonably necessary to provide our services, meet tax and accounting obligations, and resolve any disputes, after which we take reasonable steps to delete or de-identify the information.
+
+### 8. Access, Correction, and Complaints
+You may ask us for access to, or correction of, the personal information we hold about you, or raise a concern about how we've handled it, by [contacting us]({{ url_for('public.contact') }}){% if business.contact_email %} or emailing {{ business.contact_email }}{% endif %}. We will respond within a reasonable time. If you're not satisfied with our response, you can contact the Office of the Australian Information Commissioner (OAIC) at oaic.gov.au.
+
+### 9. Children's Privacy
+Our services are intended for adults and businesses. We do not knowingly collect personal information from children without the consent of a parent or guardian.
+
+### 10. Changes to This Policy
+We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. The current version will always be available on this page.
+
+### 11. Contact Us
+{{ business.name or 'We' }}{% if business.address %}, {{ business.address }}{% endif %}.{% if business.contact_email %} Email: {{ business.contact_email }}.{% endif %}{% if business.phone %} Phone: {{ business.phone }}.{% endif %}
+{% endset %}
+
+<h1 style="text-align: center;">Privacy Policy</h1>
+<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Last updated: 29 July 2026</p>
+
+<div class="pub-panel legal-content" style="margin-top: 2rem;">
+  {{ (business.privacy_policy or default_privacy)|markdown }}
+</div>
+{% endblock %}

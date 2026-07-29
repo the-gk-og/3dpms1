@@ -39,6 +39,7 @@ class BusinessSettings(db.Model):
     invoice_footer = db.Column(db.Text)
     payment_terms = db.Column(db.Text)
     terms_of_service = db.Column(db.Text)
+    privacy_policy = db.Column(db.Text)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))

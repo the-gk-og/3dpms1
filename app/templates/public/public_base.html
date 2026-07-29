@@ -41,7 +41,8 @@
     </main>
 
     <footer class="pub-footer">
-      <p>{{ business.name or 'Our workshop' }}{% if business.contact_email %} · <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}{% if business.phone %} · {{ business.phone }}{% endif %}</p>
+      <p>{{ business.name or 'Our workshop' }}{% if business.contact_email %} · <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}{% if business.phone %} · {{ business.phone }}{% endif %}{% if business.abn %} · ABN {{ business.abn }}{% endif %}</p>
+      <p class="pub-footer-legal"><a href="{{ url_for('public.terms') }}">Terms of Service &amp; Payment Terms</a> · <a href="{{ url_for('public.privacy') }}">Privacy Policy</a></p>
     </footer>
 
     {% block scripts %}{% endblock %}

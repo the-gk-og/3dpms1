@@ -9,6 +9,7 @@
   <a href="{{ url_for('settings.settings', tab='business') }}" class="tab-link{% if active_tab == 'business' %} active{% endif %}">Business</a>
   <a href="{{ url_for('settings.settings', tab='payment') }}" class="tab-link{% if active_tab == 'payment' %} active{% endif %}">Payment Details</a>
   <a href="{{ url_for('settings.settings', tab='templates') }}" class="tab-link{% if active_tab == 'templates' %} active{% endif %}">PDF Templates</a>
+  <a href="{{ url_for('settings.settings', tab='legal') }}" class="tab-link{% if active_tab == 'legal' %} active{% endif %}">Legal</a>
   <a href="{{ url_for('settings.settings', tab='email') }}" class="tab-link{% if active_tab == 'email' %} active{% endif %}">Email</a>
   <a href="{{ url_for('settings.settings', tab='security') }}" class="tab-link{% if active_tab == 'security' %} active{% endif %}">Security</a>
   <a href="{{ url_for('settings.settings', tab='users') }}" class="tab-link{% if active_tab == 'users' %} active{% endif %}">Users</a>
@@ -122,20 +123,41 @@
     <label>Invoice Footer<textarea name="invoice_footer" rows="3">{{ business.invoice_footer or '' }}</textarea></label>
   </div>
 
-  <div class="form-section">
-    <h3>Terms & Conditions</h3>
+  <button type="submit">Save Templates</button>
+</form>
+
+{% elif active_tab == 'legal' %}
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="legal">
+  <h3 style="margin-top: 0;">Legal</h3>
+  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: -0.5rem;">
+    This is the single source of truth for your Terms of Service, Payment Terms, and Privacy Policy —
+    it's shown on the public <a href="{{ url_for('public.terms') }}" target="_blank">/terms</a> and
+    <a href="{{ url_for('public.privacy') }}" target="_blank">/privacy</a> pages, and the Payment Terms /
+    Terms of Service also print at the bottom of quote and invoice PDFs. Markdown (headings, lists, bold)
+    is supported and rendered on the website; PDFs show it as plain text.
+  </p>
+
+  <div class="form-section" style="margin-top: 0; padding-top: 0; border: none;">
+    <h3>Terms of Service &amp; Payment Terms</h3>
     <div class="form-grid-2">
-      <label>Payment Terms<textarea name="payment_terms" rows="3" placeholder="e.g. 50% deposit required. Balance due on completion.">{{ business.payment_terms or '' }}</textarea></label>
-      <label>Payment Terms Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="payment_terms_font_size" value="{{ business.payment_terms_font_size or 9 }}"></label>
+      <label>Payment Terms<textarea class="md-editor" data-placeholder="e.g. 50% deposit required. Balance due on completion." name="payment_terms" rows="6">{{ business.payment_terms or '' }}</textarea></label>
+      <label>Payment Terms Font Size — PDF only (pt)<input type="number" step="0.5" min="5" max="16" name="payment_terms_font_size" value="{{ business.payment_terms_font_size or 9 }}"></label>
     </div>
     <div class="form-grid-2">
-      <label>Terms of Service / Agreement<textarea name="terms_of_service" rows="5" placeholder="Agreement text shown on PDF with signature area">{{ business.terms_of_service or '' }}</textarea></label>
-      <label>Terms of Service Font Size (pt)<input type="number" step="0.5" min="5" max="16" name="tos_font_size" value="{{ business.tos_font_size or 8 }}"></label>
+      <label>Terms of Service / Agreement<textarea class="md-editor" data-placeholder="Full terms shown on the public /terms page and on PDFs with the signature area" name="terms_of_service" rows="10">{{ business.terms_of_service or '' }}</textarea></label>
+      <label>Terms of Service Font Size — PDF only (pt)<input type="number" step="0.5" min="5" max="16" name="tos_font_size" value="{{ business.tos_font_size or 8 }}"></label>
     </div>
-    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Smaller sizes fit more fine print; larger sizes are easier to read. Applies to both quote and invoice PDFs.</p>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Smaller sizes fit more fine print; larger sizes are easier to read. Font sizes apply to both quote and invoice PDFs only.</p>
   </div>
 
-  <button type="submit">Save Templates</button>
+  <div class="form-section">
+    <h3>Privacy Policy</h3>
+    <label>Privacy Policy<textarea class="md-editor" data-placeholder="Shown on the public /privacy page only" name="privacy_policy" rows="12">{{ business.privacy_policy or '' }}</textarea></label>
+  </div>
+
+  <button type="submit">Save Legal</button>
 </form>
 
 {% elif active_tab == 'email' %}
