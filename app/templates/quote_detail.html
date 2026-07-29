@@ -81,10 +81,22 @@
           <button type="submit" class="btn-sm btn-secondary">New Revision</button>
         </form>
       </div>
-      {% if quote.version_history %}
+      {% if quote.version_history or versions %}
       <details style="margin-top: 0.5rem;">
         <summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Revision history</summary>
+        {% if versions %}
+        <div style="margin: 0.5rem 0 0;">
+          {% for v in versions %}
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; font-size: 0.82rem;">
+            <span>v{{ v.version_label }} — ${{ "%.2f"|format(v.total) }} <span style="color: var(--text-muted);">({{ v.created_at.strftime('%d %b %Y') if v.created_at else '' }})</span></span>
+            <a href="{{ url_for('main.download_document_version', entity_type='quote', entity_id=quote.id, version_id=v.id) }}" style="color: var(--accent);">Download PDF</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if quote.version_history %}
         <pre style="font-size: 0.8rem; color: var(--text-muted); white-space: pre-wrap; margin: 0.5rem 0 0;">{{ quote.version_history }}</pre>
+        {% endif %}
       </details>
       {% endif %}
 

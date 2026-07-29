@@ -502,28 +502,52 @@ def default_email_html(template_key, context, business):
     client_name = c.get('client_name', 'there')
 
     if template_key == 'quote':
+        version = context.get('version')
+        is_revision = bool(version) and str(version) != '1'
+        revision_notice = (
+            f'<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;'
+            f'padding:10px 14px;color:#1e3a8a;font-size:14px;">'
+            f'This is a revised quote — <strong>version {c.get("version","")}</strong>. '
+            f'Please disregard any earlier version you may have received.</p>'
+        ) if is_revision else ''
         valid_line = f'<p>This quote is valid until <strong>{c["valid_until"]}</strong>.</p>' if context.get('valid_until') else ''
         body = (
             f'<h2 style="margin:0 0 16px;color:#111827;">Your quote is ready</h2>'
             f'<p>Hi {client_name},</p>'
+            f'{revision_notice}'
             f'<p>Please find attached quote <strong>{c.get("document_number","")}</strong> '
             f'for <strong>${c.get("total","")}</strong>.</p>'
             f'{valid_line}'
             f'{_email_button(context.get("upload_link"), "View & Sign Quote")}'
         )
-        return _email_shell(business, f'Quote {c.get("document_number","")} — ${c.get("total","")}', body)
+        subject_number = c.get("document_number","")
+        if is_revision and f'v{c.get("version","")}' not in subject_number:
+            subject_number = f'{subject_number} (v{c.get("version","")})'
+        return _email_shell(business, f'Quote {subject_number} — ${c.get("total","")}', body)
 
     if template_key == 'invoice':
+        version = context.get('version')
+        is_revision = bool(version) and str(version) != '1'
+        revision_notice = (
+            f'<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;'
+            f'padding:10px 14px;color:#1e3a8a;font-size:14px;">'
+            f'This is a revised invoice — <strong>version {c.get("version","")}</strong>. '
+            f'Please disregard any earlier version you may have received.</p>'
+        ) if is_revision else ''
         due_line = f'<p>Payment is due by <strong>{c["due_date"]}</strong>.</p>' if context.get('due_date') else ''
         body = (
             f'<h2 style="margin:0 0 16px;color:#111827;">Invoice from {c.get("business_name","")}</h2>'
             f'<p>Hi {client_name},</p>'
+            f'{revision_notice}'
             f'<p>Please find attached invoice <strong>{c.get("document_number","")}</strong> '
             f'for <strong>${c.get("total","")}</strong>.</p>'
             f'{due_line}'
             f'{_email_button(context.get("pay_link"), "Pay Now")}'
         )
-        return _email_shell(business, f'Invoice {c.get("document_number","")} — ${c.get("total","")}', body)
+        subject_number = c.get("document_number","")
+        if is_revision and f'v{c.get("version","")}' not in subject_number:
+            subject_number = f'{subject_number} (v{c.get("version","")})'
+        return _email_shell(business, f'Invoice {subject_number} — ${c.get("total","")}', body)
 
     if template_key == 'job_complete':
         body = (
@@ -724,6 +748,84 @@ def order_uploads_dir():
     return _uploads_subdir('order_files')
 
 
+# Job working files can be broader than customer order uploads — staff attach source
+# files, slicer profiles, reference photos, etc. while working the job.
+ALLOWED_JOB_FILE_EXTENSIONS = ALLOWED_ORDER_FILE_EXTENSIONS | {
+    'txt', 'csv', 'ini', 'json', 'blend', 'skp', 'f3d', 'iges', 'igs', 'dxf',
+}
+
+
+def job_uploads_dir():
+    return _uploads_subdir('job_files')
+
+
+def document_versions_dir():
+    return _uploads_subdir('document_versions')
+
+
+def save_job_file(job, file_storage, uploaded_by=None):
+    """Save a staff-uploaded FileStorage against a job and return the new JobFile
+    row, or None if the file was empty/disallowed/oversized. Mirrors the validation
+    used for public order uploads (_save_uploaded_files in public.py)."""
+    import secrets as _secrets
+    from werkzeug.utils import secure_filename
+    from app.models import JobFile
+
+    if not file_storage or not file_storage.filename:
+        return None
+    ext = file_storage.filename.rsplit('.', 1)[-1].lower() if '.' in file_storage.filename else ''
+    if ext not in ALLOWED_JOB_FILE_EXTENSIONS:
+        return None
+
+    pos = file_storage.stream.tell()
+    file_storage.stream.seek(0, os.SEEK_END)
+    size = file_storage.stream.tell()
+    file_storage.stream.seek(pos)
+    if size > MAX_UPLOAD_SIZE_BYTES:
+        return None
+
+    target_dir = os.path.join(job_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
+    os.makedirs(target_dir, exist_ok=True)
+    safe_name = secure_filename(file_storage.filename) or 'file'
+    stored_name = f'{_secrets.token_hex(6)}_{safe_name}'
+    file_storage.save(os.path.join(target_dir, stored_name))
+
+    job_file = JobFile(
+        job_id=job.id, stored_filename=stored_name,
+        original_filename=file_storage.filename, size_bytes=size,
+        uploaded_by=uploaded_by,
+    )
+    from app import db
+    db.session.add(job_file)
+    db.session.commit()
+    return job_file
+
+
+def save_document_version(entity_type, entity, pdf_bytes, created_by=None):
+    """Snapshot a Quote/Invoice's current rendered PDF to disk under the version
+    label it's about to be superseded from, so it stays downloadable after the
+    document moves on to the next revision. Returns the new DocumentVersion row.
+    """
+    import secrets as _secrets
+    from app.models import DocumentVersion
+
+    target_dir = document_versions_dir()
+    os.makedirs(target_dir, exist_ok=True)
+    stored_name = f'{entity_type}-{entity.id}-{_secrets.token_hex(6)}.pdf'
+    with open(os.path.join(target_dir, stored_name), 'wb') as f:
+        f.write(pdf_bytes)
+
+    version = DocumentVersion(
+        entity_type=entity_type, entity_id=entity.id,
+        version_label=entity.version or '1', stored_filename=stored_name,
+        total=entity.total, created_by=created_by,
+    )
+    from app import db
+    db.session.add(version)
+    db.session.commit()
+    return version
+
+
 # --- Job status notifications -------------------------------------------------------
 
 def job_should_notify(job):
@@ -838,3 +940,67 @@ def send_feedback_link_email(survey, to_email, business=None):
     survey.sent_at = datetime.utcnow()
     db.session.commit()
     return survey
+
+
+# --- Public order tracking -----------------------------------------------------------
+
+class TrackableOrder:
+    """Lightweight, read-only view of a pipeline chain for the public tracking page.
+    Built from whichever record (Request, Quote, Job, or Invoice) actually matched
+    the reference number the customer typed in — so tracking works even for orders
+    that started life as a quote and never had a public Request (e.g. staff-created
+    quotes for walk-ins/phone orders)."""
+
+    def __init__(self, client_number, title, tracking_status, created_at):
+        self.client_number = client_number
+        self.title = title
+        self.tracking_status = tracking_status
+        self.created_at = created_at
+
+
+def _tracking_status_for_quote(quote):
+    """Same status ladder as Request.tracking_status, but starting from the quote
+    itself rather than requiring an originating Request."""
+    if quote.archived:
+        return 'Archived'
+    if quote.jobs:
+        return quote.jobs[0].status
+    if quote.status in ('Sent', 'Draft'):
+        return 'Quote Sent' if quote.status == 'Sent' else 'Received'
+    return quote.status
+
+
+def find_trackable_order(order_number, verify_method, contact_value):
+    """Looks up a customer's order by reference number for the public /track page,
+    verifying it against the client's email or phone on file. Checks Request first
+    (the original public-form pipeline), then falls back to Quote directly so
+    quotes staff created by hand — with no originating Request — are trackable too.
+    Returns a TrackableOrder, or None if nothing matched / contact didn't verify.
+    """
+    from app.models import Request as OrderRequest, Quote
+
+    if not order_number:
+        return None
+
+    def _contact_matches(client):
+        if not client or not contact_value:
+            return False
+        if verify_method == 'phone':
+            stored = (client.phone or '').strip().lower()
+            digits = re.sub(r'\D', '', contact_value)
+            return bool(stored) and re.sub(r'\D', '', stored) == digits
+        stored = (client.email or '').strip().lower()
+        return stored == contact_value
+
+    req = OrderRequest.query.filter(OrderRequest.reference_number.ilike(order_number)).first()
+    if req and _contact_matches(req.client):
+        return TrackableOrder(req.client_number, req.title, req.tracking_status, req.created_at)
+
+    quote = Quote.query.filter(Quote.reference_number.ilike(order_number)).first()
+    if quote and _contact_matches(quote.client):
+        title = f'Order for {quote.client.name}' if quote.client else 'Order'
+        return TrackableOrder(
+            quote.client_number, title, _tracking_status_for_quote(quote), quote.created_at,
+        )
+
+    return None

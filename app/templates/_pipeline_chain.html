@@ -76,7 +76,7 @@
         {% if current == 'job' and current_id == job.id %}
           <span class="badge badge-accent">{{ job.display_number }}</span>
         {% else %}
-          <a href="{{ url_for('main.jobs') }}#job-{{ job.id }}" class="badge badge-muted" style="text-decoration: none;">{{ job.display_number }}</a>
+          <a href="{{ url_for('main.job_detail', job_id=job.id) }}" class="badge badge-muted" style="text-decoration: none;">{{ job.display_number }}</a>
         {% endif %}
       {% endfor %}
     {% endif %}

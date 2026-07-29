@@ -69,6 +69,8 @@ def run_migrations(db):
             'archived': 'BOOLEAN DEFAULT 0',
             'stripe_enabled': 'BOOLEAN DEFAULT 1',
             'reference_number': 'VARCHAR(50)',
+            'version': "VARCHAR(20) DEFAULT '1'",
+            'version_history': 'TEXT',
         },
         'quote': {
             'valid_until': 'DATE',

@@ -14,7 +14,7 @@ from app.helpers import (
     EmailNotConfiguredError, signed_uploads_dir, order_uploads_dir,
     ALLOWED_SIGNED_COPY_EXTENSIONS, ALLOWED_ORDER_FILE_EXTENSIONS, MAX_UPLOAD_SIZE_BYTES,
     verify_turnstile, render_template as render_template_mobile_aware,
-    default_email_html,
+    default_email_html, find_trackable_order,
 )
 import secrets
 
@@ -147,20 +147,8 @@ def track_order():
         verify_method = request.form.get('verify_method', 'email')
         contact_value = (request.form.get('contact_value') or '').strip().lower()
 
-        candidate = Request.query.filter(Request.reference_number.ilike(order_number)).first() if order_number else None
-        matched = False
-        if candidate and candidate.client and contact_value:
-            if verify_method == 'phone':
-                stored = (candidate.client.phone or '').strip().lower()
-                import re as _re
-                matched = bool(stored) and _re.sub(r'\D', '', stored) == _re.sub(r'\D', '', contact_value)
-            else:
-                stored = (candidate.client.email or '').strip().lower()
-                matched = stored == contact_value
-
-        if matched:
-            order = candidate
-        else:
+        order = find_trackable_order(order_number, verify_method, contact_value)
+        if not order:
             flash('No matching order found. Double-check your order number and details.')
 
     return render_template('public/track_order.html', business=business, order=order, searched=searched)

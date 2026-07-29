@@ -285,6 +285,8 @@ class Invoice(db.Model):
     notes = db.Column(db.Text)
     internal_notes = db.Column(db.Text)  # staff-only — Markdown, never shown to the client or printed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    version = db.Column(db.String(20), default='1')
+    version_history = db.Column(db.Text)
     due_date = db.Column(db.Date)
     paid_at = db.Column(db.DateTime)
     last_reminder_sent_at = db.Column(db.DateTime)
@@ -390,6 +392,37 @@ class Job(db.Model):
         if not self.quote_id:
             return None
         return Request.query.filter_by(quote_id=self.quote_id).first()
+
+
+class JobFile(db.Model):
+    """A working file staff attached to a job for storage/reference — separate from
+    the customer's original upload (which lives in order_details/order_uploads_dir).
+    Stored on disk under job_uploads_dir()/<job_number>/, this row just tracks the
+    metadata and the stored (randomized) filename used on disk.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
+    job = db.relationship('Job', backref=db.backref('files', order_by='JobFile.uploaded_at.desc()', cascade='all, delete-orphan'))
+    stored_filename = db.Column(db.String(300), nullable=False)
+    original_filename = db.Column(db.String(300), nullable=False)
+    size_bytes = db.Column(db.Integer, default=0)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by = db.Column(db.String(150))
+
+
+class DocumentVersion(db.Model):
+    """A snapshot of a Quote or Invoice's PDF taken at the moment a new revision is
+    started, so earlier versions stay downloadable after the document moves on.
+    entity_type is 'quote' or 'invoice'; entity_id points at that table's row.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(20), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=False, index=True)
+    version_label = db.Column(db.String(20), nullable=False)
+    stored_filename = db.Column(db.String(300), nullable=False)
+    total = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(150))
 
 
 class Request(db.Model):

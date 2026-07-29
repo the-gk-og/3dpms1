@@ -28,7 +28,7 @@
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
       <div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">{{ job.display_number }}</div>
-        <h3 style="margin: 0.25rem 0 0; font-size: 1rem;">{{ job.title }}</h3>
+        <h3 style="margin: 0.25rem 0 0; font-size: 1rem;"><a href="{{ url_for('main.job_detail', job_id=job.id) }}" style="color: inherit; text-decoration: none;">{{ job.title }}</a></h3>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">{{ job.client.name }}</div>
       </div>
       <div style="text-align: right;">
@@ -95,7 +95,8 @@
     </div>
 
     <div class="item-actions">
-      <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Edit</button>
+      <a href="{{ url_for('main.job_detail', job_id=job.id) }}" class="btn-sm" style="text-decoration: none;">Open Job</a>
+      <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('job-edit-{{ job.id }}')">Quick Edit</button>
       <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Delivery Slip</a>
       <form method="post" action="{{ url_for('main.send_job_survey', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Send a feedback survey to {{ job.client.email }}?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -9,7 +9,7 @@
     <div class="panel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <h2 style="margin: 0;">{{ invoice.display_number }}</h2>
+          <h2 style="margin: 0;">{{ invoice.display_number }} <span style="color: var(--text-muted); font-weight: 400; font-size: 1rem;">· v{{ invoice.version or '1' }}</span></h2>
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</div>
         </div>
         {% if invoice.is_overdue %}
@@ -76,6 +76,36 @@
         <div class="detail-label">Internal Notes<span class="internal-note-badge">🔒 staff only</span></div>
         <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">{{ invoice.internal_notes|markdown }}</div>
       </div>
+      {% endif %}
+
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <div>
+          <div class="detail-label">Version</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">v{{ invoice.version or '1' }}</div>
+        </div>
+        <form method="post" action="{{ url_for('main.set_invoice_version', invoice_id=invoice.id) }}" style="display: flex; gap: 0.5rem; align-items: center;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="version" placeholder="e.g. 2 or 1.1" style="width: 8rem; margin: 0;" required>
+          <button type="submit" class="btn-sm btn-secondary">New Revision</button>
+        </form>
+      </div>
+      {% if invoice.version_history or versions %}
+      <details style="margin-top: 0.5rem;">
+        <summary style="cursor: pointer; font-size: 0.8rem; color: var(--text-muted);">Revision history</summary>
+        {% if versions %}
+        <div style="margin: 0.5rem 0 0;">
+          {% for v in versions %}
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; font-size: 0.82rem;">
+            <span>v{{ v.version_label }} — ${{ "%.2f"|format(v.total) }} <span style="color: var(--text-muted);">({{ v.created_at.strftime('%d %b %Y') if v.created_at else '' }})</span></span>
+            <a href="{{ url_for('main.download_document_version', entity_type='invoice', entity_id=invoice.id, version_id=v.id) }}" style="color: var(--accent);">Download PDF</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if invoice.version_history %}
+        <pre style="font-size: 0.8rem; color: var(--text-muted); white-space: pre-wrap; margin: 0.5rem 0 0;">{{ invoice.version_history }}</pre>
+        {% endif %}
+      </details>
       {% endif %}
 
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">

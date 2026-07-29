@@ -7,7 +7,10 @@ from flask import Blueprint, request, redirect, url_for, flash, send_file, abort
 from flask_login import login_required
 
 from app import db
-from app.models import Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings, Request
+from app.models import (
+    Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings, Request,
+    JobFile, DocumentVersion,
+)
 from app.helpers import (
     calculate_line_price, recalculate_quote_total, recalculate_invoice_total,
     generate_quote_number, generate_invoice_number, generate_job_number, generate_reference_number,
@@ -19,6 +22,7 @@ from app.helpers import (
     order_uploads_dir, log_audit, render_template,
     send_feedback_survey_email, default_email_html,
     get_reference_chain, reference_chain_type_key, find_reference_number_conflicts,
+    job_uploads_dir, save_job_file, document_versions_dir, save_document_version,
 )
 from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_pdf
 
@@ -183,6 +187,10 @@ def _invoice_pdf_bytes(invoice):
         pay_url = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
         payment_details.append(f'Pay online now: {pay_url}')
 
+    document_number = invoice.client_number
+    if invoice.version and invoice.version != '1':
+        document_number = f'{document_number} · v{invoice.version}'
+
     return build_pdf(
         'Invoice', business, invoice.client, items, invoice.total,
         business.invoice_footer or '',
@@ -190,7 +198,7 @@ def _invoice_pdf_bytes(invoice):
         payment_method=invoice.payment_method or '',
         payment_details=payment_details,
         payment_terms=business.payment_terms or '',
-        document_number=invoice.client_number,
+        document_number=document_number,
         subtotal=subtotal,
         surcharge_percent=invoice.surcharge_percent or 0,
         markup_percent=markup_percent,
@@ -426,9 +434,13 @@ def quote_detail(quote_id):
     business = get_business_settings()
     existing_invoice = Invoice.query.filter_by(quote_id=quote.id).first()
     existing_job = Job.query.filter_by(quote_id=quote.id).first()
+    versions = DocumentVersion.query.filter_by(
+        entity_type='quote', entity_id=quote.id,
+    ).order_by(DocumentVersion.created_at.desc()).all()
     return render_template(
         'quote_detail.html', quote=quote, filaments=filaments,
         business=business, existing_invoice=existing_invoice, existing_job=existing_job,
+        versions=versions,
     )
 
 
@@ -469,11 +481,19 @@ def set_quote_version(quote_id):
         return redirect(url_for('main.quote_detail', quote_id=quote.id))
 
     old_version = quote.version or '1'
+    from flask_login import current_user
+    try:
+        save_document_version(
+            'quote', quote, _quote_pdf_bytes(quote),
+            created_by=getattr(current_user, 'username', None),
+        )
+    except Exception:
+        pass  # snapshotting is best-effort — never block the version bump on it
     quote.version = new_version
     log_line = f'{datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC: v{old_version} \u2192 v{new_version}'
     quote.version_history = f'{quote.version_history}\n{log_line}' if quote.version_history else log_line
     db.session.commit()
-    flash(f'Quote updated to version {new_version}')
+    flash(f'Quote updated to version {new_version} — v{old_version} saved to revision history')
     return redirect(url_for('main.quote_detail', quote_id=quote.id))
 
 
@@ -631,8 +651,13 @@ def generate_quote_email(quote_id):
             'total': f'{quote.total:,.2f}',
             'valid_until': quote.valid_until.strftime('%d %B %Y') if quote.valid_until else '',
             'upload_link': upload_link,
+            'version': quote.version or '1',
         }
+        if quote.version and quote.version != '1':
+            default_subject = f'{default_subject} (v{quote.version})'
         subject = render_email_template(business.quote_email_subject, context) or default_subject
+        if quote.version and quote.version != '1' and f'v{quote.version}' not in subject:
+            subject = f'{subject} (v{quote.version})'
         custom_html = render_email_template(business.quote_email_body_html, context, escape_html=True)
         html_body = custom_html or default_email_html('quote', context, business)
         body_text = html_to_text(html_body)
@@ -788,7 +813,10 @@ def invoice_detail(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
     filaments = Filament.query.order_by(Filament.name).all()
     business = get_business_settings()
-    return render_template('invoice_detail.html', invoice=invoice, filaments=filaments, business=business)
+    versions = DocumentVersion.query.filter_by(
+        entity_type='invoice', entity_id=invoice.id,
+    ).order_by(DocumentVersion.created_at.desc()).all()
+    return render_template('invoice_detail.html', invoice=invoice, filaments=filaments, business=business, versions=versions)
 
 
 @main_bp.route('/invoices/<int:invoice_id>/edit', methods=['POST'])
@@ -952,6 +980,50 @@ def preview_invoice_pdf(invoice_id):
     )
 
 
+@main_bp.route('/invoices/<int:invoice_id>/set-version', methods=['POST'])
+@login_required
+def set_invoice_version(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    new_version = (request.form.get('version') or '').strip()
+    if not new_version:
+        flash('Enter a version number')
+        return redirect(url_for('main.invoice_detail', invoice_id=invoice.id))
+
+    old_version = invoice.version or '1'
+    from flask_login import current_user
+    try:
+        save_document_version(
+            'invoice', invoice, _invoice_pdf_bytes(invoice),
+            created_by=getattr(current_user, 'username', None),
+        )
+    except Exception:
+        pass
+    invoice.version = new_version
+    log_line = f'{datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC: v{old_version} \u2192 v{new_version}'
+    invoice.version_history = f'{invoice.version_history}\n{log_line}' if invoice.version_history else log_line
+    db.session.commit()
+    flash(f'Invoice updated to version {new_version} — v{old_version} saved to revision history')
+    return redirect(url_for('main.invoice_detail', invoice_id=invoice.id))
+
+
+@main_bp.route('/documents/<entity_type>/<int:entity_id>/versions/<int:version_id>/pdf')
+@login_required
+def download_document_version(entity_type, entity_id, version_id):
+    """Download a previously superseded quote/invoice PDF snapshot."""
+    if entity_type not in ('quote', 'invoice'):
+        abort(404)
+    version = DocumentVersion.query.filter_by(
+        id=version_id, entity_type=entity_type, entity_id=entity_id,
+    ).first_or_404()
+    file_path = _safe_join(document_versions_dir(), version.stored_filename)
+    if file_path is None or not os.path.isfile(file_path):
+        abort(404)
+    return send_file(
+        file_path, mimetype='application/pdf', as_attachment=True,
+        download_name=f'{entity_type}-{entity_id}-v{version.version_label}.pdf',
+    )
+
+
 @main_bp.route('/invoices/<int:invoice_id>/email', methods=['POST'])
 @login_required
 def generate_invoice_email(invoice_id):
@@ -967,11 +1039,16 @@ def generate_invoice_email(invoice_id):
             'document_number': invoice.client_number,
             'total': f'{invoice.total:,.2f}',
             'due_date': invoice.due_date.strftime('%d %B %Y') if invoice.due_date else '',
+            'version': invoice.version or '1',
         }
         if business.stripe_secret_key and invoice.stripe_enabled and invoice.status != 'Paid' and invoice.pay_token:
             context['pay_link'] = url_for('public.pay_invoice', token=invoice.pay_token, _external=True)
+        if invoice.version and invoice.version != '1':
+            default_subject = f'{default_subject} (v{invoice.version})'
 
         subject = render_email_template(business.invoice_email_subject, context) or default_subject
+        if invoice.version and invoice.version != '1' and f'v{invoice.version}' not in subject:
+            subject = f'{subject} (v{invoice.version})'
         custom_html = render_email_template(business.invoice_email_body_html, context, escape_html=True)
         html_body = custom_html or default_email_html('invoice', context, business)
         body_text = html_to_text(html_body)
@@ -1164,6 +1241,85 @@ def download_order_file(job_id, filename):
     return send_file(file_path, as_attachment=True)
 
 
+@main_bp.route('/jobs/<int:job_id>')
+@login_required
+def job_detail(job_id):
+    job = Job.query.get_or_404(job_id)
+    return render_template('job_detail.html', job=job)
+
+
+@main_bp.route('/jobs/<int:job_id>/notes', methods=['POST'])
+@login_required
+def update_job_notes(job_id):
+    job = Job.query.get_or_404(job_id)
+    job.title = request.form.get('title', job.title)
+    job.status = request.form.get('status', job.status)
+    job.notes = request.form.get('notes', '')
+    job.internal_notes = request.form.get('internal_notes', '')
+    new_status = job.status
+    db.session.commit()
+
+    if new_status == 'Complete' and job_should_notify(job):
+        business = get_business_settings()
+        try:
+            if send_job_complete_notification(job, business):
+                flash('Job updated — customer notified by email.')
+            else:
+                flash('Job updated')
+        except EmailNotConfiguredError:
+            flash('Job updated — but email is not configured, so the customer was not notified.')
+        except Exception as e:
+            flash(f'Job updated — but the notification email failed to send: {e}')
+    else:
+        flash('Job updated')
+    return redirect(url_for('main.job_detail', job_id=job.id))
+
+
+@main_bp.route('/jobs/<int:job_id>/upload', methods=['POST'])
+@login_required
+def upload_job_files(job_id):
+    from flask_login import current_user
+    job = Job.query.get_or_404(job_id)
+    files = request.files.getlist('files')
+    saved = 0
+    for f in files:
+        result = save_job_file(job, f, uploaded_by=getattr(current_user, 'username', None))
+        if result:
+            saved += 1
+    if saved:
+        flash(f'{saved} file{"s" if saved != 1 else ""} added to the job')
+    else:
+        flash('No files were saved — check the file type and size (max 15 MB).')
+    return redirect(url_for('main.job_detail', job_id=job.id))
+
+
+@main_bp.route('/jobs/<int:job_id>/storage/<int:file_id>')
+@login_required
+def download_job_file(job_id, file_id):
+    job = Job.query.get_or_404(job_id)
+    job_file = JobFile.query.filter_by(id=file_id, job_id=job.id).first_or_404()
+    directory = os.path.join(job_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
+    file_path = _safe_join(directory, job_file.stored_filename)
+    if file_path is None or not os.path.isfile(file_path):
+        abort(404)
+    return send_file(file_path, as_attachment=True, download_name=job_file.original_filename)
+
+
+@main_bp.route('/jobs/<int:job_id>/storage/<int:file_id>/delete', methods=['POST'])
+@login_required
+def delete_job_file(job_id, file_id):
+    job = Job.query.get_or_404(job_id)
+    job_file = JobFile.query.filter_by(id=file_id, job_id=job.id).first_or_404()
+    directory = os.path.join(job_uploads_dir(), job.job_number or f'JOB-{job.id:04d}')
+    file_path = _safe_join(directory, job_file.stored_filename)
+    if file_path and os.path.isfile(file_path):
+        os.remove(file_path)
+    db.session.delete(job_file)
+    db.session.commit()
+    flash('File removed')
+    return redirect(url_for('main.job_detail', job_id=job.id))
+
+
 # --- Requests (public order-form submissions awaiting triage) ----------------------
 
 @main_bp.route('/requests')
@@ -1192,7 +1348,7 @@ _REFERENCE_MODELS = {'request': Request, 'quote': Quote, 'job': Job, 'invoice': 
 _REFERENCE_DETAIL_ENDPOINTS = {
     'request': lambda r: url_for('main.request_detail', request_id=r.id),
     'quote': lambda r: url_for('main.quote_detail', quote_id=r.id),
-    'job': lambda r: url_for('main.jobs'),
+    'job': lambda r: url_for('main.job_detail', job_id=r.id),
     'invoice': lambda r: url_for('main.invoice_detail', invoice_id=r.id),
 }
 
