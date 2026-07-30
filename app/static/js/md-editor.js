@@ -1,14 +1,17 @@
 /*
- * Lightweight "live preview" Markdown editor, in the spirit of Obsidian's live
- * render mode: as you type, **bold**, *italic*, `code`, # headings, - lists and
- * > quotes render inline immediately instead of showing raw HTML in a separate
- * preview pane. The Markdown syntax characters stay visible but dimmed, so you
- * can still see and edit them.
+ * Markdown editor: plain-text while editing, rendered preview once you leave
+ * the field. No live/inline rendering while typing (that mode was unreliable
+ * to edit in) — you get a normal textarea, and Markdown is rendered to HTML
+ * on blur, matching the same {{ text|markdown }} output used elsewhere in
+ * the app (reuses the .md-content styles).
+ *
+ * Also adds a full-screen toggle so the field can be expanded to edit/read
+ * comfortably from anywhere in the app.
  *
  * Usage: <textarea class="md-editor" name="notes">...</textarea>
- * On page load this hides the textarea, replaces it with a contenteditable
- * surface that mirrors it, and keeps the original textarea's value in sync on
- * every keystroke — so forms submit exactly as before with zero server changes.
+ * On page load this wraps the textarea in a toolbar + preview pane. The
+ * textarea itself is left in the DOM with its normal name/value, so forms
+ * submit exactly as before with zero server changes.
  */
 (function () {
   'use strict';
@@ -20,105 +23,115 @@
       .replace(/>/g, '&gt;');
   }
 
-  // Renders one line of Markdown-ish text to HTML, wrapping syntax markers in
-  // <span class="md-syntax"> so they can be dimmed via CSS rather than hidden —
-  // hiding them outright would make the raw text impossible to edit reliably.
-  function renderLine(line) {
-    var html = escapeHtml(line);
-    var prefix = '';
-    var lineClass = '';
-
-    var headingMatch = html.match(/^(#{1,4})(\s+)(.*)$/);
-    var quoteMatch = !headingMatch && html.match(/^(&gt;)(\s+)(.*)$/);
-    var listMatch = !headingMatch && !quoteMatch && html.match(/^([-*])(\s+)(.*)$/);
-
-    if (headingMatch) {
-      var level = headingMatch[1].length;
-      prefix = '<span class="md-syntax">' + headingMatch[1] + headingMatch[2] + '</span>';
-      html = headingMatch[3];
-      lineClass = ' md-h md-h' + level;
-    } else if (quoteMatch) {
-      prefix = '<span class="md-syntax">' + quoteMatch[1] + quoteMatch[2] + '</span>';
-      html = quoteMatch[3];
-      lineClass = ' md-quote';
-    } else if (listMatch) {
-      prefix = '<span class="md-syntax">' + listMatch[1] + listMatch[2] + '</span>';
-      html = listMatch[3];
-      lineClass = ' md-list-item';
+  // Inline rules: code spans, links, bold, italic. Code spans are protected
+  // first so their contents aren't re-parsed for emphasis markers.
+  function renderInline(text) {
+    var stash = [];
+    function stow(html) {
+      stash.push(html);
+      return '\u0000' + (stash.length - 1) + '\u0000';
     }
 
-    // Inline rules, applied after the line-level prefix has been split off.
-    // Code spans are protected first (their contents shouldn't be re-parsed for
-    // bold/italic), then bold and italic are matched in a single combined pass —
-    // running them as two separate global replaces lets the italic pattern match
-    // across an already-substituted bold span's HTML and corrupt it.
-    var codeStash = [];
-    html = html.replace(/(`)([^`]+)\1/g, function (m, marker, inner) {
-      codeStash.push('<span class="md-syntax">' + marker + '</span><code>' + inner + '</code><span class="md-syntax">' + marker + '</span>');
-      return '\u0000' + (codeStash.length - 1) + '\u0000';
-    });
-    html = html.replace(/(\*\*|__)(\S(?:.*?\S)?)\1|(\*|_)(\S(?:.*?\S)?)\3/g, function (m, dMarker, dInner, sMarker, sInner) {
-      if (dMarker !== undefined) {
-        return '<span class="md-syntax">' + dMarker + '</span><strong>' + dInner + '</strong><span class="md-syntax">' + dMarker + '</span>';
-      }
-      return '<span class="md-syntax">' + sMarker + '</span><em>' + sInner + '</em><span class="md-syntax">' + sMarker + '</span>';
-    });
-    html = html.replace(/\u0000(\d+)\u0000/g, function (m, i) { return codeStash[+i]; });
+    var html = escapeHtml(text);
 
-    if (line === '') return '<span class="md-line' + lineClass + '"><br></span>';
-    return '<span class="md-line' + lineClass + '">' + prefix + html + '</span>';
+    html = html.replace(/`([^`]+)`/g, function (m, inner) {
+      return stow('<code>' + inner + '</code>');
+    });
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (m, label, url) {
+      return stow('<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>');
+    });
+    html = html.replace(/(\*\*|__)(\S(?:.*?\S)?)\1/g, function (m, marker, inner) {
+      return stow('<strong>' + inner + '</strong>');
+    });
+    html = html.replace(/(\*|_)(\S(?:.*?\S)?)\1/g, function (m, marker, inner) {
+      return stow('<em>' + inner + '</em>');
+    });
+
+    html = html.replace(/\u0000(\d+)\u0000/g, function (m, i) { return stash[+i]; });
+    return html;
   }
 
-  function render(text) {
-    return text.split('\n').map(renderLine).join('');
-  }
-
-  // Plain-text extraction that treats each .md-line as ending in a newline —
-  // matching how we rendered it — rather than relying on innerText, whose
-  // whitespace handling varies across browsers.
-  function getPlainText(root) {
-    var lines = root.querySelectorAll('.md-line');
-    if (!lines.length) return root.textContent || '';
+  // Block-level Markdown -> HTML. Deliberately simple (no tables, no nested
+  // lists) — enough for notes/terms text, and close enough to the server's
+  // `markdown` library output that switching between preview and the
+  // saved/rendered version elsewhere on the page looks the same.
+  function renderMarkdown(src) {
+    var lines = (src || '').replace(/\r\n/g, '\n').split('\n');
     var out = [];
-    lines.forEach(function (line) { out.push(line.textContent); });
-    return out.join('\n');
-  }
+    var i = 0;
+    var para = [];
+    var list = null; // { type: 'ul'|'ol', items: [] }
 
-  // Caret position is tracked as a plain character offset into the plain-text
-  // representation, then restored by walking text nodes after re-render —
-  // simple, and robust to the DOM being fully rebuilt on every keystroke.
-  function getCaretOffset(root) {
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return null;
-    var range = sel.getRangeAt(0);
-    if (!root.contains(range.startContainer)) return null;
-    var pre = range.cloneRange();
-    pre.selectNodeContents(root);
-    pre.setEnd(range.startContainer, range.startOffset);
-    return pre.toString().length;
-  }
-
-  function setCaretOffset(root, offset) {
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    var node, count = 0;
-    while ((node = walker.nextNode())) {
-      var next = count + node.textContent.length;
-      if (offset <= next) {
-        var range = document.createRange();
-        range.setStart(node, offset - count);
-        range.collapse(true);
-        var sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        return;
+    function flushPara() {
+      if (para.length) {
+        out.push('<p>' + para.map(renderInline).join('<br>') + '</p>');
+        para = [];
       }
-      count = next;
     }
-    // Offset ran past the end (e.g. trailing newline) — park at the very end.
-    root.focus();
-    var sel2 = window.getSelection();
-    sel2.selectAllChildren(root);
-    sel2.collapseToEnd();
+    function flushList() {
+      if (list) {
+        out.push('<' + list.type + '>' + list.items.join('') + '</' + list.type + '>');
+        list = null;
+      }
+    }
+
+    while (i < lines.length) {
+      var line = lines[i];
+
+      var fence = line.match(/^```/);
+      if (fence) {
+        flushPara(); flushList();
+        var code = [];
+        i++;
+        while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i]); i++; }
+        i++;
+        out.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>');
+        continue;
+      }
+
+      var heading = line.match(/^(#{1,4})\s+(.*)$/);
+      if (heading) {
+        flushPara(); flushList();
+        var level = heading[1].length;
+        out.push('<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>');
+        i++; continue;
+      }
+
+      var quote = line.match(/^>\s?(.*)$/);
+      if (quote) {
+        flushPara(); flushList();
+        var qLines = [quote[1]];
+        i++;
+        while (i < lines.length && /^>\s?/.test(lines[i])) {
+          qLines.push(lines[i].replace(/^>\s?/, ''));
+          i++;
+        }
+        out.push('<blockquote>' + qLines.map(renderInline).join('<br>') + '</blockquote>');
+        continue;
+      }
+
+      var ulItem = line.match(/^[-*]\s+(.*)$/);
+      var olItem = !ulItem && line.match(/^\d+\.\s+(.*)$/);
+      if (ulItem || olItem) {
+        flushPara();
+        var kind = ulItem ? 'ul' : 'ol';
+        if (list && list.type !== kind) flushList();
+        if (!list) list = { type: kind, items: [] };
+        list.items.push('<li>' + renderInline((ulItem || olItem)[1]) + '</li>');
+        i++; continue;
+      }
+
+      if (line.trim() === '') {
+        flushPara(); flushList();
+        i++; continue;
+      }
+
+      flushList();
+      para.push(line);
+      i++;
+    }
+    flushPara(); flushList();
+    return out.join('');
   }
 
   function enhance(textarea) {
@@ -128,41 +141,99 @@
     var wrap = document.createElement('div');
     wrap.className = 'md-editor-wrap';
 
-    var surface = document.createElement('div');
-    surface.className = 'md-editor-surface';
-    surface.contentEditable = 'true';
-    surface.spellcheck = true;
-    if (textarea.dataset.placeholder) {
-      surface.dataset.placeholder = textarea.dataset.placeholder;
-    }
+    var toolbar = document.createElement('div');
+    toolbar.className = 'md-editor-toolbar';
 
-    var hint = document.createElement('div');
+    var hint = document.createElement('span');
     hint.className = 'md-editor-hint';
-    hint.textContent = 'Markdown supported — **bold**, *italic*, `code`, # heading, - list, > quote';
+    hint.textContent = 'Markdown — renders when you click away';
+
+    var fsBtn = document.createElement('button');
+    fsBtn.type = 'button';
+    fsBtn.className = 'md-editor-fs-btn';
+    fsBtn.setAttribute('aria-label', 'Expand full screen');
+    fsBtn.title = 'Expand full screen';
+    fsBtn.textContent = '⤢';
+    // Prevent the button from stealing focus (and thus blurring the
+    // textarea) on mousedown, so toggling full screen mid-edit doesn't
+    // trigger a spurious blur -> preview -> re-edit flicker.
+    fsBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+
+    toolbar.appendChild(hint);
+    toolbar.appendChild(fsBtn);
+
+    var preview = document.createElement('div');
+    preview.className = 'md-content md-editor-preview';
+    preview.tabIndex = 0;
+    preview.setAttribute('role', 'button');
+    preview.setAttribute('aria-label', 'Click to edit');
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'md-editor-backdrop';
+    backdrop.addEventListener('click', function () {
+      if (wrap.classList.contains('md-editor-fullscreen')) fsBtn.click();
+    });
 
     textarea.parentNode.insertBefore(wrap, textarea);
-    wrap.appendChild(surface);
-    wrap.appendChild(hint);
+    wrap.appendChild(toolbar);
     wrap.appendChild(textarea);
+    wrap.appendChild(preview);
+    wrap.appendChild(backdrop);
     textarea.classList.add('md-editor-source');
 
-    surface.innerHTML = render(textarea.value || '');
+    function showEditMode(focus) {
+      wrap.classList.add('md-editor-editing');
+      textarea.style.display = '';
+      preview.style.display = 'none';
+      if (focus) textarea.focus();
+    }
 
-    surface.addEventListener('input', function () {
-      var offset = getCaretOffset(surface);
-      var text = getPlainText(surface);
-      textarea.value = text;
-      surface.innerHTML = render(text);
-      if (offset !== null) setCaretOffset(surface, offset);
+    function showPreviewMode() {
+      var val = textarea.value || '';
+      if (val.trim() === '') {
+        preview.innerHTML = '<span class="md-editor-empty">' +
+          escapeHtml(textarea.dataset.placeholder || 'Nothing written yet — click to add notes.') +
+          '</span>';
+      } else {
+        preview.innerHTML = renderMarkdown(val);
+      }
+      wrap.classList.remove('md-editor-editing');
+      textarea.style.display = 'none';
+      preview.style.display = '';
+    }
+
+    preview.addEventListener('click', function () { showEditMode(true); });
+    preview.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showEditMode(true); }
     });
 
-    // Plain-text paste only — pasted HTML would otherwise inject raw markup
-    // that our escaper would then double-render as literal text.
-    surface.addEventListener('paste', function (e) {
-      e.preventDefault();
-      var text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      document.execCommand('insertText', false, text);
+    textarea.addEventListener('blur', function () {
+      showPreviewMode();
     });
+
+    fsBtn.addEventListener('click', function () {
+      var goingFullscreen = !wrap.classList.contains('md-editor-fullscreen');
+      wrap.classList.toggle('md-editor-fullscreen');
+      document.body.classList.toggle('md-editor-fullscreen-lock', goingFullscreen);
+      fsBtn.textContent = goingFullscreen ? '✕' : '⤢';
+      fsBtn.title = goingFullscreen ? 'Exit full screen' : 'Expand full screen';
+      fsBtn.setAttribute('aria-label', fsBtn.title);
+      if (goingFullscreen) {
+        showEditMode(true);
+      } else {
+        showPreviewMode();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && wrap.classList.contains('md-editor-fullscreen')) {
+        fsBtn.click();
+      }
+    });
+
+    // Start ready to type — plain textarea, nothing rendered until you leave
+    // the field.
+    showEditMode(false);
   }
 
   function init() {

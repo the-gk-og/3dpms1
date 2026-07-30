@@ -629,14 +629,23 @@ button:hover, .btn:hover { background: var(--accent-hover); }
   .sidebar { display: none; }
 }
 
-/* ---- Markdown live editor (notes / internal notes) ---- */
+/* ---- Markdown editor (notes / internal notes) ----
+   Plain textarea while editing; renders to .md-content preview on blur.
+   Click the preview to go back to editing. Full-screen toggle available
+   from anywhere it's used. */
 .md-editor-source {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
+  display: block;
+  width: 100%;
+  min-height: 7rem;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  border-radius: 0 0 8px 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
 }
 
 .md-editor-wrap {
@@ -647,61 +656,76 @@ button:hover, .btn:hover { background: var(--accent-hover); }
   overflow: hidden;
 }
 
-.md-editor-surface {
+.md-editor-wrap:focus-within {
+  box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.md-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.md-editor-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.md-editor-fs-btn {
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.md-editor-fs-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+.md-editor-preview {
   min-height: 7rem;
   max-height: 26rem;
   overflow-y: auto;
   padding: 0.65rem 0.85rem;
-  color: var(--text);
-  font: inherit;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  outline: none;
+  cursor: text;
 }
+.md-editor-preview:hover { background: rgba(255, 255, 255, 0.02); }
+.md-editor-empty { color: var(--text-muted); font-style: italic; }
 
-.md-editor-surface:focus {
-  box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.25);
+.md-editor-backdrop { display: none; }
+
+.md-editor-wrap.md-editor-fullscreen {
+  position: fixed;
+  inset: 4vh 6vw;
+  z-index: 1000;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
 }
-
-.md-editor-surface:empty::before,
-.md-editor-surface .md-line:only-child.md-empty::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
+.md-editor-wrap.md-editor-fullscreen .md-editor-source,
+.md-editor-wrap.md-editor-fullscreen .md-editor-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  resize: none;
 }
-
-.md-editor-hint {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.md-line { display: block; }
-.md-syntax { color: var(--text-muted); opacity: 0.6; }
-.md-h { font-weight: 700; display: block; }
-.md-h1 { font-size: 1.5em; }
-.md-h2 { font-size: 1.3em; }
-.md-h3 { font-size: 1.15em; }
-.md-h4 { font-size: 1.05em; }
-.md-quote {
+.md-editor-wrap.md-editor-fullscreen ~ .md-editor-backdrop,
+body.md-editor-fullscreen-lock .md-editor-backdrop {
   display: block;
-  color: var(--text-muted);
-  font-style: italic;
-  border-left: 3px solid var(--border);
-  padding-left: 0.6em;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 999;
 }
-.md-list-item { display: block; padding-left: 0.2em; }
-.md-editor-surface strong { color: var(--text); font-weight: 700; }
-.md-editor-surface em { font-style: italic; }
-.md-editor-surface code {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
-  padding: 0.05em 0.35em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
-}
+body.md-editor-fullscreen-lock { overflow: hidden; }
 
 /* Badge used next to internal-only note sections */
 .internal-note-badge {
