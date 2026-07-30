@@ -152,11 +152,11 @@
 
     <div class="panel" style="margin-top: 1.5rem;">
       <h3 style="margin-top: 0;">Internal Notes<span class="internal-note-badge">🔒 staff only</span></h3>
-      <form method="post" action="{{ url_for('main.update_request_notes', request_id=req.id) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <textarea class="md-editor" data-placeholder="Never shown to the client — triage notes, follow-ups..." name="internal_notes" rows="4">{{ req.internal_notes or '' }}</textarea>
-        <button type="submit" class="btn-sm" style="margin-top: 0.75rem;">Save Notes</button>
-      </form>
+      <div class="md-content" style="min-height: 2.5em; font-size: 0.9rem;">
+        {% if req.internal_notes %}{{ req.internal_notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+      </div>
+      <a href="{{ url_for('main.edit_note', field_key='request-internal_notes', record_id=req.id) }}"
+         target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if req.internal_notes else 'Add' }} in editor &#8599;</a>
     </div>
   </div>
 </div>

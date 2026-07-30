@@ -65,18 +65,22 @@
         </div>
         {% endif %}
       </div>
-      {% if invoice.notes %}
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
         <div class="detail-label">Notes</div>
-        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">{{ invoice.notes|markdown }}</div>
+        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">
+          {% if invoice.notes %}{{ invoice.notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='invoice-notes', record_id=invoice.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if invoice.notes else 'Add' }} in editor &#8599;</a>
       </div>
-      {% endif %}
-      {% if invoice.internal_notes %}
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
         <div class="detail-label">Internal Notes<span class="internal-note-badge">🔒 staff only</span></div>
-        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">{{ invoice.internal_notes|markdown }}</div>
+        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">
+          {% if invoice.internal_notes %}{{ invoice.internal_notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='invoice-internal_notes', record_id=invoice.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if invoice.internal_notes else 'Add' }} in editor &#8599;</a>
       </div>
-      {% endif %}
 
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
         <div>
@@ -188,8 +192,6 @@
           </label>
           <label>Due Date<input type="date" name="due_date" value="{{ invoice.due_date.isoformat() if invoice.due_date else '' }}"></label>
         </div>
-        <label>Notes<textarea class="md-editor" data-placeholder="Visible to the client on the invoice PDF and emails..." name="notes" rows="2">{{ invoice.notes or '' }}</textarea></label>
-        <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="2">{{ invoice.internal_notes or '' }}</textarea></label>
         {{ payment_surcharge_fields(business, invoice) }}
         <div class="form-section">
           <h3 style="margin-top: 0;">Order Notifications</h3>

@@ -1,6 +1,6 @@
-"""Registry of Markdown-backed model fields that get their own full-page,
-live-preview editor (Toast UI Editor) at /dash/notes/<key>/<id>/edit,
-instead of the inline blur-preview textarea from md-editor.js.
+"""Registry of Markdown-backed model fields that get their own full-page
+EasyMDE editor at /dash/notes/<key>/<id>/edit, instead of the inline
+blur-preview textarea from md-editor.js.
 
 To move another field onto the standalone editor, add one line here —
 no route or template changes needed. The key becomes part of the URL,

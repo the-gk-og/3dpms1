@@ -450,8 +450,8 @@ def quote_detail(quote_id):
 def edit_quote(quote_id):
     quote = Quote.query.get_or_404(quote_id)
     business = get_business_settings()
-    quote.notes = request.form.get('notes', '')
-    quote.internal_notes = request.form.get('internal_notes', '')
+    # notes/internal_notes are edited via the standalone note editor
+    # (main.edit_note / main.save_note) now, not this form.
     quote.status = request.form.get('status', quote.status)
     quote.digital_signature_enabled = request.form.get('digital_signature_enabled') == 'on'
     quote.markup_percent = float(request.form.get('markup_percent', 0) or 0)
@@ -826,8 +826,8 @@ def edit_invoice(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
     business = get_business_settings()
     new_status = request.form.get('status', invoice.status)
-    invoice.notes = request.form.get('notes', '')
-    invoice.internal_notes = request.form.get('internal_notes', '')
+    # notes/internal_notes are edited via the standalone note editor
+    # (main.edit_note / main.save_note) now, not this form.
     invoice.markup_percent = float(request.form.get('markup_percent', 0) or 0)
     invoice.show_markup_to_client = request.form.get('show_markup_to_client') == 'on'
     invoice.notify_me = request.form.get('notify_me') == 'on'

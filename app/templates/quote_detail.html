@@ -56,19 +56,23 @@
         {% endif %}
       </div>
 
-      {% if quote.notes %}
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
         <div class="detail-label">Notes</div>
-        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">{{ quote.notes|markdown }}</div>
+        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">
+          {% if quote.notes %}{{ quote.notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='quote-notes', record_id=quote.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if quote.notes else 'Add' }} in editor &#8599;</a>
       </div>
-      {% endif %}
 
-      {% if quote.internal_notes %}
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
         <div class="detail-label">Internal Notes<span class="internal-note-badge">🔒 staff only</span></div>
-        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">{{ quote.internal_notes|markdown }}</div>
+        <div class="md-content" style="margin-top: 0.25rem; font-size: 0.9rem;">
+          {% if quote.internal_notes %}{{ quote.internal_notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='quote-internal_notes', record_id=quote.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if quote.internal_notes else 'Add' }} in editor &#8599;</a>
       </div>
-      {% endif %}
 
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
         <div>
@@ -170,8 +174,6 @@
             </select>
           </label>
           <label>Valid Until<input type="date" name="valid_until" value="{{ quote.valid_until.isoformat() if quote.valid_until else '' }}"></label>
-          <label>Notes<textarea class="md-editor" data-placeholder="Visible to the client on the quote PDF and emails..." name="notes" rows="3">{{ quote.notes or '' }}</textarea></label>
-          <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client — production notes, pricing rationale, reminders..." name="internal_notes" rows="3">{{ quote.internal_notes or '' }}</textarea></label>
           {{ payment_surcharge_fields(business, quote) }}
           <label class="checkbox-item" style="background: transparent; padding: 0;">
             <input type="checkbox" name="digital_signature_enabled"{% if quote.digital_signature_enabled %} checked{% endif %}> Include signature area on PDF
