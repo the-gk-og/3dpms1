@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% from '_pipeline_chain.html' import pipeline_chain %}
+{% block page_title %}{{ job.display_number }}{% endblock %}
+{% block content %}
+<div class="layout-split-wide">
+  <div>
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h2 style="margin: 0;">{{ job.display_number }} <span style="color: var(--text-muted); font-weight: 400; font-size: 1rem;">{{ job.title }}</span></h2>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}</div>
+        </div>
+        <div>
+          <span class="badge badge-accent">{{ job.status }}</span>
+          {% if job.archived %}
+          <span class="badge badge-muted" style="margin-left: 0.4rem;">Archived</span>
+          {% endif %}
+        </div>
+      </div>
+      {{ pipeline_chain(quote=job.quote, current='job', current_id=job.id) }}
+
+      <div class="detail-grid">
+        <div>
+          <div class="detail-label">Client</div>
+          <div class="detail-value">{{ job.client.name if job.client else '—' }}</div>
+        </div>
+        {% if job.model_source %}
+        <div>
+          <div class="detail-label">Model Source</div>
+          <div class="detail-value" style="font-size: 0.85rem; font-weight: 500;">{{ 'Client-provided' if job.model_source == 'has_model' else 'Needs design' }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <form method="post" action="{{ url_for('main.edit_job', job_id=job.id) }}" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="flex: 1; min-width: 12rem;">Title<input type="text" name="title" value="{{ job.title }}"></label>
+        <label>Status
+          <select name="status">
+            {% for s in ['Queued','Printing','Post-Processing','Complete','Cancelled'] %}
+            <option value="{{ s }}"{% if job.status == s %} selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit" class="btn-sm">Save</button>
+      </form>
+
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; gap: 1.5rem; flex-wrap: wrap;">
+        <div>
+          <div class="detail-label">Notes</div>
+          <a href="{{ url_for('main.edit_note', field_key='job-notes', record_id=job.id) }}"
+             target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if job.notes else 'Add' }} in editor &#8599;</a>
+        </div>
+        <div>
+          <div class="detail-label">Internal Notes<span class="internal-note-badge">🔒 staff only</span></div>
+          <a href="{{ url_for('main.edit_note', field_key='job-internal_notes', record_id=job.id) }}"
+             target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if job.internal_notes else 'Add' }} in editor &#8599;</a>
+        </div>
+      </div>
+
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="display: flex; gap: 0.5rem;">
+          <form method="post" action="{{ url_for('main.archive_job', job_id=job.id) if not job.archived else url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">{{ 'Restore' if job.archived else 'Archive' }}</button>
+          </form>
+          <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Delivery Slip</a>
+          <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Delete this job?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-danger">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">Files</h3>
+      <form method="post" action="{{ url_for('main.upload_job_files', job_id=job.id) }}" enctype="multipart/form-data" style="margin-bottom: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="files" multiple>
+        <button type="submit" class="btn-sm btn-secondary" style="margin-top: 0.5rem;">Upload</button>
+      </form>
+      {% if job.files %}
+      {% for f in job.files %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; font-size: 0.85rem; border-top: 1px solid var(--border);">
+        <a href="{{ url_for('main.download_job_file', job_id=job.id, file_id=f.id) }}" style="color: var(--accent);">{{ f.original_filename }}</a>
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);">
+          <span>{{ f.size_bytes|filesizeformat }}</span>
+          <form method="post" action="{{ url_for('main.delete_job_file', job_id=job.id, file_id=f.id) }}" onsubmit="return confirm('Remove this file?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-danger" style="padding: 0.1rem 0.4rem; font-size: 0.75rem;">×</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p style="font-size: 0.85rem; color: var(--text-muted);">No files yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

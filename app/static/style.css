@@ -790,3 +790,12 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
   padding: 0.35em 0.6em;
   text-align: left;
 }
+
+.note-edit-link {
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.note-edit-link:hover {
+  text-decoration: underline;
+}

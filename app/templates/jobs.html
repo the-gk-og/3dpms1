@@ -133,22 +133,11 @@
         <button type="submit" class="btn-sm">Save</button>
       </form>
 
-      <div class="field-group">
-        <label>Notes</label>
-        <div class="md-content" style="min-height: 2.5em; font-size: 0.9rem;">
-          {% if job.notes %}{{ job.notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
-        </div>
+      <div style="display: flex; gap: 1.25rem; margin-top: 0.5rem;">
         <a href="{{ url_for('main.edit_note', field_key='job-notes', record_id=job.id) }}"
-           target="_blank" rel="noopener" class="note-edit-link">Edit in editor &#8599;</a>
-      </div>
-
-      <div class="field-group">
-        <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label>
-        <div class="md-content" style="min-height: 2.5em; font-size: 0.9rem;">
-          {% if job.internal_notes %}{{ job.internal_notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
-        </div>
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if job.notes else 'Add' }} Notes &#8599;</a>
         <a href="{{ url_for('main.edit_note', field_key='job-internal_notes', record_id=job.id) }}"
-           target="_blank" rel="noopener" class="note-edit-link">Edit in editor &#8599;</a>
+           target="_blank" rel="noopener" class="note-edit-link">{{ 'Edit' if job.internal_notes else 'Add' }} Internal Notes 🔒 &#8599;</a>
       </div>
     </div>
   </div>

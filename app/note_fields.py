@@ -20,11 +20,8 @@ Tuple shape: (Model, field_name, label, client_visible, back_endpoint, id_kwarg)
 from app.models import Client, Quote, Invoice, Job, Request
 
 NOTE_FIELDS = {
-    # Job notes currently live on the jobs list row-editor (jobs.html) —
-    # main.job_detail / job_detail.html don't exist in this branch yet.
-    # Swap back_endpoint to 'main.job_detail' once that page ships.
-    'job-notes':               (Job, 'notes', 'Job Notes', True, 'main.jobs', None),
-    'job-internal_notes':      (Job, 'internal_notes', 'Job Internal Notes', False, 'main.jobs', None),
+    'job-notes':               (Job, 'notes', 'Job Notes', True, 'main.job_detail', 'job_id'),
+    'job-internal_notes':      (Job, 'internal_notes', 'Job Internal Notes', False, 'main.job_detail', 'job_id'),
 
     'quote-notes':             (Quote, 'notes', 'Quote Notes', True, 'main.quote_detail', 'quote_id'),
     'quote-internal_notes':    (Quote, 'internal_notes', 'Quote Internal Notes', False, 'main.quote_detail', 'quote_id'),
