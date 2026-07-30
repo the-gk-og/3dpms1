@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from flask import Blueprint, request, redirect, url_for, flash, send_file, abort
+from flask import Blueprint, request, redirect, url_for, flash, send_file, abort, jsonify
 from flask_login import login_required
 
 from app import db
@@ -11,6 +11,7 @@ from app.models import (
     Client, Quote, QuoteItem, Filament, Invoice, InvoiceItem, Job, BusinessSettings, Request,
     JobFile, DocumentVersion,
 )
+from app.note_fields import NOTE_FIELDS
 from app.helpers import (
     calculate_line_price, recalculate_quote_total, recalculate_invoice_total,
     generate_quote_number, generate_invoice_number, generate_job_number, generate_reference_number,
@@ -1163,8 +1164,8 @@ def edit_job(job_id):
     job.title = request.form.get('title', job.title)
     new_status = request.form.get('status', job.status)
     job.status = new_status
-    job.notes = request.form.get('notes', '')
-    job.internal_notes = request.form.get('internal_notes', '')
+    # notes/internal_notes are edited via the standalone note editor
+    # (main.edit_note / main.save_note) now, not this form.
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1246,6 +1247,41 @@ def download_order_file(job_id, filename):
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
     return render_template('job_detail.html', job=job)
+
+
+@main_bp.route('/notes/<field_key>/<int:record_id>/edit')
+@login_required
+def edit_note(field_key, record_id):
+    entry = NOTE_FIELDS.get(field_key)
+    if entry is None:
+        abort(404)
+    Model, field_name, label, client_visible, back_endpoint, id_kwarg = entry
+    record = Model.query.get_or_404(record_id)
+
+    back_kwargs = {id_kwarg: record_id} if id_kwarg else {}
+    return render_template(
+        'note_edit.html',
+        label=label,
+        client_visible=client_visible,
+        content=getattr(record, field_name) or '',
+        back_url=url_for(back_endpoint, **back_kwargs),
+        save_url=url_for('main.save_note', field_key=field_key, record_id=record_id),
+    )
+
+
+@main_bp.route('/notes/<field_key>/<int:record_id>/edit', methods=['POST'])
+@login_required
+def save_note(field_key, record_id):
+    entry = NOTE_FIELDS.get(field_key)
+    if entry is None:
+        abort(404)
+    Model, field_name, label, client_visible, back_endpoint, id_kwarg = entry
+    record = Model.query.get_or_404(record_id)
+
+    payload = request.get_json(silent=True) or {}
+    setattr(record, field_name, payload.get('content', ''))
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 @main_bp.route('/jobs/<int:job_id>/notes', methods=['POST'])

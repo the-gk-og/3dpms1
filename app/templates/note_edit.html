@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ label }} — 3DPMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/easymde/easymde.min.css') }}">
+  <style>
+    /* Standalone editor chrome — deliberately not the app shell/sidebar,
+       this is meant to be opened in its own tab and used full-screen. */
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; background: var(--bg, #0f1115); }
+    .note-editor-header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.6rem 1rem; border-bottom: 1px solid var(--border, #2a2d35);
+      flex: 0 0 auto;
+    }
+    .note-editor-header h1 {
+      font-size: 0.95rem; font-weight: 600; margin: 0; flex: 1;
+      color: var(--text, #e6e6e6);
+    }
+    .note-editor-back { font-size: 0.85rem; text-decoration: none; color: var(--text-muted, #9aa0a6); }
+    .note-editor-back:hover { text-decoration: underline; }
+    .note-editor-badge {
+      font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+      background: rgba(255, 180, 60, 0.15); color: #ffb43c; white-space: nowrap;
+    }
+    .note-editor-status { font-size: 0.8rem; color: var(--text-muted, #9aa0a6); min-width: 9rem; text-align: right; }
+    .note-editor-save {
+      font-size: 0.85rem; padding: 0.4rem 0.9rem; border-radius: 6px; border: none;
+      background: var(--accent, #4f8cff); color: #fff; cursor: pointer;
+    }
+    .note-editor-save:disabled { opacity: 0.5; cursor: default; }
+    .note-editor-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    /* EasyMDE fills whatever height its container CSS gives it */
+    .note-editor-body .EasyMDEContainer,
+    .note-editor-body .CodeMirror,
+    .note-editor-body .editor-toolbar { height: 100%; }
+    .note-editor-body .EasyMDEContainer { display: flex; flex-direction: column; }
+    .note-editor-body .CodeMirror-scroll { min-height: 100%; }
+  </style>
+</head>
+<body>
+  <header class="note-editor-header">
+    <a class="note-editor-back" href="{{ back_url }}">&larr; Back</a>
+    <h1>{{ label }}</h1>
+    {% if not client_visible %}
+      <span class="note-editor-badge">&#128274; staff only</span>
+    {% endif %}
+    <span class="note-editor-status" id="note-editor-status">Ctrl/Cmd+S to save</span>
+    <button class="note-editor-save" id="note-editor-save-btn">Save</button>
+  </header>
+  <div class="note-editor-body">
+    <textarea id="note-editor"></textarea>
+  </div>
+
+  <script src="{{ url_for('static', filename='vendor/easymde/easymde.min.js') }}"></script>
+  <script>
+    (function () {
+      var initialValue = {{ content|tojson }};
+      var csrfToken = {{ csrf_token()|tojson }};
+      var saveUrl = {{ save_url|tojson }};
+
+      var easyMDE = new EasyMDE({
+        element: document.getElementById('note-editor'),
+        initialValue: initialValue,
+        autofocus: true,
+        spellChecker: true,
+        status: false,               // we render our own status text in the header
+        minHeight: '0',              // let the flex container drive height instead
+        // singleLineBreaks: true matches the server's `nl2br` Markdown extension
+        // (helpers.py render_markdown), so the live preview here matches the
+        // saved/rendered version elsewhere in the app. Tables come from marked's
+        // GFM support, matching the server's `tables` extension too.
+        renderingConfig: { singleLineBreaks: true, codeSyntaxHighlighting: false },
+        placeholder: 'Write in Markdown — Ctrl/Cmd+B, I, K and friends all work.',
+      });
+
+      // Open straight into live side-by-side preview rather than plain-text mode.
+      easyMDE.toggleSideBySide();
+
+      var statusEl = document.getElementById('note-editor-status');
+      var saveBtn = document.getElementById('note-editor-save-btn');
+      var dirty = false;
+      var lastSaved = initialValue;
+
+      easyMDE.codemirror.on('change', function () {
+        dirty = easyMDE.value() !== lastSaved;
+        statusEl.textContent = dirty ? 'Unsaved changes' : 'Ctrl/Cmd+S to save';
+      });
+
+      function save() {
+        if (saveBtn.disabled) return;
+        var value = easyMDE.value();
+        saveBtn.disabled = true;
+        statusEl.textContent = 'Saving…';
+        fetch(saveUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({ content: value }),
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error('save failed (' + res.status + ')');
+            return res.json();
+          })
+          .then(function () {
+            lastSaved = value;
+            dirty = false;
+            var now = new Date();
+            statusEl.textContent = 'Saved ' + now.toLocaleTimeString();
+          })
+          .catch(function () {
+            statusEl.textContent = 'Save failed — check your connection and retry';
+          })
+          .finally(function () {
+            saveBtn.disabled = false;
+          });
+      }
+
+      saveBtn.addEventListener('click', save);
+      easyMDE.codemirror.setOption('extraKeys', Object.assign(
+        {}, easyMDE.codemirror.getOption('extraKeys'), {
+          'Cmd-S': function () { save(); return false; },
+          'Ctrl-S': function () { save(); return false; },
+        }
+      ));
+      // Fallback for saves triggered outside CodeMirror's focus (e.g. right
+      // after clicking the toolbar).
+      document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          save();
+        }
+      });
+
+      window.addEventListener('beforeunload', function (e) {
+        if (!dirty) return;
+        e.preventDefault();
+        e.returnValue = '';
+      });
+    })();
+  </script>
+</body>
+</html>

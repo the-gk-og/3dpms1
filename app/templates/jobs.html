@@ -130,10 +130,26 @@
             {% endfor %}
           </select>
         </label>
-        <label>Notes<textarea class="md-editor" data-placeholder="Visible to the client on the delivery slip..." name="notes" rows="2">{{ job.notes or '' }}</textarea></label>
-        <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client — printer settings, issues, reminders..." name="internal_notes" rows="2">{{ job.internal_notes or '' }}</textarea></label>
         <button type="submit" class="btn-sm">Save</button>
       </form>
+
+      <div class="field-group">
+        <label>Notes</label>
+        <div class="md-content" style="min-height: 2.5em; font-size: 0.9rem;">
+          {% if job.notes %}{{ job.notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='job-notes', record_id=job.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">Edit in editor &#8599;</a>
+      </div>
+
+      <div class="field-group">
+        <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label>
+        <div class="md-content" style="min-height: 2.5em; font-size: 0.9rem;">
+          {% if job.internal_notes %}{{ job.internal_notes|markdown }}{% else %}<span class="md-editor-empty">Nothing written yet.</span>{% endif %}
+        </div>
+        <a href="{{ url_for('main.edit_note', field_key='job-internal_notes', record_id=job.id) }}"
+           target="_blank" rel="noopener" class="note-edit-link">Edit in editor &#8599;</a>
+      </div>
     </div>
   </div>
   {% endfor %}
