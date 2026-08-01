@@ -127,10 +127,12 @@
 <div class="m-empty">
   🎯<br>
   {% if q or show_archived %}No jobs match.{% else %}No jobs yet.{% endif %}<br>
-  <span style="font-size: 0.85rem;">Create a job from an existing quote to start tracking production.</span><br>
+  <span style="font-size: 0.85rem;">Create a job from an existing quote, or tap + to start one from scratch.</span><br>
   <a href="{{ url_for('main.quotes') }}" class="m-link-btn">Go to Quotes →</a>
 </div>
 {% endif %}
+
+<a href="{{ url_for('main.new_job') }}" class="m-fab" aria-label="New job">+</a>
 {% endblock %}
 
 {% block scripts %}

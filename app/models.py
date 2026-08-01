@@ -354,10 +354,13 @@ class Job(db.Model):
     reference_number = db.Column(db.String(50), index=True)
     quote_id = db.Column(db.Integer, db.ForeignKey('quote.id'))
     quote = db.relationship('Quote', backref='jobs')
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))
+    invoice = db.relationship('Invoice', backref='jobs')
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'))
     client = db.relationship('Client', backref='jobs')
     title = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), default='Queued')
+    package_status = db.Column(db.String(50), default='Not Packaged')
     notes = db.Column(db.Text)
     internal_notes = db.Column(db.Text)  # staff-only — Markdown, never shown to the client or printed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -476,9 +479,22 @@ class Request(db.Model):
         if self.status == 'Archived':
             return 'Archived'
         if self.status == 'Converted' and self.quote:
-            if self.quote.jobs:
-                return self.quote.jobs[0].status
-            return 'Quote Sent'
+            quote = self.quote
+            if quote.jobs:
+                return quote.jobs[0].status
+            if quote.status == 'Draft':
+                # Staff have started a quote from this request but haven't
+                # actually sent it yet -- don't tell the customer it's out.
+                return 'Being Reviewed'
+            if quote.status == 'Invoiced':
+                # An invoice was generated, but if every invoice on it is still
+                # an unsent Draft, don't leak that internal stage early. (Mirrors
+                # helpers._tracking_status_for_quote -- kept in sync by hand
+                # since models.py can't import helpers.py without a circular
+                # import.)
+                if quote.invoices and all(inv.status == 'Draft' for inv in quote.invoices):
+                    return 'Accepted'
+            return 'Quote Sent' if quote.status == 'Sent' else quote.status
         if self.status == 'Reviewed':
             return 'Being Reviewed'
         return 'Received'

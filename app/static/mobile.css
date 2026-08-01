@@ -257,6 +257,34 @@ html, body {
 
 .m-field textarea { min-height: 88px; resize: vertical; }
 
+.client-search-dropdown {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: 0.35rem;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.client-search-dropdown-item {
+  padding: 0.85rem;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.client-search-dropdown-item:last-child { border-bottom: none; }
+.client-search-dropdown-item:active { background: var(--bg-hover, rgba(255, 255, 255, 0.08)); }
+
 .m-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

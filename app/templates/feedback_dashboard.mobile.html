@@ -1,0 +1,108 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Feedback{% endblock %}
+{% block content %}
+
+<div class="m-stats-grid">
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Surveys Sent</div>
+    <div class="m-stat-value">{{ total_sent }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Responses</div>
+    <div class="m-stat-value">{{ total_responded }}</div>
+    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">{{ response_rate }}% rate</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Avg Rating</div>
+    <div class="m-stat-value" style="color: var(--success);">{{ avg_rating if avg_rating is not none else '—' }}{% if avg_rating is not none %}<span style="font-size: 0.85rem; color: var(--text-muted);"> /5</span>{% endif %}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Would Recommend</div>
+    <div class="m-stat-value">
+      {% if recommend_yes + recommend_no > 0 %}
+        {{ (recommend_yes / (recommend_yes + recommend_no) * 100) | round | int }}%
+      {% else %}—{% endif %}
+    </div>
+    {% if recommend_yes + recommend_no > 0 %}
+    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">👍 {{ recommend_yes }} · 👎 {{ recommend_no }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="m-card">
+  <div class="m-card-title" style="margin-bottom: 0.6rem;">Rating Breakdown</div>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+    {% for n in [5, 4, 3, 2, 1] %}
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <div style="width: 3.2rem; font-size: 0.8rem; color: var(--text-muted);">{{ n }} star{{ 's' if n != 1 else '' }}</div>
+      <div style="flex: 1; background: var(--bg-secondary); border-radius: 6px; height: 10px; overflow: hidden;">
+        <div style="width: {{ (distribution[n] / max_bucket * 100) if max_bucket else 0 }}%; background: #f5b301; height: 100%;"></div>
+      </div>
+      <div style="width: 1.4rem; font-size: 0.8rem; text-align: right;">{{ distribution[n] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if category_averages %}
+<div class="m-section-title">By Category</div>
+<div class="m-stats-grid">
+  {% for label, avg in category_averages %}
+  <div class="m-stat-tile">
+    <div class="m-stat-label">{{ label }}</div>
+    <div class="m-stat-value" style="font-size: 1.15rem;">{{ avg }}<span style="font-size: 0.72rem; color: var(--text-muted);"> /5</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="m-section-title">Responses</div>
+<div style="display: flex; gap: 0.5rem; margin: -0.4rem 0 0.75rem;">
+  <a href="{{ url_for('feedback.dashboard', filter='all') }}" class="m-badge {{ 'm-badge-success' if filter == 'all' else 'm-badge-muted' }}" style="text-decoration: none;">All</a>
+  <a href="{{ url_for('feedback.dashboard', filter='responded') }}" class="m-badge {{ 'm-badge-success' if filter == 'responded' else 'm-badge-muted' }}" style="text-decoration: none;">Responded</a>
+  <a href="{{ url_for('feedback.dashboard', filter='pending') }}" class="m-badge {{ 'm-badge-success' if filter == 'pending' else 'm-badge-muted' }}" style="text-decoration: none;">Pending</a>
+</div>
+
+{% if surveys %}
+{% for s in surveys %}
+<div class="m-card">
+  <div class="m-card-row">
+    <div>
+      <div class="m-card-title">
+        {% if s.client %}{{ s.client.name }}
+        {% elif s.respondent_name %}{{ s.respondent_name }}
+        {% elif not s.job %}<span style="color: var(--text-muted);">Standalone link</span>
+        {% else %}—{% endif %}
+        {% if s.testimonial_ok %}<span title="OK to use as testimonial">💬</span>{% endif %}
+      </div>
+      <div class="m-card-sub">
+        {% if s.job %}{{ s.job.display_number }}{% else %}No linked job{% endif %}
+        · {{ s.sent_at.strftime('%d %b %Y') if s.sent_at else '—' }}
+      </div>
+    </div>
+    <div style="text-align: right;">
+      {% if s.rating %}<div style="font-size: 0.85rem;">{{ '★' * s.rating }}{{ '☆' * (5 - s.rating) }}</div>{% endif %}
+      {% if s.responded %}
+      <a href="{{ url_for('feedback.detail', survey_id=s.id) }}" class="m-badge m-badge-success" style="text-decoration: none;">View</a>
+      {% elif not s.job and not s.client %}
+      <a href="{{ url_for('feedback.link', survey_id=s.id) }}" class="m-badge m-badge-muted" style="text-decoration: none;">View Link</a>
+      {% else %}
+      <span class="m-badge m-badge-muted">Pending</span>
+      {% endif %}
+    </div>
+  </div>
+  <form method="post" action="{{ url_for('feedback.delete', survey_id=s.id) }}" onsubmit="return confirm('Delete this feedback entry? This can\'t be undone.')" style="margin-top: 0.6rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="m-btn m-btn-secondary m-btn-sm" style="width: 100%;">Delete</button>
+  </form>
+</div>
+{% endfor %}
+{% else %}
+<div class="m-empty">No surveys yet — send one from a job on the Jobs page.</div>
+{% endif %}
+
+<a href="{{ url_for('feedback.new_link') }}" class="m-fab" aria-label="Create feedback link" onclick="event.preventDefault(); document.getElementById('new-link-form').submit();">+</a>
+<form method="post" action="{{ url_for('feedback.new_link') }}" id="new-link-form" style="display: none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Feedback Response{% endblock %}
+{% block content %}
+
+<div class="m-card">
+  <div class="m-card-row">
+    <div>
+      <div class="m-card-title" style="font-size: 1.05rem;">{{ survey.respondent_name or (survey.client.name if survey.client else ('Standalone Link' if not survey.job else 'Unknown client')) }}</div>
+      <div class="m-card-sub">
+        {% if survey.respondent_email %}{{ survey.respondent_email }}{% elif survey.client %}{{ survey.client.email }}{% endif %}
+        {% if survey.job %}<br>{{ survey.job.display_number }} — {{ survey.job.title }}{% endif %}
+      </div>
+    </div>
+    {% if survey.responded %}
+    <span class="m-badge m-badge-success">Responded</span>
+    {% else %}
+    <span class="m-badge m-badge-muted">Awaiting</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if survey.responded %}
+<div class="m-stats-grid">
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Overall Rating</div>
+    <div class="m-stat-value" style="color: #f5b301; font-size: 1.1rem;">{{ '★' * survey.rating }}{{ '☆' * (5 - survey.rating) }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Would Recommend</div>
+    <div class="m-stat-value" style="font-size: 1.1rem;">
+      {% if survey.would_recommend is true %}👍 Yes{% elif survey.would_recommend is false %}👎 No{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Would Order Again</div>
+    <div class="m-stat-value" style="font-size: 1.1rem;">
+      {% if survey.would_order_again is true %}Yes{% elif survey.would_order_again is false %}No{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Heard About Us</div>
+    <div class="m-stat-value" style="font-size: 0.95rem;">{{ survey.referral_source or '—' }}</div>
+  </div>
+</div>
+
+<div class="m-card">
+  <div class="m-card-row">
+    <div class="m-card-sub">Sent</div>
+    <div class="m-card-sub">{{ survey.sent_at.strftime('%d %b %Y') if survey.sent_at else '—' }}</div>
+  </div>
+  <div class="m-card-row" style="margin-top: 0.35rem;">
+    <div class="m-card-sub">Responded</div>
+    <div class="m-card-sub">{{ survey.responded_at.strftime('%d %b %Y') if survey.responded_at else '—' }}</div>
+  </div>
+</div>
+
+{% if survey.category_ratings %}
+<div class="m-card">
+  <div class="m-card-title" style="margin-bottom: 0.5rem; font-size: 0.9rem;">By Category</div>
+  {% for label, value in survey.category_ratings %}
+  <div class="m-card-row" style="margin-top: 0.3rem;">
+    <span style="font-size: 0.9rem;">{{ label }}</span>
+    <span style="color: #f5b301;">{{ '★' * value }}{{ '☆' * (5 - value) }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if survey.comments %}
+<div class="m-card">
+  <div class="m-card-title" style="font-size: 0.9rem;">What went well</div>
+  <p style="margin: 0.35rem 0 0; font-size: 0.9rem; white-space: pre-wrap;">{{ survey.comments }}</p>
+</div>
+{% endif %}
+
+{% if survey.improvements %}
+<div class="m-card">
+  <div class="m-card-title" style="font-size: 0.9rem;">Could be improved</div>
+  <p style="margin: 0.35rem 0 0; font-size: 0.9rem; white-space: pre-wrap;">{{ survey.improvements }}</p>
+</div>
+{% endif %}
+
+{% if survey.testimonial_ok %}
+<div class="m-badge m-badge-success" style="display: inline-block;">💬 OK to use as a public testimonial</div>
+{% endif %}
+
+{% else %}
+<div class="m-empty">Sent {{ survey.sent_at.strftime('%d %b %Y') if survey.sent_at else '—' }}. No response yet.</div>
+{% endif %}
+
+{% if survey.job %}
+<a href="{{ url_for('main.jobs') }}#job-{{ survey.job.id }}" class="m-btn m-btn-secondary" style="margin-top: 0.75rem;">View Job</a>
+{% endif %}
+<a href="{{ url_for('feedback.dashboard') }}" class="m-btn m-btn-secondary" style="margin-top: 0.6rem;">Back to Feedback</a>
+<form method="post" action="{{ url_for('feedback.delete', survey_id=survey.id) }}" onsubmit="return confirm('Delete this feedback entry? This can\'t be undone.')" style="margin-top: 0.6rem;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="m-btn" style="width: 100%; background: var(--danger); color: white;">Delete Entry</button>
+</form>
+{% endblock %}

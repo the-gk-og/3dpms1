@@ -12,6 +12,7 @@
         </div>
         <div>
           <span class="badge badge-accent">{{ job.status }}</span>
+          <span class="badge badge-muted">📦 {{ job.package_status or 'Not Packaged' }}</span>
           {% if job.archived %}
           <span class="badge badge-muted" style="margin-left: 0.4rem;">Archived</span>
           {% endif %}
@@ -42,6 +43,13 @@
             {% endfor %}
           </select>
         </label>
+        <label>Package Status
+          <select name="package_status">
+            {% for s in ['Not Packaged','Packaged','Shipped','Ready for Pickup','Delivered'] %}
+            <option value="{{ s }}"{% if (job.package_status or 'Not Packaged') == s %} selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <button type="submit" class="btn-sm">Save</button>
       </form>
 
@@ -63,17 +71,27 @@
       </div>
 
       <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <form method="post" action="{{ url_for('main.archive_job', job_id=job.id) if not job.archived else url_for('main.unarchive_job', job_id=job.id) }}" style="display:inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-secondary">{{ 'Restore' if job.archived else 'Archive' }}</button>
           </form>
           <a href="{{ url_for('main.preview_job_packing_slip', job_id=job.id) }}" target="_blank" class="btn-sm btn-secondary" style="text-decoration: none;">Delivery Slip</a>
+          <form method="post" action="{{ url_for('main.send_job_survey', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Send a feedback survey to {{ job.client.email if job.client else 'this client' }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-sm btn-secondary">Send Feedback Survey</button>
+          </form>
           <form method="post" action="{{ url_for('main.delete_job', job_id=job.id) }}" style="display:inline;" onsubmit="return confirm('Delete this job?')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-sm btn-danger">Delete</button>
           </form>
         </div>
+        <button type="button" class="link-btn" style="font-size: 0.8rem; margin-top: 0.5rem;" onclick="toggleForm('job-alt-email-form')">Send survey to a different address</button>
+        <form method="post" action="{{ url_for('main.send_job_survey', job_id=job.id) }}" id="job-alt-email-form" class="collapsible-form" onsubmit="return confirm('Send the feedback survey to ' + this.to_email.value + '?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label>Send to<input type="email" name="to_email" placeholder="alternate@example.com" required></label>
+          <button type="submit" class="btn-sm">Send</button>
+        </form>
       </div>
     </div>
   </div>
@@ -105,4 +123,12 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
 {% endblock %}

@@ -1,0 +1,74 @@
+<script>
+(function() {
+  var CLIENTS = [
+    {% for client in clients %}
+    {id: {{ client.id }}, name: {{ client.name|tojson }}, email: {{ (client.email or '')|tojson }}, phone: {{ (client.phone or '')|tojson }}}{{ ',' if not loop.last }}
+    {% endfor %}
+  ];
+  var search = document.getElementById('client_search');
+  var results = document.getElementById('client_search_results');
+  var idField = document.getElementById('client_id');
+  var nameField = document.getElementById('client_name');
+  var emailField = document.getElementById('client_email');
+  var phoneField = document.getElementById('client_phone');
+  var hint = document.getElementById('client-edit-hint');
+  if (!search || !results) return;
+
+  function label(c) { return c.name + (c.email ? ' — ' + c.email : ''); }
+
+  function hideResults() {
+    results.style.display = 'none';
+    results.innerHTML = '';
+  }
+
+  function selectClient(c) {
+    idField.value = c.id;
+    nameField.value = c.name;
+    if (emailField) emailField.value = c.email || '';
+    if (phoneField) phoneField.value = c.phone || '';
+    search.value = label(c);
+    if (hint) hint.style.display = 'block';
+    hideResults();
+  }
+
+  function renderResults(matches) {
+    if (!matches.length) { hideResults(); return; }
+    results.innerHTML = '';
+    matches.slice(0, 8).forEach(function(c) {
+      var item = document.createElement('div');
+      item.className = 'client-search-dropdown-item';
+      item.textContent = label(c);
+      // mousedown (not click) fires before the input's blur handler, so the
+      // selection registers before the dropdown gets hidden — this is what
+      // makes tapping a result on mobile actually work.
+      item.addEventListener('mousedown', function(e) { e.preventDefault(); });
+      item.addEventListener('click', function() { selectClient(c); });
+      results.appendChild(item);
+    });
+    results.style.display = 'block';
+  }
+
+  search.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    idField.value = '';
+    if (hint) hint.style.display = 'none';
+    nameField.value = this.value;
+    if (!q) { hideResults(); return; }
+    var matches = CLIENTS.filter(function(c) {
+      return c.name.toLowerCase().indexOf(q) !== -1 ||
+        (c.email && c.email.toLowerCase().indexOf(q) !== -1);
+    });
+    renderResults(matches);
+  });
+
+  search.addEventListener('focus', function() {
+    if (this.value.trim() && !idField.value) {
+      this.dispatchEvent(new Event('input'));
+    }
+  });
+
+  search.addEventListener('blur', function() {
+    setTimeout(hideResults, 150);
+  });
+})();
+</script>

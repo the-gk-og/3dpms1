@@ -636,6 +636,7 @@ def preview_quote_pdf(quote_id):
 def generate_quote_email(quote_id):
     quote = Quote.query.get_or_404(quote_id)
     business = get_business_settings()
+    to_email = (request.form.get('to_email') or '').strip() or quote.client.email
     try:
         pdf = _quote_pdf_bytes(quote)
         if not quote.upload_token:
@@ -664,7 +665,7 @@ def generate_quote_email(quote_id):
         body_text = html_to_text(html_body)
 
         send_document_email(
-            business, quote.client.email,
+            business, to_email,
             subject=subject,
             body_text=body_text, html_body=html_body,
             pdf_bytes=pdf, filename=f'{quote.client_number}.pdf',
@@ -672,7 +673,7 @@ def generate_quote_email(quote_id):
         if quote.status == 'Draft':
             quote.status = 'Sent'
             db.session.commit()
-        flash(f'Quote emailed to {quote.client.email}')
+        flash(f'Quote emailed to {to_email}')
     except EmailNotConfiguredError as e:
         flash(str(e))
     except Exception as e:
@@ -738,6 +739,87 @@ def create_job_from_quote(quote_id):
         db.session.commit()
     flash('Job created from quote.')
     return redirect(url_for('main.jobs'))
+
+
+@main_bp.route('/invoices/<int:invoice_id>/create-job', methods=['POST'])
+@login_required
+def create_job_from_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    existing = Job.query.filter_by(invoice_id=invoice.id).first()
+    if existing:
+        flash('Job already exists for this invoice.')
+        return redirect(url_for('main.job_detail', job_id=existing.id))
+    if invoice.quote_id:
+        existing_from_quote = Job.query.filter_by(quote_id=invoice.quote_id).first()
+        if existing_from_quote:
+            flash('Job already exists for this invoice\u2019s quote.')
+            return redirect(url_for('main.job_detail', job_id=existing_from_quote.id))
+
+    title = f'Print job for {invoice.client.name}'
+    if invoice.items:
+        title = invoice.items[0].description or title
+
+    job = Job(
+        job_number=generate_job_number(),
+        reference_number=invoice.reference_number or generate_reference_number(),
+        quote_id=invoice.quote_id,
+        invoice_id=invoice.id,
+        client_id=invoice.client_id,
+        title=title,
+        status='Queued',
+        notes=invoice.notes or '',
+    )
+    db.session.add(job)
+    db.session.commit()
+    if not invoice.reference_number:
+        invoice.reference_number = job.reference_number
+        db.session.commit()
+    flash('Job created from invoice.')
+    return redirect(url_for('main.job_detail', job_id=job.id))
+
+
+@main_bp.route('/jobs/new', methods=['GET', 'POST'])
+@login_required
+def new_job():
+    """Standalone job creation, independent of any quote or invoice — for clients
+    who don't need a quote (or invoice) at all but still need a job tracked."""
+    business = get_business_settings()
+    clients = Client.query.order_by(Client.name).all()
+    if request.method == 'POST':
+        client_id = request.form.get('client_id')
+        client = Client.query.get(client_id) if client_id else None
+        if not client:
+            client_name = (request.form.get('client_name') or '').strip()
+            if not client_name:
+                flash('Enter a client name.')
+                return render_template('new_job.html', clients=clients, business=business)
+            client = Client(
+                name=client_name,
+                phone=(request.form.get('client_phone') or '').strip(),
+                email=(request.form.get('client_email') or '').strip(),
+            )
+            db.session.add(client)
+            db.session.flush()
+        else:
+            client.name = (request.form.get('client_name') or client.name).strip()
+            client.phone = (request.form.get('client_phone') or '').strip()
+            client.email = (request.form.get('client_email') or '').strip()
+
+        title = (request.form.get('title') or '').strip() or f'Print job for {client.name}'
+        job = Job(
+            job_number=generate_job_number(),
+            reference_number=generate_reference_number(),
+            client_id=client.id,
+            title=title,
+            status='Queued',
+            notes=(request.form.get('notes') or '').strip(),
+            internal_notes=(request.form.get('internal_notes') or '').strip(),
+        )
+        db.session.add(job)
+        db.session.commit()
+        flash('Job created.')
+        return redirect(url_for('main.job_detail', job_id=job.id))
+    return render_template('new_job.html', clients=clients, business=business)
 
 
 @main_bp.route('/invoices', methods=['GET'])
@@ -817,7 +899,13 @@ def invoice_detail(invoice_id):
     versions = DocumentVersion.query.filter_by(
         entity_type='invoice', entity_id=invoice.id,
     ).order_by(DocumentVersion.created_at.desc()).all()
-    return render_template('invoice_detail.html', invoice=invoice, filaments=filaments, business=business, versions=versions)
+    existing_job = Job.query.filter_by(invoice_id=invoice.id).first()
+    if not existing_job and invoice.quote_id:
+        existing_job = Job.query.filter_by(quote_id=invoice.quote_id).first()
+    return render_template(
+        'invoice_detail.html', invoice=invoice, filaments=filaments, business=business,
+        versions=versions, existing_job=existing_job,
+    )
 
 
 @main_bp.route('/invoices/<int:invoice_id>/edit', methods=['POST'])
@@ -1030,6 +1118,7 @@ def download_document_version(entity_type, entity_id, version_id):
 def generate_invoice_email(invoice_id):
     invoice = Invoice.query.get_or_404(invoice_id)
     business = get_business_settings()
+    to_email = (request.form.get('to_email') or '').strip() or invoice.client.email
     try:
         pdf = _invoice_pdf_bytes(invoice)
         default_subject = f'Invoice {invoice.client_number} from {business.name or "us"}'
@@ -1055,7 +1144,7 @@ def generate_invoice_email(invoice_id):
         body_text = html_to_text(html_body)
 
         send_document_email(
-            business, invoice.client.email,
+            business, to_email,
             subject=subject,
             body_text=body_text, html_body=html_body,
             pdf_bytes=pdf, filename=f'{invoice.client_number}.pdf',
@@ -1063,7 +1152,7 @@ def generate_invoice_email(invoice_id):
         if invoice.status == 'Draft':
             invoice.status = 'Sent'
             db.session.commit()
-        flash(f'Invoice emailed to {invoice.client.email}')
+        flash(f'Invoice emailed to {to_email}')
     except EmailNotConfiguredError as e:
         flash(str(e))
     except Exception as e:
@@ -1164,6 +1253,8 @@ def edit_job(job_id):
     job.title = request.form.get('title', job.title)
     new_status = request.form.get('status', job.status)
     job.status = new_status
+    if 'package_status' in request.form:
+        job.package_status = request.form.get('package_status', job.package_status)
     # notes/internal_notes are edited via the standalone note editor
     # (main.edit_note / main.save_note) now, not this form.
     db.session.commit()
@@ -1188,10 +1279,11 @@ def edit_job(job_id):
 @login_required
 def send_job_survey(job_id):
     job = Job.query.get_or_404(job_id)
+    to_email = (request.form.get('to_email') or '').strip() or (job.client.email if job.client else None)
     try:
-        survey = send_feedback_survey_email(job)
+        survey = send_feedback_survey_email(job, to_email=to_email)
         log_audit('feedback_survey_sent', target_type='job', target_id=job_id, detail=job.display_number)
-        flash(f'Feedback survey sent to {job.client.email}')
+        flash(f'Feedback survey sent to {to_email}')
     except EmailNotConfiguredError:
         flash('Email sending isn\u2019t set up yet \u2014 configure SMTP under Settings \u2192 Email.')
     except ValueError as e:
@@ -1290,6 +1382,8 @@ def update_job_notes(job_id):
     job = Job.query.get_or_404(job_id)
     job.title = request.form.get('title', job.title)
     job.status = request.form.get('status', job.status)
+    if 'package_status' in request.form:
+        job.package_status = request.form.get('package_status', job.package_status)
     job.notes = request.form.get('notes', '')
     job.internal_notes = request.form.get('internal_notes', '')
     new_status = job.status

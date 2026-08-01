@@ -160,6 +160,12 @@ body {
   border-radius: 12px;
   padding: 1.25rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  /* Grid items default to min-width:auto, so a card with a run of long
+     unbroken content (long link, filename, etc.) refuses to shrink below
+     that content's width — blowing the card past its grid track and
+     causing the whole page to scroll horizontally. */
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .card h2, .card h3, .panel h2, .panel h3 {
@@ -223,6 +229,37 @@ input, textarea, select {
   background: var(--bg-secondary);
   color: var(--text);
   transition: border-color 0.15s ease;
+}
+
+.client-search-dropdown {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.client-search-dropdown-item {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.client-search-dropdown-item:last-child { border-bottom: none; }
+
+.client-search-dropdown-item:hover,
+.client-search-dropdown-item.active {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
 }
 
 input:focus, textarea:focus, select:focus {
@@ -362,6 +399,7 @@ button:hover, .btn:hover { background: var(--accent-hover); }
 
 .item-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }

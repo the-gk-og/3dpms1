@@ -889,16 +889,18 @@ def get_or_create_job_survey(job):
     return survey
 
 
-def send_feedback_survey_email(job, business=None):
-    """Emails the job's client a link to the public feedback survey. Raises
-    ValueError if there's no client email on file, EmailNotConfiguredError if SMTP
-    isn't set up. Returns the FeedbackSurvey row on success.
+def send_feedback_survey_email(job, business=None, to_email=None):
+    """Emails the job's client (or an override address) a link to the public
+    feedback survey. Raises ValueError if there's no client email on file and no
+    override was given, EmailNotConfiguredError if SMTP isn't set up. Returns the
+    FeedbackSurvey row on success.
     """
     from flask import url_for
     from app import db
 
     business = business or get_business_settings()
-    if not job.client or not job.client.email:
+    to_email = (to_email or '').strip() or (job.client.email if job.client else None)
+    if not to_email:
         raise ValueError('This client has no email address on file.')
 
     survey = get_or_create_job_survey(job)
@@ -906,14 +908,14 @@ def send_feedback_survey_email(job, business=None):
 
     subject = f'How did we do? — {job.client_number} from {business.name or "us"}'
     context = {
-        'client_name': job.client.name, 'business_name': business.name or '',
+        'client_name': job.client.name if job.client else '', 'business_name': business.name or '',
         'document_number': job.client_number, 'job_title': job.title or '',
         'survey_url': survey_url,
     }
     html_body = default_email_html('feedback_survey', context, business)
     body = html_to_text(html_body)
 
-    send_plain_email(business, job.client.email, subject, body, html_body=html_body)
+    send_plain_email(business, to_email, subject, body, html_body=html_body)
     survey.sent_at = datetime.utcnow()
     db.session.commit()
     return survey
@@ -967,6 +969,13 @@ def _tracking_status_for_quote(quote):
         return quote.jobs[0].status
     if quote.status in ('Sent', 'Draft'):
         return 'Quote Sent' if quote.status == 'Sent' else 'Received'
+    if quote.status == 'Invoiced':
+        # An invoice was generated from this quote, but if every invoice tied to
+        # it is still sitting in Draft, none has actually gone out to the
+        # customer yet — showing "Invoiced" here would leak an internal stage
+        # before it's real to them.
+        if quote.invoices and all(inv.status == 'Draft' for inv in quote.invoices):
+            return 'Accepted'
     return quote.status
 
 

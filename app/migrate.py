@@ -95,6 +95,8 @@ def run_migrations(db):
             'order_details': 'TEXT',
             'archived': 'BOOLEAN DEFAULT 0',
             'reference_number': 'VARCHAR(50)',
+            'invoice_id': 'INTEGER',
+            'package_status': "VARCHAR(50) DEFAULT 'Not Packaged'",
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",

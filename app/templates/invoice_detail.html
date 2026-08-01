@@ -237,9 +237,23 @@
           <button type="submit" class="btn-block btn-secondary">Download PDF</button>
         </form>
         <a href="{{ url_for('main.preview_invoice_pdf', invoice_id=invoice.id) }}" target="_blank" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">Preview PDF</a>
+        {% if existing_job %}
+        <a href="{{ url_for('main.job_detail', job_id=existing_job.id) }}" class="btn btn-block btn-purple">View Job</a>
+        {% else %}
+        <form method="post" action="{{ url_for('main.create_job_from_invoice', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-block btn-purple">Create Job</button>
+        </form>
+        {% endif %}
         <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" onsubmit="return confirm('Send this invoice to {{ invoice.client.email }}?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-block btn-secondary">Send Email</button>
+        </form>
+        <button type="button" class="link-btn" style="font-size: 0.8rem;" onclick="toggleForm('invoice-alt-email-form')">Send to a different address</button>
+        <form method="post" action="{{ url_for('main.generate_invoice_email', invoice_id=invoice.id) }}" id="invoice-alt-email-form" class="collapsible-form" onsubmit="return confirm('Send this invoice to ' + this.to_email.value + '?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label>Send to<input type="email" name="to_email" placeholder="alternate@example.com" required></label>
+          <button type="submit" class="btn-sm">Send</button>
         </form>
         {% if invoice.status not in ('Paid', 'Cancelled') %}
         <form method="post" action="{{ url_for('main.send_invoice_reminder_route', invoice_id=invoice.id) }}" onsubmit="return confirm('Send a payment reminder to {{ invoice.client.email }}?')">

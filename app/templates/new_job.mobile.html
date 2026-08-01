@@ -1,9 +1,11 @@
 {% extends 'base.mobile.html' %}
-{% from '_payment_fields.mobile.html' import payment_surcharge_fields_mobile %}
-{% block page_title %}New Quote{% endblock %}
+{% block page_title %}New Job{% endblock %}
 {% block content %}
 
 <div class="m-card">
+  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+    For clients who don't need a quote or invoice — this creates a job directly.
+  </p>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -21,29 +23,13 @@
     <div class="m-field"><label>Phone</label><input type="text" name="client_phone" id="client_phone" placeholder="+61 400 000 000"></div>
     <div class="m-field"><label>Email</label><input type="email" name="client_email" id="client_email" placeholder="client@example.com"></div>
 
-    <div class="m-section-title">Quote Settings</div>
-    <div class="m-field"><label>Valid Until</label><input type="date" name="valid_until"></div>
-    {{ payment_surcharge_fields_mobile(business) }}
+    <div class="m-section-title">Job Details</div>
+    <div class="m-field"><label>Title</label><input type="text" name="title" placeholder="e.g. Miniature set — 12 pieces"></div>
     <div class="m-field"><label>Notes</label><textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></div>
     <div class="m-field"><label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></div>
-    <div class="m-checkbox-field">
-      <input type="checkbox" name="digital_signature_enabled">
-      <label style="margin: 0;">Include signature area on PDF</label>
-    </div>
 
-    <div class="m-section-title">Internal Markup</div>
-    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.5rem;">
-      Adds a margin on top of your costs. It's baked into the prices either way — this only controls
-      whether it's disclosed to the client as its own line, or folded invisibly into the total.
-    </p>
-    <div class="m-field"><label>Markup %</label><input type="number" step="0.01" name="markup_percent" value="0"></div>
-    <div class="m-checkbox-field">
-      <input type="checkbox" name="show_markup_to_client">
-      <label style="margin: 0;">Show markup as a line item on the PDF</label>
-    </div>
-
-    <button type="submit" class="m-btn m-btn-primary">Create Quote</button>
-    <a href="{{ url_for('main.quotes') }}" class="m-btn m-btn-secondary" style="margin-top: 0.6rem;">Cancel</a>
+    <button type="submit" class="m-btn m-btn-primary">Create Job</button>
+    <a href="{{ url_for('main.jobs') }}" class="m-btn m-btn-secondary" style="margin-top: 0.6rem;">Cancel</a>
   </form>
 </div>
 {% endblock %}

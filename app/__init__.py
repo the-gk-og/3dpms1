@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -78,6 +79,7 @@ def create_app(test_config=None):
         SESSION_COOKIE_SAMESITE='Lax',
         REMEMBER_COOKIE_SECURE=os.environ.get('COOKIE_INSECURE') != '1',
         REMEMBER_COOKIE_HTTPONLY=True,
+        REMEMBER_COOKIE_DURATION=timedelta(days=30),
         PERMANENT_SESSION_LIFETIME=60 * 60 * 12,  # 12 hours
         # Hard cap on total request size (covers multi-file uploads) — mitigates
         # unauthenticated public-form upload DoS. Individual file-type/size limits

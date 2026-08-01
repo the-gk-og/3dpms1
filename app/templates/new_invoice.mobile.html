@@ -8,16 +8,12 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="m-section-title" style="margin-top: 0;">Client</div>
-    <div class="m-field">
+    <div class="m-field" style="position: relative;">
       <label>Search Existing or Add New</label>
-      <input type="text" id="client_search" placeholder="Type a client name to search, or add new..." autocomplete="off" list="clients-datalist">
+      <input type="text" id="client_search" placeholder="Type a client name to search, or add new..." autocomplete="off">
       <input type="hidden" name="client_id" id="client_id" value="">
+      <div id="client_search_results" class="client-search-dropdown"></div>
     </div>
-    <datalist id="clients-datalist">
-      {% for client in clients %}
-      <option data-id="{{ client.id }}" data-name="{{ client.name }}" data-email="{{ client.email or '' }}" data-phone="{{ client.phone or '' }}" value="{{ client.name }}{% if client.email %} — {{ client.email }}{% endif %}"></option>
-      {% endfor %}
-    </datalist>
     <p id="client-edit-hint" style="display:none; font-size: 0.8rem; color: var(--text-muted); margin: -0.4rem 0 0.6rem;">
       Editing details below updates this client's record everywhere.
     </p>
@@ -50,26 +46,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.getElementById('client_search').addEventListener('input', function() {
-  const datalist = document.getElementById('clients-datalist');
-  const idField = document.getElementById('client_id');
-  const nameField = document.getElementById('client_name');
-  const emailField = document.getElementById('client_email');
-  const phoneField = document.getElementById('client_phone');
-  const hint = document.getElementById('client-edit-hint');
-  const match = Array.from(datalist.options).find(o => o.value === this.value);
-  if (match) {
-    idField.value = match.dataset.id;
-    nameField.value = match.dataset.name;
-    emailField.value = match.dataset.email || '';
-    phoneField.value = match.dataset.phone || '';
-    hint.style.display = 'block';
-  } else {
-    idField.value = '';
-    nameField.value = this.value;
-    hint.style.display = 'none';
-  }
-});
-</script>
+{% include '_client_search_script.html' %}
 {% endblock %}

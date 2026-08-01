@@ -45,17 +45,21 @@ def login():
                 return render_template('auth/login.html', business=business)
 
         username = request.form.get('username', '')
+        remember = request.form.get('remember') == 'on'
         user = User.query.filter_by(username=username).first()
         # Always hash-compare even when the username doesn't exist, so response
         # timing doesn't reveal whether a given username is registered.
         password_ok = user.check_password(request.form.get('password', '')) if user else False
         if user and password_ok:
+            session.permanent = True
             if user.two_factor_enabled:
                 # Password is correct but a TOTP code is still required — stash the
-                # user id in the (signed) session rather than logging in yet.
+                # user id (and the remember-me choice) in the (signed) session
+                # rather than logging in yet.
                 session['pending_2fa_user_id'] = user.id
+                session['pending_2fa_remember'] = remember
                 return redirect(url_for('auth.verify_2fa'))
-            login_user(user)
+            login_user(user, remember=remember)
             log_audit('login_success', target_type='user', target_id=user.id)
             return redirect(url_for('main.index'))
         log_audit('login_failed', detail=f'username={username[:80]}')
@@ -115,13 +119,15 @@ def login_google_callback():
         db.session.commit()
         log_audit('google_account_linked', target_type='user', target_id=user.id)
 
+    session.permanent = True
     if user.two_factor_enabled:
         # Same as password login: a correct Google sign-in still isn't enough on
         # its own if 2FA is turned on — the TOTP step still has to happen.
         session['pending_2fa_user_id'] = user.id
+        session['pending_2fa_remember'] = True
         return redirect(url_for('auth.verify_2fa'))
 
-    login_user(user)
+    login_user(user, remember=True)
     log_audit('login_success', target_type='user', target_id=user.id, detail='google_oauth')
     return redirect(url_for('main.index'))
 
@@ -213,7 +219,9 @@ def verify_2fa():
         totp = pyotp.TOTP(user.totp_secret)
         if totp.verify(code, valid_window=1):
             session.pop('pending_2fa_user_id', None)
-            login_user(user)
+            remember = session.pop('pending_2fa_remember', False)
+            session.permanent = True
+            login_user(user, remember=remember)
             log_audit('login_success', target_type='user', target_id=user.id, detail='2fa')
             return redirect(url_for('main.index'))
         log_audit('login_2fa_failed', target_type='user', target_id=user.id)

@@ -14,6 +14,10 @@
     <label>Password
       <input type="password" name="password" required>
     </label>
+    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+      <input type="checkbox" name="remember" style="width: auto;">
+      Remember me
+    </label>
     {{ turnstile_widget(business) }}
     <button type="submit" style="width: 100%;">Login</button>
   </form>

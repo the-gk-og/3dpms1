@@ -205,6 +205,12 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="m-btn m-btn-secondary">Send Email</button>
     </form>
+    <button type="button" class="m-link-btn" style="width: 100%; text-align: center;" onclick="toggleForm('quote-alt-email-form')">Send to a different address</button>
+    <form method="post" action="{{ url_for('main.generate_quote_email', quote_id=quote.id) }}" id="quote-alt-email-form" class="collapsible-form" onsubmit="return confirm('Send this quote to ' + this.to_email.value + '?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="m-field"><label>Send to</label><input type="email" name="to_email" placeholder="alternate@example.com" required></div>
+      <button type="submit" class="m-btn m-btn-secondary">Send</button>
+    </form>
     <form method="post" action="{{ url_for('main.delete_quote', quote_id=quote.id) }}" onsubmit="return confirm('Delete this quote permanently?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="m-btn m-btn-danger">Delete Quote</button>
