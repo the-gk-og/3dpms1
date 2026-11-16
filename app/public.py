@@ -76,7 +76,8 @@ def home():
 @public_bp.route('/about')
 def about():
     business = get_business_settings()
-    return render_template('public/about.html', business=business)
+    materials = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    return render_template('public/about.html', business=business, materials=materials)
 
 
 @public_bp.route('/terms')

@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{{ business.name or '3D Printing' }}{% endblock %}</title>
+    <meta name="theme-color" content="#ea580c">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='public.css') }}">
     {% if is_mobile_request() %}
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile-public.css') }}">
@@ -12,20 +14,27 @@
   </head>
   <body>
     {% set ep = request.endpoint or '' %}
-    <nav class="pub-nav">
-      <a href="{{ url_for('public.home') }}" class="pub-brand">
-        {% if business.logo_path %}
-        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
-        {% else %}
-        <span>{{ business.name or '3D Printing' }}</span>
-        {% endif %}
-      </a>
-      <div class="pub-nav-links">
-        <a href="{{ url_for('public.home') }}"{% if ep == 'public.home' %} class="active"{% endif %}>Home</a>
-        <a href="{{ url_for('public.about') }}"{% if ep == 'public.about' %} class="active"{% endif %}>About Us</a>
-        <a href="{{ url_for('public.contact') }}"{% if ep == 'public.contact' %} class="active"{% endif %}>Get in Touch</a>
-        <a href="{{ url_for('public.track_order') }}"{% if ep == 'public.track_order' %} class="active"{% endif %}>Order Tracking</a>
-        <a href="{{ url_for('public.order_form') }}" class="pub-nav-cta">Start an Order</a>
+    <nav class="pub-nav" id="pub-nav">
+      <div class="pub-nav-inner">
+        <a href="{{ url_for('public.home') }}" class="pub-brand">
+          {% if business.logo_path %}
+          <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
+          {% else %}
+          <span class="pub-brand-mark" aria-hidden="true"></span>
+          <span>{{ business.name or '3D Printing' }}</span>
+          {% endif %}
+        </a>
+        <button type="button" class="pub-nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="pub-nav-links"
+                onclick="var n=document.getElementById('pub-nav');var o=n.classList.toggle('open');this.setAttribute('aria-expanded',o);">
+          <i class="fa fa-bars" aria-hidden="true"></i>
+        </button>
+        <div class="pub-nav-links" id="pub-nav-links">
+          <a href="{{ url_for('public.home') }}"{% if ep == 'public.home' %} class="active" aria-current="page"{% endif %}>Home</a>
+          <a href="{{ url_for('public.about') }}"{% if ep == 'public.about' %} class="active" aria-current="page"{% endif %}>About</a>
+          <a href="{{ url_for('public.contact') }}"{% if ep == 'public.contact' %} class="active" aria-current="page"{% endif %}>Contact</a>
+          <a href="{{ url_for('public.track_order') }}"{% if ep == 'public.track_order' %} class="active" aria-current="page"{% endif %}>Track an order</a>
+          <a href="{{ url_for('public.order_form') }}" class="pub-nav-cta">Start an order</a>
+        </div>
       </div>
     </nav>
 
@@ -33,7 +42,7 @@
       {% with messages = get_flashed_messages() %}
         {% if messages %}
         {% for message in messages %}
-        <div class="pub-flash warn">{{ message }}</div>
+        <div class="pub-flash {% block flash_class %}warn{% endblock %}">{{ message }}</div>
         {% endfor %}
         {% endif %}
       {% endwith %}
@@ -41,8 +50,35 @@
     </main>
 
     <footer class="pub-footer">
-      <p>{{ business.name or 'Our workshop' }}{% if business.contact_email %} · <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}{% if business.phone %} · {{ business.phone }}{% endif %}{% if business.abn %} · ABN {{ business.abn }}{% endif %}</p>
-      <p class="pub-footer-legal"><a href="{{ url_for('public.terms') }}">Terms of Service &amp; Payment Terms</a> · <a href="{{ url_for('public.privacy') }}">Privacy Policy</a></p>
+      <div class="pub-footer-inner">
+        <div>
+          <a href="{{ url_for('public.home') }}" class="pub-brand">
+            <span class="pub-brand-mark" aria-hidden="true"></span>
+            <span>{{ business.name or 'Our workshop' }}</span>
+          </a>
+          <p>Custom 3D printing — quoted before we start, and you'll know the moment it's done.</p>
+        </div>
+        <div>
+          <h4>Get in touch</h4>
+          <ul>
+            {% if business.contact_email %}<li><i class="fa fa-envelope-o" aria-hidden="true"></i> <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a></li>{% endif %}
+            {% if business.phone %}<li><i class="fa fa-phone" aria-hidden="true"></i> <a href="tel:{{ business.phone|replace(' ', '') }}">{{ business.phone }}</a></li>{% endif %}
+            <li><i class="fa fa-comment-o" aria-hidden="true"></i> <a href="{{ url_for('public.contact') }}">Send a message</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Orders</h4>
+          <ul>
+            <li><a href="{{ url_for('public.order_form') }}">Start an order</a></li>
+            <li><a href="{{ url_for('public.track_order') }}">Track an order</a></li>
+            <li><a href="{{ url_for('public.terms') }}">Terms &amp; payment</a></li>
+            <li><a href="{{ url_for('public.privacy') }}">Privacy policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pub-footer-bottom">
+        © {{ business.name or 'Our workshop' }}{% if business.abn %} · ABN {{ business.abn }}{% endif %}
+      </div>
     </footer>
 
     {% block scripts %}{% endblock %}

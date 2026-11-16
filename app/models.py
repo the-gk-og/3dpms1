@@ -40,6 +40,9 @@ class BusinessSettings(db.Model):
     payment_terms = db.Column(db.Text)
     terms_of_service = db.Column(db.Text)
     privacy_policy = db.Column(db.Text)
+    # Public About page — tagline is a one-liner under the heading, about_text is Markdown
+    about_tagline = db.Column(db.String(300))
+    about_text = db.Column(db.Text)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))

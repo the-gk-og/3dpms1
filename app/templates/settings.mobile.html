@@ -34,6 +34,11 @@
     <div class="m-field"><label>Upload Logo</label><input type="file" name="logo" accept="image/*"></div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Used on PDF quotes and invoices</p>
 
+    <div class="m-section-title">About Page</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Shown on your public About page. Leave blank to use the default wording.</p>
+    <div class="m-field"><label>Tagline</label><input type="text" name="about_tagline" maxlength="300" value="{{ business.about_tagline or '' }}" placeholder="e.g. Small-batch 3D printing from a home workshop"></div>
+    <div class="m-field"><label>Your Story</label><textarea class="md-editor" data-placeholder="Who you are, how you got started, what you love printing… Markdown supported." name="about_text" rows="8">{{ business.about_text or '' }}</textarea></div>
+
     <button type="submit" class="m-btn m-btn-primary">Save Business Settings</button>
   </form>
 </div>

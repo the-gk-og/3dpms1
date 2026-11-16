@@ -11,7 +11,7 @@
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}</div>
         </div>
         <div>
-          <span class="badge badge-accent">{{ job.status }}</span>
+          <span class="badge badge-accent s-{{ (job.status or "")|lower|replace(" ", "-") }}">{{ job.status }}</span>
           <span class="badge badge-muted">📦 {{ job.package_status or 'Not Packaged' }}</span>
           {% if job.archived %}
           <span class="badge badge-muted" style="margin-left: 0.4rem;">Archived</span>

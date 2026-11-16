@@ -48,6 +48,8 @@ def run_migrations(db):
             'tos_font_size': 'FLOAT DEFAULT 8',
             'google_oauth_client_id': 'VARCHAR(300)',
             'google_oauth_client_secret': 'VARCHAR(500)',
+            'about_tagline': 'VARCHAR(300)',
+            'about_text': 'TEXT',
         },
         'filament': {
             'brand': 'VARCHAR(100)',

@@ -36,7 +36,7 @@
         </td>
         <td style="font-size: 0.82rem;">
           {% for number, records in m.numbers.items() %}
-            <div><span class="badge" style="background: var(--accent); color: #fff;">{{ number }}</span>
+            <div><span class="badge badge-accent-solid">{{ number }}</span>
               on {{ records | map(attribute='display_number') | join(', ') }}</div>
           {% endfor %}
         </td>

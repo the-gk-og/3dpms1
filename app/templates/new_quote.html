@@ -32,7 +32,7 @@
       {{ payment_surcharge_fields(business) }}
       <label>Notes<textarea class="md-editor" data-placeholder="Project details, delivery info..." name="notes" rows="3"></textarea></label>
       <label>Internal Notes<span class="internal-note-badge">🔒 staff only</span><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="3"></textarea></label>
-      <label class="checkbox-item" style="background: transparent; padding: 0;">
+      <label class="checkbox-item checkbox-plain">
         <input type="checkbox" name="digital_signature_enabled"> Include signature area on PDF
       </label>
     </div>
@@ -44,7 +44,7 @@
         whether it's disclosed to the client as its own line, or folded invisibly into the total.
       </p>
       <label>Markup %<input type="number" step="0.01" name="markup_percent" value="0"></label>
-      <label class="checkbox-item" style="background: transparent; padding: 0;">
+      <label class="checkbox-item checkbox-plain">
         <input type="checkbox" name="show_markup_to_client"> Show markup as a line item on the PDF
       </label>
     </div>

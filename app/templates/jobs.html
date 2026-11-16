@@ -34,7 +34,7 @@
       </div>
       <div style="text-align: right;">
         {% if job.archived %}<span class="badge badge-muted">Archived</span>{% endif %}
-        <span class="badge badge-accent">{{ job.status }}</span>
+        <span class="badge badge-accent s-{{ (job.status or "")|lower|replace(" ", "-") }}">{{ job.status }}</span>
         {% if job.notify_me %}
         <div style="margin-top: 0.35rem;"><span class="badge badge-muted">🔔 Notify on complete{% if job.notify_sent_at %} · Sent{% endif %}</span></div>
         {% endif %}

@@ -48,6 +48,8 @@ def save_settings():
         business.phone = request.form.get('phone', '')
         business.website = request.form.get('website', '')
         business.hourly_rate = float(request.form.get('hourly_rate', 0) or 0)
+        business.about_tagline = request.form.get('about_tagline', '').strip()
+        business.about_text = request.form.get('about_text', '')
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):

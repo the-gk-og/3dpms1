@@ -1,83 +1,106 @@
 {% extends 'base.html' %}
 {% block page_title %}Dashboard{% endblock %}
+{% macro status_text(status) -%}
+  <span class="status-text s-{{ (status or '')|lower|replace(' ', '-') }}">{{ status }}</span>
+{%- endmacro %}
 {% block content %}
+<div class="welcome">
+  <div>
+    <h2>{{ settings.name }}</h2>
+    <p>{{ settings.contact_email or 'Add your contact details in Settings' }}</p>
+  </div>
+  <div class="quick-actions">
+    <a href="{{ url_for('main.requests_list') }}" class="btn btn-secondary"><i class="fa fa-inbox" aria-hidden="true"></i> Requests</a>
+    <a href="{{ url_for('main.new_quote') }}" class="btn"><i class="fa fa-plus" aria-hidden="true"></i> New quote</a>
+  </div>
+</div>
+
 <div class="cards">
-  <div class="card">
-    <div class="metric-label">Business</div>
-    <div style="font-weight: 600; margin-top: 0.25rem;">{{ settings.name }}</div>
-    <div style="font-size: 0.85rem; color: var(--text-muted);">{{ settings.contact_email or 'Add contact info in Settings' }}</div>
+  <div class="card metric-card is-success">
+    <div class="metric-label"><i class="fa fa-line-chart" aria-hidden="true"></i> Revenue this month</div>
+    <div class="metric-value">${{ "%.2f"|format(revenue_this_month) }}</div>
   </div>
-  <div class="card">
-    <div class="metric-label">Revenue This Month</div>
-    <div class="metric-value" style="color: var(--success);">${{ "%.2f"|format(revenue_this_month) }}</div>
+  <div class="card metric-card is-success">
+    <div class="metric-label"><i class="fa fa-calendar" aria-hidden="true"></i> Revenue this year</div>
+    <div class="metric-value">${{ "%.2f"|format(revenue_this_year) }}</div>
   </div>
-  <div class="card">
-    <div class="metric-label">Revenue This Year</div>
-    <div class="metric-value" style="color: var(--success);">${{ "%.2f"|format(revenue_this_year) }}</div>
-  </div>
-  <div class="card">
-    <div class="metric-label">Quote Pipeline</div>
+  <div class="card metric-card is-accent">
+    <div class="metric-label"><i class="fa fa-file-text-o" aria-hidden="true"></i> Quote pipeline</div>
     <div class="metric-value">${{ "%.2f"|format(quote_pipeline_total) }}</div>
+    <div class="metric-sub">{{ open_quotes_count }} active quote{{ 's' if open_quotes_count != 1 else '' }}</div>
   </div>
-</div>
-
-<div class="cards">
-  <div class="card">
-    <div class="metric-label">Outstanding (Unpaid)</div>
+  <div class="card metric-card">
+    <div class="metric-label"><i class="fa fa-hourglass-half" aria-hidden="true"></i> Outstanding</div>
     <div class="metric-value">${{ "%.2f"|format(outstanding_total) }}</div>
-  </div>
-  <div class="card" {% if overdue_count %}style="border-left: 3px solid var(--danger, #c0392b);"{% endif %}>
-    <div class="metric-label">Overdue</div>
-    <div class="metric-value" style="{% if overdue_count %}color: var(--danger, #c0392b);{% endif %}">
-      {{ overdue_count }} invoice{{ 's' if overdue_count != 1 else '' }}
-    </div>
-    {% if overdue_count %}
-    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">${{ "%.2f"|format(overdue_total) }} total</div>
-    {% endif %}
-  </div>
-  <div class="card">
-    <div class="metric-label">Active Quotes</div>
-    <div class="metric-value">{{ open_quotes_count }}</div>
-  </div>
-  <div class="card">
-    <div class="metric-label">Filament Types</div>
-    <div class="metric-value">{{ filament_count }}</div>
+    <div class="metric-sub">Unpaid invoices</div>
   </div>
 </div>
 
 <div class="cards">
+  <a href="{{ url_for('main.invoices') }}" class="card metric-card{% if overdue_count %} is-danger{% endif %}" style="text-decoration: none; color: inherit;">
+    <div class="metric-label"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Overdue</div>
+    <div class="metric-value">{{ overdue_count }} invoice{{ 's' if overdue_count != 1 else '' }}</div>
+    <div class="metric-sub">{% if overdue_count %}${{ "%.2f"|format(overdue_total) }} total{% else %}All caught up{% endif %}</div>
+  </a>
+  <a href="{{ url_for('main.quotes') }}" class="card metric-card" style="text-decoration: none; color: inherit;">
+    <div class="metric-label"><i class="fa fa-folder-open-o" aria-hidden="true"></i> Active quotes</div>
+    <div class="metric-value">{{ open_quotes_count }}</div>
+  </a>
+  <a href="{{ url_for('filament.index') }}" class="card metric-card" style="text-decoration: none; color: inherit;">
+    <div class="metric-label"><i class="fa fa-circle-o-notch" aria-hidden="true"></i> Filament types</div>
+    <div class="metric-value">{{ filament_count }}</div>
+  </a>
+  <a href="{{ url_for('main.clients') }}" class="card metric-card" style="text-decoration: none; color: inherit;">
+    <div class="metric-label"><i class="fa fa-users" aria-hidden="true"></i> Clients</div>
+    <div class="metric-value">{{ clients|length }}</div>
+  </a>
+</div>
+
+<div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
   <div class="card">
-    <h3>Recent Quotes</h3>
-    {% for quote in quotes[:5] %}
-    <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-      <div>
-        <a href="{{ url_for('main.quote_detail', quote_id=quote.id) }}" style="color: var(--text); text-decoration: none; font-weight: 500;">{{ quote.display_number }}</a>
-        <div style="font-size: 0.85rem; color: var(--text-muted);">{{ quote.client.name }}</div>
-      </div>
-      <div style="text-align: right;">
-        <div style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(quote.total) }}</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ quote.status }}</div>
-      </div>
+    <div class="card-head">
+      <h3>Recent quotes</h3>
+      <a href="{{ url_for('main.quotes') }}">View all <i class="fa fa-angle-right" aria-hidden="true"></i></a>
     </div>
+    {% for quote in quotes[:5] %}
+    <a class="list-row" href="{{ url_for('main.quote_detail', quote_id=quote.id) }}">
+      <div>
+        <div class="list-row-title">{{ quote.display_number }}</div>
+        <div class="list-row-sub">{{ quote.client.name if quote.client else '—' }}</div>
+      </div>
+      <div class="list-row-end">
+        <div class="list-row-amount">${{ "%.2f"|format(quote.total) }}</div>
+        {{ status_text(quote.status) }}
+      </div>
+    </a>
     {% else %}
-    <p style="color: var(--text-muted);">No quotes yet. <a href="{{ url_for('main.new_quote') }}" style="color: var(--accent);">Create one</a></p>
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></div>
+      No quotes yet. <a href="{{ url_for('main.new_quote') }}">Create one</a>
+    </div>
     {% endfor %}
   </div>
   <div class="card">
-    <h3>Recent Invoices</h3>
-    {% for invoice in invoices[:5] %}
-    <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-      <div>
-        <a href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}" style="color: var(--text); text-decoration: none; font-weight: 500;">{{ invoice.display_number }}</a>
-        <div style="font-size: 0.85rem; color: var(--text-muted);">{{ invoice.client.name }}</div>
-      </div>
-      <div style="text-align: right;">
-        <div style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</div>
-        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ invoice.status }}</div>
-      </div>
+    <div class="card-head">
+      <h3>Recent invoices</h3>
+      <a href="{{ url_for('main.invoices') }}">View all <i class="fa fa-angle-right" aria-hidden="true"></i></a>
     </div>
+    {% for invoice in invoices[:5] %}
+    <a class="list-row" href="{{ url_for('main.invoice_detail', invoice_id=invoice.id) }}">
+      <div>
+        <div class="list-row-title">{{ invoice.display_number }}</div>
+        <div class="list-row-sub">{{ invoice.client.name if invoice.client else '—' }}</div>
+      </div>
+      <div class="list-row-end">
+        <div class="list-row-amount">${{ "%.2f"|format(invoice.total) }}</div>
+        {{ status_text('Overdue' if invoice.is_overdue else invoice.status) }}
+      </div>
+    </a>
     {% else %}
-    <p style="color: var(--text-muted);">No invoices yet.</p>
+    <div class="empty-state">
+      <div class="empty-state-icon"><i class="fa fa-credit-card" aria-hidden="true"></i></div>
+      No invoices yet.
+    </div>
     {% endfor %}
   </div>
 </div>

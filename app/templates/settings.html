@@ -39,6 +39,12 @@
     <label>Upload Logo<input type="file" name="logo" accept="image/*"></label>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Used on PDF quotes and invoices</p>
   </div>
+  <div class="form-section">
+    <h3>About Page</h3>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.4rem 0 0.75rem;">Shown on your public <a href="{{ url_for('public.about') }}" target="_blank">About</a> page. Leave blank to use the default wording.</p>
+    <label>Tagline<input type="text" name="about_tagline" maxlength="300" value="{{ business.about_tagline or '' }}" placeholder="e.g. Small-batch 3D printing from a home workshop in Brisbane"></label>
+    <label>Your Story<textarea class="md-editor" data-placeholder="Who you are, how you got started, what you love printing… Markdown supported." name="about_text" rows="8">{{ business.about_text or '' }}</textarea></label>
+  </div>
   <button type="submit">Save Business Settings</button>
 </form>
 
