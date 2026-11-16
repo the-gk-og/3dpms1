@@ -1,66 +1,26 @@
-/* Mobile patch for the public order form. The desktop public.css is already mostly
-   mobile-friendly (stacked form fields, wrapping nav, responsive grids) — this file
-   only fixes the handful of things that are genuinely worse on a phone: input font
-   size below 16px (triggers iOS Safari's zoom-on-focus), tap targets under 44px, and
-   the horizontal nav being cramped on very narrow screens. */
+/* Mobile patch for the public site. public.css is already responsive — this only
+   handles what's genuinely worse on a phone: input font size below 16px (triggers
+   iOS Safari's zoom-on-focus), tap targets under 44px, and full-width actions. */
 
 .pub-form input[type="text"],
 .pub-form input[type="email"],
 .pub-form input[type="tel"],
-.pub-form input[type="file"],
 .pub-form input[type="url"],
+.pub-form input[type="number"],
 .pub-form textarea,
 .pub-form select {
   font-size: 16px;
-  min-height: 46px;
-  padding: 0.8rem 0.9rem;
-}
-
-.pub-checkbox {
-  min-height: 46px;
-  padding: 0.85rem 1rem;
-}
-.pub-checkbox input {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.pub-radio-card {
-  min-height: 46px;
-  padding: 1rem !important;
-}
-
-.pub-btn, .pub-btn-secondary {
-  display: block;
-  width: 100%;
-  text-align: center;
   min-height: 48px;
-  padding: 0.9rem 1rem;
-  font-size: 1rem;
 }
 
-.pub-hero-actions {
-  flex-direction: column;
-}
+.pub-checkbox { min-height: 48px; }
+.pub-checkbox input { width: 20px; height: 20px; }
 
-.pub-nav {
-  padding: 0.85rem 1rem;
-}
+.pub-radio-card { min-height: 48px; }
+.pub-material-item { min-height: 40px; }
+.toggle-row label { min-height: 48px; }
 
-.pub-nav-links {
-  gap: 1rem;
-  font-size: 0.85rem;
-}
+.pub-hero-actions { flex-direction: column; align-items: stretch; }
+.pub-hero-actions .pub-btn, .pub-cta .pub-btn { width: 100%; min-height: 50px; }
 
-.pub-nav-links a {
-  font-size: 0.85rem;
-}
-
-.pub-material-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.pub-radio-group {
-  grid-template-columns: 1fr;
-}
+.pub-radio-group { grid-template-columns: 1fr; }

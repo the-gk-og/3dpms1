@@ -26,6 +26,7 @@
     <div class="m-field"><label>Website</label><input type="text" name="website" value="{{ business.website or '' }}"></div>
     <div class="m-field"><label>Address</label><textarea name="address" rows="2">{{ business.address or '' }}</textarea></div>
     <div class="m-field"><label>Hourly Print Rate ($)</label><input type="number" step="0.01" name="hourly_rate" value="{{ business.hourly_rate or 0 }}" placeholder="Used in quote pricing"></div>
+    <div class="m-field"><label>Low Stock Warning (grams)</label><input type="number" step="1" min="0" name="low_stock_threshold_g" value="{{ '%g'|format(business.low_stock_threshold_g if business.low_stock_threshold_g is not none else 200) }}" placeholder="200"></div>
 
     <div class="m-section-title">Logo</div>
     {% if business.logo_path %}
@@ -33,6 +34,11 @@
     {% endif %}
     <div class="m-field"><label>Upload Logo</label><input type="file" name="logo" accept="image/*"></div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Used on PDF quotes and invoices</p>
+
+    <div class="m-section-title">About Page</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Shown on your public About page. Leave blank to use the default wording.</p>
+    <div class="m-field"><label>Tagline</label><input type="text" name="about_tagline" maxlength="300" value="{{ business.about_tagline or '' }}" placeholder="e.g. Small-batch 3D printing from a home workshop"></div>
+    <div class="m-field"><label>Your Story</label><textarea class="md-editor" data-placeholder="Who you are, how you got started, what you love printing… Markdown supported." name="about_text" rows="8">{{ business.about_text or '' }}</textarea></div>
 
     <button type="submit" class="m-btn m-btn-primary">Save Business Settings</button>
   </form>

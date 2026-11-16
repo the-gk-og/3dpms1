@@ -1,119 +1,47 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Upload Signed {{ quote.client_number }} — {{ business.name or 'Quote' }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-      body.public-page {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        min-height: 100vh;
-        padding: 3rem 1.25rem;
-      }
-      .upload-card {
-        width: 100%;
-        max-width: 460px;
-      }
-      .upload-brand {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-      }
-      .upload-brand img {
-        max-height: 44px;
-        max-width: 120px;
-      }
-      .upload-brand-name {
-        font-weight: 700;
-        font-size: 1.1rem;
-      }
-      .quote-summary {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 0.85rem 1rem;
-        margin-bottom: 1.25rem;
-        font-size: 0.9rem;
-      }
-      .quote-summary div { margin-bottom: 0.25rem; }
-      .quote-summary div:last-child { margin-bottom: 0; }
-      .success-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: var(--success);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-      }
-    </style>
-  </head>
-  <body class="public-page">
-    <div class="upload-card">
-      <div class="upload-brand">
-        {% if business.logo_path %}
-        <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="{{ business.name }}">
-        {% endif %}
-        <span class="upload-brand-name">{{ business.name or 'Quote Upload' }}</span>
-      </div>
-
-      <div class="panel">
-        {% if uploaded %}
-          <div class="success-icon">✓</div>
-          <h2 style="margin-top: 0;">Signed copy received</h2>
-          <p style="color: var(--text-muted); font-size: 0.9rem;">
-            Thanks — we've received your signed copy of quote {{ quote.client_number }}.
-            {{ business.name or 'We' }} will be in touch shortly to confirm next steps.
-          </p>
-          {% if quote.signed_copy_uploaded_at %}
-          <p style="color: var(--text-muted); font-size: 0.8rem;">Uploaded {{ quote.signed_copy_uploaded_at.strftime('%d %B %Y, %I:%M %p') }} UTC</p>
-          {% endif %}
-          <p style="font-size: 0.85rem; color: var(--text-muted);">Need to send a different file? Just upload again below.</p>
-          <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data" style="margin-top: 1rem;">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label>Replace file<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
-            <label class="checkbox-item" style="background: transparent; padding: 0;">
-              <input type="checkbox" name="notify_me"{% if quote.notify_me %} checked{% endif %}> Notify me about my order status
-            </label>
-            <button type="submit">Upload New Copy</button>
-          </form>
-        {% else %}
-          <h2 style="margin-top: 0;">Upload your signed quote</h2>
-          <div class="quote-summary">
-            <div><strong>Quote:</strong> {{ quote.client_number }} · v{{ quote.version or '1' }}</div>
-            <div><strong>Client:</strong> {{ quote.client.name }}</div>
-            <div><strong>Total:</strong> ${{ '%.2f'|format(quote.total) }}</div>
-          </div>
-          <p style="color: var(--text-muted); font-size: 0.9rem;">
-            If you'd like to proceed with this quote, sign it and upload a copy here (PDF, PNG, or JPG, up to 15MB).
-          </p>
-          <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label>Signed copy<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
-            <label class="checkbox-item" style="background: transparent; padding: 0;">
-              <input type="checkbox" name="notify_me" checked> Notify me about my order status
-            </label>
-            <button type="submit">Upload Signed Copy</button>
-          </form>
-        {% endif %}
-      </div>
-
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-        <ul class="flash-list" style="margin-top: 1rem;">
-          {% for message in messages %}
-          <li class="flash-message">{{ message }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-      {% endwith %}
+{% extends 'public/public_base.html' %}
+{% block title %}Upload Signed {{ quote.client_number }} — {{ business.name or 'Quote' }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+<div class="pub-panel" style="max-width: 520px; margin: 0 auto;">
+  {% if uploaded %}
+    <div style="text-align: center;">
+      <div class="pub-success"><i class="fa fa-check" aria-hidden="true"></i></div>
+      <h1 style="margin: 0 0 0.5rem; font-size: 1.6rem;">Signed copy received</h1>
+      <p style="color: var(--text-muted); margin: 0;">
+        Thanks — we've received your signed copy of quote {{ quote.client_number }}.
+        {{ business.name or 'We' }} will be in touch shortly to confirm next steps.
+      </p>
+      {% if quote.signed_copy_uploaded_at %}
+      <p style="color: var(--text-faint); font-size: 0.8rem; margin: 0.75rem 0 0;">Uploaded {{ quote.signed_copy_uploaded_at.strftime('%d %B %Y, %I:%M %p') }} UTC</p>
+      {% endif %}
     </div>
-  </body>
-</html>
+    <div style="margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 1rem;">Need to send a different file? Upload it below.</p>
+      <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data" class="pub-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Replacement file<input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
+        <label class="pub-checkbox">
+          <input type="checkbox" name="notify_me"{% if quote.notify_me %} checked{% endif %}> Notify me about my order status
+        </label>
+        <button type="submit" class="pub-btn pub-btn-secondary pub-btn-block">Upload new copy</button>
+      </form>
+    </div>
+  {% else %}
+    <h1 style="margin: 0 0 0.25rem; font-size: 1.6rem;">Upload your signed quote</h1>
+    <p style="color: var(--text-muted); margin: 0;">Happy to go ahead? Sign the quote and upload a copy here.</p>
+    <div class="pub-summary">
+      <div><span class="k">Quote</span><span class="v">{{ quote.client_number }} · v{{ quote.version or '1' }}</span></div>
+      <div><span class="k">Client</span><span class="v">{{ quote.client.name }}</span></div>
+      <div><span class="k">Total</span><span class="v big">${{ '%.2f'|format(quote.total) }}</span></div>
+    </div>
+    <form method="post" action="{{ url_for('public.upload_signed_quote', token=quote.upload_token) }}" enctype="multipart/form-data" class="pub-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Signed copy <span class="optional">(PDF, PNG or JPG, up to 15MB)</span><input type="file" name="signed_copy" accept=".pdf,.png,.jpg,.jpeg" required></label>
+      <label class="pub-checkbox">
+        <input type="checkbox" name="notify_me" checked> Notify me about my order status
+      </label>
+      <button type="submit" class="pub-btn pub-btn-block"><i class="fa fa-upload" aria-hidden="true"></i> Upload signed copy</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

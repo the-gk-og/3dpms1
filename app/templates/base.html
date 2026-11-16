@@ -3,88 +3,150 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>3DPMS - Print Management</title>
+    <title>{% block title %}{{ self.page_title() }}{% endblock %} · 3DPMS</title>
+    <script>
+      // Apply the saved theme before first paint so there's no flash.
+      try { if (localStorage.getItem('3dpms-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='js/md-editor.js') }}" defer></script>
     {% block head %}{% endblock %}
   </head>
   <body>
     {% set ep = request.endpoint or '' %}
+    {% set signed_in = current_user and current_user.is_authenticated %}
+
+    {% macro flashes() %}
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul class="flash-list">
+            {% for message in messages %}
+              <li class="flash-message">
+                <i class="fa fa-check-circle" aria-hidden="true"></i>
+                <span>{{ message }}</span>
+                <button type="button" class="flash-dismiss" aria-label="Dismiss" onclick="this.closest('li').remove()"><i class="fa fa-times" aria-hidden="true"></i></button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+    {% endmacro %}
+
+    {% if signed_in %}
     <div class="app-layout">
-      <aside class="sidebar">
-        <div class="sidebar-brand">
+      <aside class="sidebar" id="sidebar">
+        <a class="sidebar-brand" href="{{ url_for('main.index') }}">
           <div class="brand-icon">3D</div>
-          <div class="brand-text">3DPMS</div>
-        </div>
-        <nav class="sidebar-nav">
-          <div class="nav-section-title">Main</div>
+          <div class="brand-text">3DPMS<small>Print management</small></div>
+        </a>
+        <nav class="sidebar-nav" aria-label="Main">
+          <div class="nav-section-title">Workflow</div>
           <a href="{{ url_for('main.index') }}" class="nav-item{% if ep == 'main.index' %} active{% endif %}">
-            <span class="nav-icon">📊</span>
+            <i class="nav-icon fa fa-th-large" aria-hidden="true"></i>
             <span class="nav-label">Dashboard</span>
           </a>
           <a href="{{ url_for('main.requests_list') }}" class="nav-item{% if ep.startswith('main.request') %} active{% endif %}">
-            <span class="nav-icon">📥</span>
+            <i class="nav-icon fa fa-inbox" aria-hidden="true"></i>
             <span class="nav-label">Requests</span>
           </a>
           <a href="{{ url_for('main.quotes') }}" class="nav-item{% if ep.startswith('main.quote') or ep == 'main.new_quote' %} active{% endif %}">
-            <span class="nav-icon">📄</span>
+            <i class="nav-icon fa fa-file-text-o" aria-hidden="true"></i>
             <span class="nav-label">Quotes</span>
           </a>
-          <a href="{{ url_for('main.invoices') }}" class="nav-item{% if ep.startswith('main.invoice') %} active{% endif %}">
-            <span class="nav-icon">💰</span>
+          <a href="{{ url_for('main.invoices') }}" class="nav-item{% if ep.startswith('main.invoice') or ep == 'main.new_invoice' %} active{% endif %}">
+            <i class="nav-icon fa fa-credit-card" aria-hidden="true"></i>
             <span class="nav-label">Invoices</span>
           </a>
-          <a href="{{ url_for('main.jobs') }}" class="nav-item{% if ep.startswith('main.job') %} active{% endif %}">
-            <span class="nav-icon">🎯</span>
+          <a href="{{ url_for('main.jobs') }}" class="nav-item{% if ep.startswith('main.job') or ep == 'main.new_job' %} active{% endif %}">
+            <i class="nav-icon fa fa-cube" aria-hidden="true"></i>
             <span class="nav-label">Jobs</span>
           </a>
+
           <div class="nav-section-title">Manage</div>
-          <a href="{{ url_for('feedback.dashboard') }}" class="nav-item{% if ep.startswith('feedback.') %} active{% endif %}">
-            <span class="nav-icon">⭐</span>
-            <span class="nav-label">Feedback</span>
-          </a>
-          <a href="{{ url_for('filament.index') }}" class="nav-item{% if ep.startswith('filament.') %} active{% endif %}">
-            <span class="nav-icon">🎨</span>
-            <span class="nav-label">Filament</span>
-          </a>
           <a href="{{ url_for('main.clients') }}" class="nav-item{% if ep.startswith('main.client') %} active{% endif %}">
-            <span class="nav-icon">👥</span>
+            <i class="nav-icon fa fa-users" aria-hidden="true"></i>
             <span class="nav-label">Clients</span>
           </a>
-          <a href="{{ url_for('settings.settings') }}" class="nav-item{% if ep.startswith('settings.') %} active{% endif %}">
-            <span class="nav-icon">⚙️</span>
+          <a href="{{ url_for('filament.index') }}" class="nav-item{% if ep.startswith('filament.') %} active{% endif %}">
+            <i class="nav-icon fa fa-circle-o-notch" aria-hidden="true"></i>
+            <span class="nav-label">Filament</span>
+          </a>
+          <a href="{{ url_for('feedback.dashboard') }}" class="nav-item{% if ep.startswith('feedback.') %} active{% endif %}">
+            <i class="nav-icon fa fa-star-o" aria-hidden="true"></i>
+            <span class="nav-label">Feedback</span>
+          </a>
+          <a href="{{ url_for('settings.settings') }}" class="nav-item{% if ep.startswith('settings.') or ep.startswith('import_data.') %} active{% endif %}">
+            <i class="nav-icon fa fa-sliders" aria-hidden="true"></i>
             <span class="nav-label">Settings</span>
           </a>
         </nav>
         <div class="sidebar-footer">
+          <div class="sidebar-user">
+            <div class="avatar">{{ current_user.username[:1] }}</div>
+            <div style="min-width: 0;">
+              <div class="sidebar-user-name">{{ current_user.username }}</div>
+              <div class="sidebar-user-sub">Signed in</div>
+            </div>
+          </div>
           <a href="{{ url_for('auth.logout') }}" class="nav-item">
-            <span class="nav-icon">🚪</span>
-            <span class="nav-label">Logout</span>
+            <i class="nav-icon fa fa-sign-out" aria-hidden="true"></i>
+            <span class="nav-label">Log out</span>
           </a>
         </div>
       </aside>
+      <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+
       <main class="main-content">
         <header class="topbar">
-          <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+          <div class="topbar-left">
+            <button type="button" class="icon-btn sidebar-toggle" aria-label="Open menu" aria-controls="sidebar"
+                    onclick="document.body.classList.toggle('sidebar-open')"><i class="fa fa-bars" aria-hidden="true"></i></button>
+            <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+          </div>
+          <div class="topbar-right">
+            {% block topbar_actions %}{% endblock %}
+            <a href="{{ url_for('public.home') }}" class="icon-btn" title="View public site" aria-label="View public site" target="_blank" rel="noopener"><i class="fa fa-external-link" aria-hidden="true"></i></a>
+            <button type="button" class="icon-btn theme-toggle" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+              <i class="fa fa-moon-o" aria-hidden="true"></i><i class="fa fa-sun-o" aria-hidden="true"></i>
+            </button>
+          </div>
         </header>
         <div class="content-area">
-          {% with messages = get_flashed_messages() %}
-            {% if messages %}
-              <ul class="flash-list">
-                {% for message in messages %}
-                  <li class="flash-message">{{ message }}</li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          {% endwith %}
-          {% block content %}{% endblock %}
+          <div class="content-inner">
+            {{ flashes() }}
+            {% block content %}{% endblock %}
+          </div>
         </div>
       </main>
     </div>
+    {% else %}
+    <div class="auth-layout">
+      <div class="auth-shell">
+        <div class="auth-brand">
+          <div class="brand-icon">3D</div>
+          <div class="brand-text">3DPMS<small>Print management</small></div>
+        </div>
+        {{ flashes() }}
+        {{ self.content() }}
+      </div>
+    </div>
+    {% endif %}
+
     <script>
-      // Toggles the Print / Flat Fee / Hourly field groups on any line-item form.
-      // Disables inputs in hidden groups so only the relevant fields get submitted.
       document.addEventListener('DOMContentLoaded', function() {
+        // Light / dark toggle, remembered per browser.
+        document.querySelectorAll('.theme-toggle').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var root = document.documentElement;
+            var light = root.dataset.theme !== 'light';
+            if (light) root.dataset.theme = 'light'; else delete root.dataset.theme;
+            try { localStorage.setItem('3dpms-theme', light ? 'light' : 'dark'); } catch (e) {}
+          });
+        });
+
+        // Toggles the Print / Flat Fee / Hourly field groups on any line-item form.
+        // Disables inputs in hidden groups so only the relevant fields get submitted.
         document.querySelectorAll('.item-type-select').forEach(function(select) {
           var form = select.closest('.item-form');
           if (!form) return;

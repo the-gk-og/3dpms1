@@ -3,7 +3,7 @@ from flask_login import login_required
 
 from app import db
 from app.models import Filament, FilamentSpool
-from app.helpers import log_audit, render_template
+from app.helpers import log_audit, render_template, get_business_settings
 
 filament_bp = Blueprint('filament', __name__, url_prefix='/dash/filament')
 
@@ -14,11 +14,15 @@ def index():
     filaments = Filament.query.order_by(Filament.name).all()
     total_spools = sum(f.total_spools for f in filaments)
     total_weight = sum(f.total_weight_g for f in filaments)
+    threshold = get_business_settings().low_stock_threshold_g
+    threshold = threshold if threshold is not None else 200
     return render_template(
         'filament.html',
         filaments=filaments,
         total_spools=total_spools,
         total_weight=total_weight,
+        low_stock_threshold=threshold,
+        low_stock_count=sum(1 for f in filaments if f.total_remaining_g <= threshold),
     )
 
 

@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, limiter
 from app.models import Client, Filament, Invoice, Job, Quote, Request
+from app.testimonials import public_testimonials, rating_summary
 from app.helpers import (
     get_business_settings, generate_request_number, generate_reference_number, send_plain_email,
     notify_admin_new_submission, render_email_template, html_to_text,
@@ -70,13 +71,16 @@ def _save_uploaded_files(files, subdir_name):
 @public_bp.route('/')
 def home():
     business = get_business_settings()
-    return render_template('public/home.html', business=business)
+    return render_template('public/home.html', business=business,
+                           testimonials=public_testimonials(), rating=rating_summary())
 
 
 @public_bp.route('/about')
 def about():
     business = get_business_settings()
-    return render_template('public/about.html', business=business)
+    materials = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    return render_template('public/about.html', business=business, materials=materials,
+                           testimonials=public_testimonials(limit=3), rating=rating_summary())
 
 
 @public_bp.route('/terms')

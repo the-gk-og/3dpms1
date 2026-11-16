@@ -1,41 +1,66 @@
 {% extends 'public/public_base.html' %}
 {% block title %}{{ business.name or '3D Printing' }} — Custom 3D Printing{% endblock %}
 {% block content %}
-<div class="pub-hero">
-  <h1>Custom 3D printing, done right.</h1>
-  <p>
-    Send us your model — or tell us what you need designed — and we'll quote it, print it,
-    and keep you posted every step of the way.
-  </p>
-  <div class="pub-hero-actions">
-    <a href="{{ url_for('public.order_form') }}" class="pub-btn">Start an Order</a>
-    <a href="{{ url_for('public.track_order') }}" class="pub-btn pub-btn-secondary">Track an Existing Order</a>
+<section class="pub-hero">
+  <div>
+    <div class="pub-eyebrow"><span class="dot" aria-hidden="true"></span> Taking new orders</div>
+    <h1>Custom 3D printing, <em>done right.</em></h1>
+    <p class="lead">
+      Send us your model — or tell us what you need designed — and we'll quote it, print it,
+      and keep you posted every step of the way.
+    </p>
+    <div class="pub-hero-actions">
+      <a href="{{ url_for('public.order_form') }}" class="pub-btn pub-btn-lg">Start an order <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+      <a href="{{ url_for('public.track_order') }}" class="pub-btn pub-btn-secondary pub-btn-lg">Track an order</a>
+    </div>
+    <ul class="pub-trust">
+      <li><i class="fa fa-check" aria-hidden="true"></i> Quote before we print</li>
+      <li><i class="fa fa-check" aria-hidden="true"></i> Design help available</li>
+      <li><i class="fa fa-check" aria-hidden="true"></i> Notified when it's done</li>
+    </ul>
   </div>
-</div>
 
-<h2 class="pub-section-title">How it works</h2>
-<p class="pub-section-subtitle">From file to finished part in a few simple steps.</p>
-<div class="pub-grid">
-  <div class="pub-card">
-    <div class="pub-card-icon">📤</div>
-    <h3>1. Submit your order</h3>
-    <p>Upload your STL file, share a link, or tell us what you need designed. Pick your materials and any special instructions.</p>
+  <div class="pub-printer" aria-hidden="true">
+    <div class="pub-printer-head"></div>
+    <div class="pub-printer-object">
+      {# a vase-like profile, built bottom-up one layer at a time #}
+      {% for w in [124, 136, 144, 148, 144, 134, 120, 106, 96, 90, 92, 102, 116, 126] %}
+      <span style="width: {{ w }}px; animation-delay: {{ loop.index0 * 0.22 }}s;"></span>
+      {% endfor %}
+    </div>
+    <div class="pub-printer-bed"></div>
   </div>
-  <div class="pub-card">
-    <div class="pub-card-icon">📋</div>
-    <h3>2. We quote it</h3>
-    <p>We'll review your order and send through a quote covering materials, print time, and any design work.</p>
-  </div>
-  <div class="pub-card">
-    <div class="pub-card-icon">🖨️</div>
-    <h3>3. We print & notify you</h3>
-    <p>Once you're happy and the job is underway, opt in to get notified the moment it's finished.</p>
-  </div>
-</div>
+</section>
 
-<div class="pub-panel" style="text-align: center; margin-top: 3rem;">
-  <h3 style="margin-top: 0;">Already placed an order?</h3>
-  <p style="color: var(--text-muted);">Enter your job number to check on its status.</p>
-  <a href="{{ url_for('public.track_order') }}" class="pub-btn pub-btn-secondary">Track My Order</a>
+<section class="pub-section">
+  <h2 class="pub-section-title">How it works</h2>
+  <p class="pub-section-subtitle">From file to finished part in three simple steps.</p>
+  <div class="pub-grid">
+    <div class="pub-card step">
+      <div class="pub-card-icon"><i class="fa fa-cloud-upload" aria-hidden="true"></i></div>
+      <h3>Submit your order</h3>
+      <p>Upload your STL file, share a link, or tell us what you need designed. Pick your materials and add any special instructions.</p>
+    </div>
+    <div class="pub-card step">
+      <div class="pub-card-icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></div>
+      <h3>We quote it</h3>
+      <p>We review your order and send a clear quote covering materials, print time and any design work — no surprises.</p>
+    </div>
+    <div class="pub-card step">
+      <div class="pub-card-icon"><i class="fa fa-cube" aria-hidden="true"></i></div>
+      <h3>We print &amp; let you know</h3>
+      <p>Once you're happy and the job is underway, opt in to get notified the moment it's finished.</p>
+    </div>
+  </div>
+</section>
+
+{% include 'public/_testimonials.html' %}
+
+<div class="pub-cta">
+  <div>
+    <h3>Already placed an order?</h3>
+    <p>Enter your reference number to see exactly where it's up to.</p>
+  </div>
+  <a href="{{ url_for('public.track_order') }}" class="pub-btn pub-btn-secondary"><i class="fa fa-search" aria-hidden="true"></i> Track my order</a>
 </div>
 {% endblock %}

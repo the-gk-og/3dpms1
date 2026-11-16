@@ -1,31 +1,107 @@
 {% extends 'public/public_base.html' %}
 {% block title %}About Us — {{ business.name or '3D Printing' }}{% endblock %}
-{% block main_class %} narrow{% endblock %}
 {% block content %}
-<h1 style="text-align: center;">About {{ business.name or 'Us' }}</h1>
+{% set default_story %}
+We're a small print shop that turns ideas into physical parts — whether you already have a model ready to go, or just an idea you need help bringing to life.
 
-<div class="pub-panel" style="margin-top: 2rem;">
+We handle everything from one-off prototypes to small production runs, and we're happy to help design or source a model if you don't have one yet.
+
+Every order gets a clear quote before we start, and you can opt in to be notified the moment your job is finished — so there's no need to keep checking in.
+{% endset %}
+
+<section class="about-hero">
+  <div class="pub-eyebrow">About us</div>
+  <h1>{{ business.name or 'Who we are' }}</h1>
+  <p class="lead">{{ business.about_tagline or 'Custom 3D printing, from a single prototype to a small batch.' }}</p>
   {% if business.address %}
-  <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0;">📍 {{ business.address }}</p>
+  <p class="about-location"><i class="fa fa-map-marker" aria-hidden="true"></i> {{ business.address }}</p>
   {% endif %}
-  <p>
-    We're a small print shop that turns ideas into physical parts — whether you already have a
-    model ready to go, or just an idea you need help bringing to life. We handle everything from
-    one-off prototypes to small production runs, and we're happy to help design or source a model
-    if you don't have one yet.
-  </p>
-  <p>
-    Every order gets a clear quote before we start, and you can opt in to be notified the moment
-    your job is finished so there's no need to keep checking in.
-  </p>
-  {% if business.payment_terms %}
-  <h3>Payment Terms</h3>
-  <p style="color: var(--text-muted); font-size: 0.9rem;">{{ business.payment_terms }}</p>
-  {% endif %}
-</div>
+</section>
 
-<div class="pub-hero-actions" style="margin-top: 2.5rem;">
-  <a href="{{ url_for('public.order_form') }}" class="pub-btn">Start an Order</a>
-  <a href="{{ url_for('public.contact') }}" class="pub-btn pub-btn-secondary">Get in Touch</a>
+<section class="about-split">
+  <article class="pub-panel about-story">
+    <h2>Our story</h2>
+    <div class="md-story">{{ (business.about_text or default_story)|markdown }}</div>
+  </article>
+
+  <aside class="about-side">
+    <div class="pub-panel about-facts">
+      <h3>At a glance</h3>
+      <ul>
+        <li><i class="fa fa-file-text-o" aria-hidden="true"></i><div><strong>Quoted up front</strong><span>A clear quote before anything prints.</span></div></li>
+        <li><i class="fa fa-pencil" aria-hidden="true"></i><div><strong>Design help</strong><span>No model yet? We can design or source one.</span></div></li>
+        <li><i class="fa fa-bell-o" aria-hidden="true"></i><div><strong>Kept in the loop</strong><span>Track your order and get notified when it's done.</span></div></li>
+      </ul>
+    </div>
+    {% if business.contact_email or business.phone %}
+    <div class="pub-panel about-facts">
+      <h3>Say hello</h3>
+      <ul>
+        {% if business.contact_email %}<li><i class="fa fa-envelope-o" aria-hidden="true"></i><div><a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a></div></li>{% endif %}
+        {% if business.phone %}<li><i class="fa fa-phone" aria-hidden="true"></i><div><a href="tel:{{ business.phone|replace(' ', '') }}">{{ business.phone }}</a></div></li>{% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </aside>
+</section>
+
+<section class="pub-section">
+  <h2 class="pub-section-title">What we can help with</h2>
+  <p class="pub-section-subtitle">Bring a file, a sketch, or just an idea.</p>
+  <div class="pub-grid">
+    <div class="pub-card">
+      <div class="pub-card-icon"><i class="fa fa-flask" aria-hidden="true"></i></div>
+      <h3>Prototypes</h3>
+      <p>One-off parts to test fit, form and function before you commit.</p>
+    </div>
+    <div class="pub-card">
+      <div class="pub-card-icon"><i class="fa fa-th" aria-hidden="true"></i></div>
+      <h3>Small production runs</h3>
+      <p>Repeatable batches when you need more than one of something.</p>
+    </div>
+    <div class="pub-card">
+      <div class="pub-card-icon"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></div>
+      <h3>Design &amp; sourcing</h3>
+      <p>Describe what you need and we'll design it or track down a model.</p>
+    </div>
+  </div>
+</section>
+
+{% include 'public/_testimonials.html' %}
+
+{% if materials %}
+<section class="pub-section" style="padding-top: 0;">
+  <h2 class="pub-section-title">Materials in stock</h2>
+  <p class="pub-section-subtitle">What's on the shelf right now. Need something else? Just ask when you order.</p>
+  <div class="about-materials">
+    {% for f in materials %}
+    <span class="about-material">
+      <span class="swatch" aria-hidden="true"></span>
+      {{ f.name }}{% if f.material and f.material not in f.name %} <small>{{ f.material }}</small>{% endif %}
+    </span>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if business.payment_terms %}
+<section class="pub-section" style="padding-top: 0;">
+  <div class="pub-panel about-terms">
+    <h3><i class="fa fa-credit-card" aria-hidden="true"></i> Payment terms</h3>
+    <div class="md-story">{{ business.payment_terms|markdown }}</div>
+    <a href="{{ url_for('public.terms') }}">Full terms &amp; conditions <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+  </div>
+</section>
+{% endif %}
+
+<div class="pub-cta">
+  <div>
+    <h3>Got something in mind?</h3>
+    <p>Tell us about it and we'll come back with a quote.</p>
+  </div>
+  <div class="pub-hero-actions">
+    <a href="{{ url_for('public.order_form') }}" class="pub-btn">Start an order <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+    <a href="{{ url_for('public.contact') }}" class="pub-btn pub-btn-secondary">Ask a question</a>
+  </div>
 </div>
 {% endblock %}

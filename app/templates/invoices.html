@@ -42,7 +42,7 @@
           {% if invoice.is_overdue %}
           <span class="badge badge-danger">Overdue</span>
           {% else %}
-          <span class="badge badge-success">{{ invoice.status }}</span>
+          <span class="badge badge-success s-{{ (invoice.status or "")|lower|replace(" ", "-") }}">{{ invoice.status }}</span>
           {% endif %}
         </td>
         <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</td>

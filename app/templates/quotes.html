@@ -39,7 +39,7 @@
         <td>{{ quote.client.name }}</td>
         <td>
           {% if quote.archived %}<span class="badge badge-muted">Archived</span>{% endif %}
-          <span class="badge badge-accent">{{ quote.status }}</span>
+          <span class="badge badge-accent s-{{ (quote.status or "")|lower|replace(" ", "-") }}">{{ quote.status }}</span>
         </td>
         <td>{{ quote.items|length }}</td>
         <td style="color: var(--accent); font-weight: 600;">${{ "%.2f"|format(quote.total) }}</td>

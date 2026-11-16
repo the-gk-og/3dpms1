@@ -40,6 +40,11 @@ class BusinessSettings(db.Model):
     payment_terms = db.Column(db.Text)
     terms_of_service = db.Column(db.Text)
     privacy_policy = db.Column(db.Text)
+    # Public About page — tagline is a one-liner under the heading, about_text is Markdown
+    about_tagline = db.Column(db.String(300))
+    about_text = db.Column(db.Text)
+    # Filament at or below this many grams (summed across spools) is flagged as low stock
+    low_stock_threshold_g = db.Column(db.Float, default=200.0)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))
@@ -369,10 +374,31 @@ class Job(db.Model):
     model_source = db.Column(db.String(20))  # 'has_model' | 'need_design' | None (internal job)
     order_details = db.Column(db.Text)  # JSON blob: files, links, materials, description, shipping address
     archived = db.Column(db.Boolean, default=False)
+    # Set when this job's filament was taken off the spools (see app/inventory.py);
+    # filament_usage is a JSON list of {spool_id, filament_id, filament_name, grams}
+    # so the deduction can be shown and undone exactly.
+    filament_deducted_at = db.Column(db.DateTime)
+    filament_usage = db.Column(db.Text)
 
     @property
     def display_number(self):
         return self.job_number or f'JOB-{self.id:04d}'
+
+    @property
+    def filament_usage_list(self):
+        import json
+        try:
+            return json.loads(self.filament_usage or '[]')
+        except (ValueError, TypeError):
+            return []
+
+    @property
+    def filament_usage_summary(self):
+        """[(filament_name, total_grams)] grouped across spools, for display."""
+        totals = {}
+        for u in self.filament_usage_list:
+            totals[u.get('filament_name') or 'Filament'] = totals.get(u.get('filament_name') or 'Filament', 0) + (u.get('grams') or 0)
+        return sorted(totals.items())
 
     @property
     def client_number(self):
@@ -539,10 +565,28 @@ class FeedbackSurvey(db.Model):
     comments = db.Column(db.Text)         # what went well
     improvements = db.Column(db.Text)     # what could be better
     testimonial_ok = db.Column(db.Boolean)  # OK to quote publicly as a testimonial
+    # Staff opt-in: show this response on the public site. Only honoured while
+    # testimonial_ok is also true (see app/testimonials.py).
+    featured = db.Column(db.Boolean, default=False)
 
     @property
     def responded(self):
         return self.responded_at is not None
+
+    @property
+    def can_feature(self):
+        return bool(self.responded and self.testimonial_ok and (self.comments or '').strip())
+
+    @property
+    def public_name(self):
+        """First name + last initial ("Ava T.") so testimonials never publish a full name."""
+        full = (self.respondent_name or (self.client.name if self.client else '') or '').strip()
+        parts = full.split()
+        if not parts:
+            return 'Verified customer'
+        if len(parts) == 1:
+            return parts[0]
+        return f'{parts[0]} {parts[-1][0]}.'
 
     @property
     def category_ratings(self):

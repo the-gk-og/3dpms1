@@ -1,0 +1,31 @@
+{# Featured customer testimonials. Expects `testimonials` (list of FeedbackSurvey)
+   and `rating` ((average, count) or None). Renders nothing if there are no
+   featured testimonials. #}
+{% if testimonials %}
+<section class="pub-section">
+  <h2 class="pub-section-title">What customers say</h2>
+  {% if rating %}
+  <p class="pub-section-subtitle pub-rating">
+    <span class="pub-stars" aria-hidden="true">{% for i in range(5) %}<i class="fa {{ 'fa-star' if rating[0] >= i + 0.75 else ('fa-star-half-o' if rating[0] >= i + 0.25 else 'fa-star-o') }}"></i>{% endfor %}</span>
+    <strong>{{ '%.1f'|format(rating[0]) }}</strong> average from {{ rating[1] }} customer review{{ 's' if rating[1] != 1 }}
+  </p>
+  {% endif %}
+  <div class="pub-testimonials">
+    {% for t in testimonials %}
+    <figure class="pub-testimonial">
+      {% if t.rating %}
+      <div class="pub-stars" aria-label="{{ t.rating }} out of 5 stars">{% for i in range(5) %}<i class="fa {{ 'fa-star' if i < t.rating else 'fa-star-o' }}" aria-hidden="true"></i>{% endfor %}</div>
+      {% endif %}
+      <blockquote>{{ t.comments|trim|truncate(320) }}</blockquote>
+      <figcaption>
+        <span class="avatar" aria-hidden="true">{{ t.public_name[:1] }}</span>
+        <span>
+          <strong>{{ t.public_name }}</strong>
+          <small>Verified customer</small>
+        </span>
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

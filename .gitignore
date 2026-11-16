@@ -12,3 +12,5 @@ app/static/uploads/
 # Docker Compose local data and secrets
 data/
 .env
+
+.claude/

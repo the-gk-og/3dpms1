@@ -11,7 +11,7 @@
           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Created {{ job.created_at.strftime('%d %b %Y') if job.created_at else '—' }}</div>
         </div>
         <div>
-          <span class="badge badge-accent">{{ job.status }}</span>
+          <span class="badge badge-accent s-{{ (job.status or "")|lower|replace(" ", "-") }}">{{ job.status }}</span>
           <span class="badge badge-muted">📦 {{ job.package_status or 'Not Packaged' }}</span>
           {% if job.archived %}
           <span class="badge badge-muted" style="margin-left: 0.4rem;">Archived</span>
@@ -96,7 +96,37 @@
     </div>
   </div>
 
-  <div>
+  <div style="display: grid; gap: 1.25rem; align-content: start;">
+    {% if job.filament_deducted_at or filament_needs %}
+    <div class="panel">
+      <div class="card-head">
+        <h3><i class="fa fa-circle-o-notch" aria-hidden="true" style="color: var(--accent);"></i> Filament</h3>
+        {% if job.filament_deducted_at %}<span class="badge badge-success">Deducted</span>{% else %}<span class="badge badge-muted">Not deducted</span>{% endif %}
+      </div>
+      {% if job.filament_deducted_at %}
+        {% for name, grams in job.filament_usage_summary %}
+        <div class="list-row" style="cursor: default;"><span>{{ name }}</span><span class="list-row-amount">{{ '%g'|format(grams) }}g</span></div>
+        {% else %}
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Nothing was on the spools to take.</p>
+        {% endfor %}
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.75rem 0;">Taken off inventory {{ job.filament_deducted_at.strftime('%d %b %Y') }}.</p>
+        <form method="post" action="{{ url_for('main.restore_job_filament', job_id=job.id) }}" onsubmit="return confirm('Put this filament back on the spools?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secondary btn-sm btn-block"><i class="fa fa-undo" aria-hidden="true"></i> Undo — put it back</button>
+        </form>
+      {% else %}
+        {% for f, grams in filament_needs %}
+        <div class="list-row" style="cursor: default;"><span>{{ f.name }}</span><span class="list-row-amount">{{ '%g'|format(grams) }}g</span></div>
+        {% endfor %}
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.75rem 0;">This comes off your spools automatically when the job is marked Complete.</p>
+        <form method="post" action="{{ url_for('main.deduct_job_filament', job_id=job.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-secondary btn-sm btn-block">Deduct now</button>
+        </form>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="panel">
       <h3 style="margin-top: 0;">Files</h3>
       <form method="post" action="{{ url_for('main.upload_job_files', job_id=job.id) }}" enctype="multipart/form-data" style="margin-bottom: 1rem;">

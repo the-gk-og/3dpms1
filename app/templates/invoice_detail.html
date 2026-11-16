@@ -15,7 +15,7 @@
         {% if invoice.is_overdue %}
         <span class="badge badge-danger">Overdue</span>
         {% else %}
-        <span class="badge badge-success">{{ invoice.status }}</span>
+        <span class="badge badge-success s-{{ (invoice.status or "")|lower|replace(" ", "-") }}">{{ invoice.status }}</span>
         {% endif %}
       </div>
       {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
@@ -199,7 +199,7 @@
             The customer already gets this option on the order form and quote upload page. Tick this
             if you're setting up this job manually and still want them emailed when it's marked complete.
           </p>
-          <label class="checkbox-item" style="background: transparent; padding: 0;">
+          <label class="checkbox-item checkbox-plain">
             <input type="checkbox" name="notify_me"{% if invoice.notify_me %} checked{% endif %}> Notify me about my order status
           </label>
         </div>
@@ -210,7 +210,7 @@
             controls whether it's disclosed to the client as its own line, or folded invisibly into the total.
           </p>
           <label>Markup %<input type="number" step="0.01" name="markup_percent" value="{{ invoice.markup_percent or 0 }}"></label>
-          <label class="checkbox-item" style="background: transparent; padding: 0;">
+          <label class="checkbox-item checkbox-plain">
             <input type="checkbox" name="show_markup_to_client"{% if invoice.show_markup_to_client %} checked{% endif %}> Show markup as a line item on the PDF
           </label>
         </div>

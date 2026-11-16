@@ -4,32 +4,36 @@
 {% block head %}{{ turnstile_script(business) }}{% endblock %}
 {% block main_class %} narrow{% endblock %}
 {% block content %}
-<h1 style="text-align: center;">Get in Touch</h1>
-<p style="text-align: center; color: var(--text-muted);">
-  Have a question before ordering? Send us a message and we'll get back to you.
-</p>
+<div class="pub-page-head">
+  <h1>Get in touch</h1>
+  <p>Have a question before ordering? Send us a message and we'll get back to you.</p>
+</div>
 
-<div class="pub-panel" style="margin-top: 2rem;">
+<div class="pub-panel">
   {% if submitted %}
-  <div class="pub-flash">Thanks — your message has been sent. We'll be in touch shortly.</div>
+  <div style="text-align: center;">
+    <div class="pub-success"><i class="fa fa-check" aria-hidden="true"></i></div>
+    <h2 style="margin: 0 0 0.5rem;">Message sent</h2>
+    <p style="color: var(--text-muted); margin: 0;">Thanks — we'll be in touch shortly.</p>
+  </div>
   {% else %}
   <form method="post" class="pub-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="pub-form-row">
-      <label>Name<input type="text" name="name" required></label>
-      <label>Email<input type="email" name="email" required></label>
+      <label>Name<input type="text" name="name" autocomplete="name" required></label>
+      <label>Email<input type="email" name="email" autocomplete="email" required></label>
     </div>
-    <label>Message<textarea name="message" rows="5" required></textarea></label>
+    <label>Message<textarea name="message" rows="5" placeholder="What would you like to know?" required></textarea></label>
     {{ turnstile_widget(business) }}
-    <button type="submit" class="pub-btn">Send Message</button>
+    <button type="submit" class="pub-btn pub-btn-block"><i class="fa fa-paper-plane" aria-hidden="true"></i> Send message</button>
   </form>
   {% endif %}
 
   {% if business.contact_email or business.phone %}
-  <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--text-muted);">
-    You can also reach us directly:
-    {% if business.contact_email %}<br>✉️ <a href="mailto:{{ business.contact_email }}">{{ business.contact_email }}</a>{% endif %}
-    {% if business.phone %}<br>📞 {{ business.phone }}{% endif %}
+  <div style="margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; font-size: 0.925rem; color: var(--text-muted);">
+    <span>Or reach us directly:</span>
+    {% if business.contact_email %}<a href="mailto:{{ business.contact_email }}"><i class="fa fa-envelope-o" aria-hidden="true"></i> {{ business.contact_email }}</a>{% endif %}
+    {% if business.phone %}<a href="tel:{{ business.phone|replace(' ', '') }}"><i class="fa fa-phone" aria-hidden="true"></i> {{ business.phone }}</a>{% endif %}
   </div>
   {% endif %}
 </div>

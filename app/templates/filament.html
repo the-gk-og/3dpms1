@@ -31,8 +31,11 @@
       <div class="card filament-card">
         <div class="filament-header">
           <span class="filament-emoji">{{ f.material_emoji }}</span>
-          <div>
-            <div class="filament-name">{{ f.name }}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="filament-name">{{ f.name }}
+              {% if f.total_remaining_g <= 0 %}<span class="badge badge-danger" style="margin-left: 0.3rem;">Out of stock</span>
+              {% elif f.total_remaining_g <= low_stock_threshold %}<span class="badge badge-warning" style="margin-left: 0.3rem;">Low stock</span>{% endif %}
+            </div>
             {% if f.brand or f.material %}
             <div class="filament-brand">{{ f.brand or '' }}{% if f.brand and f.material %} · {% endif %}{{ f.material or '' }}{% if f.color %} · {{ f.color }}{% endif %}</div>
             {% endif %}
@@ -175,7 +178,7 @@
           <label>Sell Price / kg ($)<input type="number" step="0.01" name="price_per_kg" placeholder="45.00"></label>
         </div>
         <label>Notes<textarea name="notes" rows="2" placeholder="Optional notes..."></textarea></label>
-        <label class="checkbox-item" style="background: transparent; padding: 0;">
+        <label class="checkbox-item checkbox-plain">
           <input type="checkbox" name="add_spool" checked> Add initial spool (1kg)
         </label>
         <div class="form-grid-2">
