@@ -1367,3 +1367,22 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 /* Checkbox + label with no card chrome */
 .checkbox-item.checkbox-plain,
 .checkbox-item.checkbox-plain:has(input:checked) { background: transparent; border: none; padding: 0; }
+
+/* Low-stock banner on the dashboard */
+.stock-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.1rem;
+  text-decoration: none;
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: linear-gradient(90deg, var(--warning-soft), transparent 70%), var(--panel);
+}
+.stock-alert:hover { color: var(--text); border-color: var(--warning); }
+.stock-alert > .fa { font-size: 1.3rem; color: var(--warning); }
+.stock-alert > div { flex: 1; min-width: 0; }
+.stock-alert strong { display: block; font-size: 0.9rem; }
+.stock-alert span { font-size: 0.825rem; color: var(--text-muted); }
+.stock-alert .stock-alert-cta { color: var(--warning); font-weight: 600; white-space: nowrap; }

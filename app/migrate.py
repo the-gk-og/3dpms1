@@ -50,6 +50,7 @@ def run_migrations(db):
             'google_oauth_client_secret': 'VARCHAR(500)',
             'about_tagline': 'VARCHAR(300)',
             'about_text': 'TEXT',
+            'low_stock_threshold_g': 'FLOAT DEFAULT 200',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -99,6 +100,8 @@ def run_migrations(db):
             'reference_number': 'VARCHAR(50)',
             'invoice_id': 'INTEGER',
             'package_status': "VARCHAR(50) DEFAULT 'Not Packaged'",
+            'filament_deducted_at': 'DATETIME',
+            'filament_usage': 'TEXT',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",
@@ -130,6 +133,7 @@ def run_migrations(db):
             'referral_source': 'VARCHAR(100)',
             'improvements': 'TEXT',
             'testimonial_ok': 'BOOLEAN',
+            'featured': 'BOOLEAN DEFAULT 0',
         },
     }
 

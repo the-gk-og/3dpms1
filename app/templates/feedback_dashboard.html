@@ -103,7 +103,7 @@
           {% else %}
           —
           {% endif %}
-          {% if s.testimonial_ok %}<span class="badge badge-accent" style="margin-left: 0.3rem; font-size: 0.7rem;" title="OK to use as testimonial">💬</span>{% endif %}
+          {% if s.testimonial_ok %}<span class="badge badge-accent" style="margin-left: 0.3rem; font-size: 0.7rem;" title="OK to use as testimonial">💬</span>{% endif %}{% if s.featured and s.testimonial_ok %}<span class="badge badge-success" style="margin-left: 0.3rem; font-size: 0.7rem;" title="Featured on your website"><i class="fa fa-globe" aria-hidden="true"></i> Featured</span>{% endif %}
         </td>
         <td>{% if s.job %}<a href="{{ url_for('main.jobs') }}#job-{{ s.job.id }}" style="color: var(--accent);">{{ s.job.display_number }}</a>{% else %}—{% endif %}</td>
         <td>{% if s.rating %}{{ '★' * s.rating }}{{ '☆' * (5 - s.rating) }}{% else %}—{% endif %}</td>

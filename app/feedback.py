@@ -71,6 +71,21 @@ def detail(survey_id):
     return render_template('feedback_detail.html', survey=survey)
 
 
+@feedback_bp.route('/<int:survey_id>/feature', methods=['POST'])
+@login_required
+def toggle_feature(survey_id):
+    survey = FeedbackSurvey.query.get_or_404(survey_id)
+    if not survey.featured and not survey.can_feature:
+        flash('Only responses where the customer agreed to be quoted, and left a comment, can be featured.')
+        return redirect(url_for('feedback.detail', survey_id=survey.id))
+    survey.featured = not survey.featured
+    db.session.commit()
+    log_audit('feedback_featured' if survey.featured else 'feedback_unfeatured',
+              target_type='feedback_survey', target_id=survey.id)
+    flash('Now showing on your website.' if survey.featured else 'Removed from your website.')
+    return redirect(url_for('feedback.detail', survey_id=survey.id))
+
+
 @feedback_bp.route('/<int:survey_id>/delete', methods=['POST'])
 @login_required
 def delete(survey_id):

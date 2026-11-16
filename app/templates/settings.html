@@ -30,6 +30,7 @@
     <label>Website<input type="text" name="website" value="{{ business.website or '' }}"></label>
     <label style="grid-column: 1 / -1;">Address<textarea name="address" rows="2">{{ business.address or '' }}</textarea></label>
     <label>Hourly Print Rate ($)<input type="number" step="0.01" name="hourly_rate" value="{{ business.hourly_rate or 0 }}" placeholder="Used in quote pricing"></label>
+    <label>Low Stock Warning (grams)<input type="number" step="1" min="0" name="low_stock_threshold_g" value="{{ '%g'|format(business.low_stock_threshold_g if business.low_stock_threshold_g is not none else 200) }}" placeholder="200"></label>
   </div>
   <div class="form-section">
     <h3>Logo</h3>

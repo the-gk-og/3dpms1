@@ -31,8 +31,11 @@
       <div class="card filament-card">
         <div class="filament-header">
           <span class="filament-emoji">{{ f.material_emoji }}</span>
-          <div>
-            <div class="filament-name">{{ f.name }}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="filament-name">{{ f.name }}
+              {% if f.total_remaining_g <= 0 %}<span class="badge badge-danger" style="margin-left: 0.3rem;">Out of stock</span>
+              {% elif f.total_remaining_g <= low_stock_threshold %}<span class="badge badge-warning" style="margin-left: 0.3rem;">Low stock</span>{% endif %}
+            </div>
             {% if f.brand or f.material %}
             <div class="filament-brand">{{ f.brand or '' }}{% if f.brand and f.material %} · {% endif %}{{ f.material or '' }}{% if f.color %} · {{ f.color }}{% endif %}</div>
             {% endif %}

@@ -24,7 +24,10 @@
       <div style="display: flex; align-items: center; gap: 0.6rem;">
         <span style="font-size: 1.4rem;">{{ f.material_emoji }}</span>
         <div>
-          <div class="m-card-title">{{ f.name }}</div>
+          <div class="m-card-title">{{ f.name }}
+            {% if f.total_remaining_g <= 0 %}<span class="m-badge m-badge-danger" style="margin-left: 0.3rem;">Out</span>
+            {% elif f.total_remaining_g <= low_stock_threshold %}<span class="m-badge" style="margin-left: 0.3rem; color: var(--warning);">Low</span>{% endif %}
+          </div>
           {% if f.brand or f.material %}
           <div class="m-card-sub">{{ f.brand or '' }}{% if f.brand and f.material %} · {% endif %}{{ f.material or '' }}{% if f.color %} · {{ f.color }}{% endif %}</div>
           {% endif %}

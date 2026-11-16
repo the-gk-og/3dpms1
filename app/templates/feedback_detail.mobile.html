@@ -88,6 +88,13 @@
 <div class="m-empty">Sent {{ survey.sent_at.strftime('%d %b %Y') if survey.sent_at else '—' }}. No response yet.</div>
 {% endif %}
 
+{% if survey.featured or survey.can_feature %}
+<form method="post" action="{{ url_for('feedback.toggle_feature', survey_id=survey.id) }}" style="margin-top: 0.75rem;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="m-btn {{ 'm-btn-secondary' if survey.featured else 'm-btn-primary' }}" style="width: 100%;">{{ 'Remove from website' if survey.featured else '★ Feature on website' }}</button>
+</form>
+{% endif %}
+
 {% if survey.job %}
 <a href="{{ url_for('main.jobs') }}#job-{{ survey.job.id }}" class="m-btn m-btn-secondary" style="margin-top: 0.75rem;">View Job</a>
 {% endif %}

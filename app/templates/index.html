@@ -15,6 +15,19 @@
   </div>
 </div>
 
+{% if low_stock %}
+<a href="{{ url_for('filament.index') }}" class="card stock-alert">
+  <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+  <div>
+    <strong>{{ low_stock|length }} filament{{ 's are' if low_stock|length != 1 else ' is' }} running low</strong>
+    <span>
+      {% for f in low_stock[:4] %}{{ f.name }} ({{ '%.0f'|format(f.total_remaining_g) }}g){{ ', ' if not loop.last }}{% endfor %}{% if low_stock|length > 4 %} and {{ low_stock|length - 4 }} more{% endif %}
+    </span>
+  </div>
+  <span class="stock-alert-cta">Restock <i class="fa fa-angle-right" aria-hidden="true"></i></span>
+</a>
+{% endif %}
+
 <div class="cards">
   <div class="card metric-card is-success">
     <div class="metric-label"><i class="fa fa-line-chart" aria-hidden="true"></i> Revenue this month</div>

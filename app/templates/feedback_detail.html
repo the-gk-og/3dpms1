@@ -85,8 +85,9 @@
       {% endif %}
 
       {% if survey.testimonial_ok %}
-      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
         <span class="badge badge-accent">💬 OK to use as a public testimonial</span>
+        {% if survey.featured %}<span class="badge badge-success"><i class="fa fa-globe" aria-hidden="true"></i> Featured on website as “{{ survey.public_name }}”</span>{% endif %}
       </div>
       {% endif %}
       {% else %}
@@ -99,6 +100,20 @@
     <div class="panel">
       <h3 style="margin-top: 0;">Actions</h3>
       <div class="actions-stack">
+        {% if survey.featured or survey.can_feature %}
+        <form method="post" action="{{ url_for('feedback.toggle_feature', survey_id=survey.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if survey.featured %}
+          <button type="submit" class="btn-block btn-secondary"><i class="fa fa-eye-slash" aria-hidden="true"></i> Remove from website</button>
+          {% else %}
+          <button type="submit" class="btn-block"><i class="fa fa-star" aria-hidden="true"></i> Feature on website</button>
+          {% endif %}
+        </form>
+        {% elif survey.responded %}
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+          {% if not survey.testimonial_ok %}The customer didn't agree to be quoted publicly, so this can't be featured on your website.{% else %}There's no comment to quote, so this can't be featured.{% endif %}
+        </p>
+        {% endif %}
         {% if survey.job %}
         <a href="{{ url_for('main.jobs') }}#job-{{ survey.job.id }}" class="btn-block btn-secondary" style="text-align: center; text-decoration: none; display: block;">View Job</a>
         {% endif %}

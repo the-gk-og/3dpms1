@@ -26,6 +26,9 @@ from app.helpers import (
     job_uploads_dir, save_job_file, document_versions_dir, save_document_version,
 )
 from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_pdf
+from app.inventory import (
+    deduct_filament_for_job, restore_filament_for_job, describe_deduction, low_stock_filaments,
+)
 
 main_bp = Blueprint('main', __name__, url_prefix='/dash')
 
@@ -355,6 +358,8 @@ def index():
         outstanding_total=outstanding_total, overdue_count=overdue_count,
         overdue_total=overdue_total, revenue_this_month=revenue_this_month,
         revenue_this_year=revenue_this_year,
+        low_stock=low_stock_filaments(settings.low_stock_threshold_g),
+        low_stock_threshold=settings.low_stock_threshold_g if settings.low_stock_threshold_g is not None else 200,
     )
 
 
@@ -1250,6 +1255,7 @@ def jobs():
 @login_required
 def edit_job(job_id):
     job = Job.query.get_or_404(job_id)
+    old_status = job.status
     job.title = request.form.get('title', job.title)
     new_status = request.form.get('status', job.status)
     job.status = new_status
@@ -1257,6 +1263,7 @@ def edit_job(job_id):
         job.package_status = request.form.get('package_status', job.package_status)
     # notes/internal_notes are edited via the standalone note editor
     # (main.edit_note / main.save_note) now, not this form.
+    filament_note = _deduct_on_complete(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1272,7 +1279,51 @@ def edit_job(job_id):
             flash(f'Job updated — but the notification email failed to send: {e}')
     else:
         flash('Job updated')
+    if filament_note:
+        flash(filament_note)
     return redirect(url_for('main.jobs'))
+
+
+def _deduct_on_complete(job, old_status):
+    """When a job moves into Complete, take its filament off the spools (once).
+    Returns a flash-ready sentence, or '' when nothing was deducted."""
+    if job.status != 'Complete' or old_status == 'Complete':
+        return ''
+    result = deduct_filament_for_job(job)
+    if result:
+        log_audit('filament_deducted', target_type='job', target_id=job.id,
+                  detail=describe_deduction(result))
+    return describe_deduction(result)
+
+
+@main_bp.route('/jobs/<int:job_id>/filament/deduct', methods=['POST'])
+@login_required
+def deduct_job_filament(job_id):
+    job = Job.query.get_or_404(job_id)
+    result = deduct_filament_for_job(job)
+    if result:
+        db.session.commit()
+        log_audit('filament_deducted', target_type='job', target_id=job.id, detail=describe_deduction(result))
+        flash(describe_deduction(result))
+    elif job.filament_deducted_at:
+        flash('Filament for this job has already been taken off inventory.')
+    else:
+        flash('This job has no print items with a filament and weight to deduct.')
+    return redirect(url_for('main.job_detail', job_id=job.id))
+
+
+@main_bp.route('/jobs/<int:job_id>/filament/restore', methods=['POST'])
+@login_required
+def restore_job_filament(job_id):
+    job = Job.query.get_or_404(job_id)
+    if not job.filament_deducted_at:
+        flash('Nothing to undo — no filament has been deducted for this job.')
+    else:
+        grams = restore_filament_for_job(job)
+        db.session.commit()
+        log_audit('filament_restored', target_type='job', target_id=job.id, detail=f'{grams:g}g')
+        flash(f'Put {grams:g}g back on the spools.')
+    return redirect(url_for('main.job_detail', job_id=job.id))
 
 
 @main_bp.route('/jobs/<int:job_id>/send-survey', methods=['POST'])
@@ -1338,7 +1389,10 @@ def download_order_file(job_id, filename):
 @login_required
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
-    return render_template('job_detail.html', job=job)
+    from app.inventory import job_filament_needs
+    needs = job_filament_needs(job) if not job.filament_deducted_at else {}
+    needs_list = [(Filament.query.get(fid), grams) for fid, grams in needs.items()]
+    return render_template('job_detail.html', job=job, filament_needs=[n for n in needs_list if n[0]])
 
 
 @main_bp.route('/notes/<field_key>/<int:record_id>/edit')
@@ -1380,6 +1434,7 @@ def save_note(field_key, record_id):
 @login_required
 def update_job_notes(job_id):
     job = Job.query.get_or_404(job_id)
+    old_status = job.status
     job.title = request.form.get('title', job.title)
     job.status = request.form.get('status', job.status)
     if 'package_status' in request.form:
@@ -1387,6 +1442,7 @@ def update_job_notes(job_id):
     job.notes = request.form.get('notes', '')
     job.internal_notes = request.form.get('internal_notes', '')
     new_status = job.status
+    filament_note = _deduct_on_complete(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1402,6 +1458,8 @@ def update_job_notes(job_id):
             flash(f'Job updated — but the notification email failed to send: {e}')
     else:
         flash('Job updated')
+    if filament_note:
+        flash(filament_note)
     return redirect(url_for('main.job_detail', job_id=job.id))
 
 
