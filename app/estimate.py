@@ -123,3 +123,138 @@ def estimate_for_mesh(mesh, filaments, business):
         'warnings': warnings,
         'disclaimer': DISCLAIMER,
     }
+
+
+# --- Multi-object / multi-material estimates ------------------------------------
+#
+# A customer can upload several files (and a 3MF can hold several objects) and give
+# each object its own material. Two optional print modes add cost on top:
+#
+# * Multi-material — objects in different materials printed together on one plate
+#   (AMS / multi-nozzle). Adds a waste allowance for purging/prime towers
+#   (`estimate_mm_waste_pct`, % of material cost) and extra time for filament or
+#   nozzle changes (`estimate_mm_time_pct`, % of print time).
+# * Clean supports — support interfaces printed in a separate break-away material
+#   (e.g. PETG under PLA) so the supported surfaces come off clean. Adds
+#   `estimate_support_pct` % of the model's weight in `estimate_support_filament`,
+#   and always counts as multi-material.
+
+DEFAULT_MM_WASTE_PCT = 10.0
+DEFAULT_MM_TIME_PCT = 15.0
+DEFAULT_SUPPORT_PCT = 5.0
+MAX_PARTS = 50
+
+
+def multi_material_settings(business):
+    return {
+        'waste_pct': _setting(business.estimate_mm_waste_pct, DEFAULT_MM_WASTE_PCT, 0.1, 500.0),
+        'time_pct': _setting(business.estimate_mm_time_pct, DEFAULT_MM_TIME_PCT, 0.1, 500.0),
+        'support_pct': _setting(business.estimate_support_pct, DEFAULT_SUPPORT_PCT, 0.1, 100.0),
+    }
+
+
+def default_filament(filaments):
+    """What an object is priced in when the customer didn't pick a material: the
+    first in-stock PLA, else the first in-stock filament, else None."""
+    for f in filaments:
+        if 'PLA' in (f.material or f.name or '').upper():
+            return f
+    return filaments[0] if filaments else None
+
+
+def combined_estimate(parts, filaments, business, multi_material=False, clean_supports=False,
+                      support_filament=None):
+    """Price several objects together.
+
+    parts: [{'name': str, 'volume_cm3': float, 'filament_id': int|None, 'file': str?}]
+    filaments: the filaments customers may choose (in stock).
+    Returns a JSON-able dict with per-part lines, option surcharges and a ±25% range.
+    """
+    cfg = estimate_settings(business)
+    mm = multi_material_settings(business)
+    hourly_rate = business.hourly_rate or 0
+    by_id = {f.id: f for f in filaments}
+    fallback = default_filament(filaments)
+    warnings = []
+
+    lines = []
+    material_cost = 0.0
+    model_grams = 0.0
+    hours = 0.0
+    used_materials = set()
+    for part in parts[:MAX_PARTS]:
+        try:
+            volume = max(0.0, float(part.get('volume_cm3') or 0))
+        except (TypeError, ValueError):
+            volume = 0.0
+        if not math.isfinite(volume):
+            volume = 0.0
+        f = by_id.get(part.get('filament_id')) or fallback
+        if f is None:
+            continue
+        grams = volume * density_for(f.material or f.name) * cfg['fill_factor']
+        part_hours = grams / cfg['grams_per_hour']
+        cost = grams / 1000.0 * f.sell_price_per_kg
+        material_cost += cost
+        model_grams += grams
+        hours += part_hours
+        used_materials.add(f.id)
+        lines.append({
+            'name': str(part.get('name') or 'Object')[:120], 'file': str(part.get('file') or '')[:200],
+            'filament_id': f.id, 'filament': f.name, 'color': f.color or '',
+            'chosen': part.get('filament_id') in by_id,
+            'grams': round(grams, 1), 'hours': round(part_hours, 1),
+        })
+
+    if not lines:
+        return {'ok': False, 'error': 'Nothing to price yet.', 'lines': [], 'warnings': warnings,
+                'disclaimer': DISCLAIMER}
+
+    support_grams = support_cost = 0.0
+    support = None
+    if clean_supports:
+        if support_filament is not None:
+            support_grams = model_grams * mm['support_pct'] / 100.0
+            support_cost = support_grams / 1000.0 * support_filament.sell_price_per_kg
+            hours += support_grams / cfg['grams_per_hour']
+            support = {'filament': support_filament.name, 'grams': round(support_grams, 1)}
+        else:
+            warnings.append('Clean supports will be priced in your quote.')
+
+    is_multi = bool(multi_material or clean_supports)
+    waste_cost = (material_cost + support_cost) * mm['waste_pct'] / 100.0 if is_multi else 0.0
+    extra_hours = hours * mm['time_pct'] / 100.0 if is_multi else 0.0
+    if not multi_material and len(used_materials) > 1:
+        warnings.append('Objects in different materials will be printed separately. '
+                        'Tick “multi-material” to print them together.')
+
+    total_hours = hours + extra_hours
+    price = material_cost + support_cost + waste_cost + total_hours * hourly_rate
+    low, high = price_range(price)
+    return {
+        'ok': True,
+        'lines': lines,
+        'multi_material': is_multi,
+        'clean_supports': bool(clean_supports),
+        'support': support,
+        'grams': round(model_grams + support_grams, 1),
+        'waste_grams': round((model_grams + support_grams) * mm['waste_pct'] / 100.0, 1) if is_multi else 0,
+        'hours': round(total_hours, 1),
+        'low': low, 'high': high,
+        'warnings': warnings,
+        'disclaimer': DISCLAIMER,
+    }
+
+
+def describe_combined(est):
+    """One-line plain-text summary for emails and the dashboard."""
+    if not est or not est.get('ok'):
+        return ''
+    mats = {}
+    for line in est['lines']:
+        mats[line['filament']] = mats.get(line['filament'], 0) + line['grams']
+    parts = [f'{name} ≈{grams:.0f} g' for name, grams in mats.items()]
+    if est.get('support'):
+        parts.append(f'{est["support"]["filament"]} supports ≈{est["support"]["grams"]:.0f} g')
+    mode = ' · multi-material' if est.get('multi_material') else ''
+    return f'${est["low"]}–${est["high"]} ({", ".join(parts)}{mode}, ≈{est["hours"]:g} h)'

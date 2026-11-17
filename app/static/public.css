@@ -1358,6 +1358,7 @@ body.pub-lightbox-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .pub-gallery-open img, .pub-recent-work-item img { transition: none; }
   .pub-gallery-open:hover img, .pub-recent-work-item:hover img { transform: none; }
+}
 /* ==== Customer portal ==== (app/portal.py, templates/portal/) */
 .portal-auth { text-align: center; }
 .portal-auth h1 { font-size: 1.6rem; margin: 0 0 0.5rem; }
@@ -1464,3 +1465,93 @@ body.pub-lightbox-open { overflow: hidden; }
   .portal-row > .pub-status-badge:last-child { grid-column: auto; }
   .portal-head-actions { width: 100%; }
 }
+
+/* ==== Order form: model preview, per-object materials, print options ==== */
+:root { --mv-grid: #d5cfc5; }
+@media (prefers-color-scheme: dark) { :root { --mv-grid: #3a3b42; } }
+
+.pub-models { display: grid; gap: 0.85rem; }
+.pub-models-list { display: grid; gap: 0.85rem; }
+
+.pub-model-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.pub-model-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.pub-model-name { font-weight: 600; font-size: 0.925rem; min-width: 0; overflow-wrap: anywhere; }
+.pub-model-meta { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pub-model-meta.is-error { color: var(--danger); white-space: normal; text-align: right; }
+
+.mv-wrap {
+  position: relative;
+  height: 280px;
+  background:
+    radial-gradient(circle at 50% 40%, var(--accent-soft), transparent 70%),
+    var(--bg-secondary);
+  touch-action: none;
+}
+.mv-canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.mv-canvas:active { cursor: grabbing; }
+.mv-hint {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.mv-simplified .mv-hint::after { content: ' · simplified preview'; }
+.mv-message { display: grid; place-items: center; height: 100%; padding: 1rem; text-align: center; font-size: 0.875rem; color: var(--text-muted); }
+.mv-wrap.mv-failed { height: auto; min-height: 80px; }
+
+.pub-model-objects { display: grid; gap: 0.1rem; padding: 0.4rem 1rem 0.75rem; }
+.pub-model-objects:empty { display: none; }
+.pub-model-object {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(0, 220px);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.pub-model-object:last-of-type { border-bottom: none; }
+.pub-model-object-name { font-size: 0.9rem; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.pub-model-object-name small { display: block; font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
+.pub-form select.pub-model-material { padding: 0.5rem 0.7rem; font-size: 0.875rem; }
+.pub-swatch {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.pub-swatch.is-support { background: repeating-linear-gradient(45deg, var(--text-faint) 0 2px, transparent 2px 4px); }
+
+.pub-print-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.pub-option { align-items: flex-start !important; }
+.pub-option input { margin-top: 0.15rem !important; }
+.pub-option strong { display: block; font-size: 0.9rem; }
+.pub-option small { display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 400; margin-top: 0.1rem; }
+.pub-option:has(input:checked) { border-color: var(--accent-solid); background: var(--accent-soft); }
+
+.pub-estimate-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem; }
+.pub-estimate-total .pub-estimate-amount { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.pub-estimate-breakdown { display: grid; gap: 0.3rem; }
+.pub-estimate-breakdown:empty, .pub-estimate-warnings:empty { display: none; }
+.pub-estimate-line { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.6rem; font-size: 0.875rem; }
+.pub-estimate-line .num { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pub-estimate-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+@media (max-width: 600px) {
+  .pub-print-options { grid-template-columns: 1fr; }
+  .pub-model-object { grid-template-columns: auto 1fr; }
+  .pub-model-object select { grid-column: 1 / -1; }
+  .mv-wrap { height: 240px; }
+}
+/* ==== /Order form models ==== */

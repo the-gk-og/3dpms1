@@ -585,6 +585,34 @@ def default_email_html(template_key, context, business):
         )
         return _email_shell(business, f'New message from {c.get("contact_name","")}', body)
 
+    if template_key == 'order_confirmation':
+        rows = context.get('estimate_lines') or []
+        estimate_block = ''
+        if context.get('estimate'):
+            row_html = ''.join(
+                f'<tr><td style="padding:4px 0;">{_esc(name)}</td>'
+                f'<td style="padding:4px 0 4px 12px;color:#6b7280;">{_esc(fil)}</td>'
+                f'<td style="padding:4px 0 4px 12px;text-align:right;">≈{float(g):.0f} g</td></tr>'
+                for name, fil, g in rows)
+            estimate_block = (
+                f'<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px;margin:16px 0;">'
+                f'<p style="margin:0 0 6px;font-weight:600;">Rough estimate: {c.get("estimate","")}</p>'
+                + (f'<table style="width:100%;border-collapse:collapse;font-size:14px;">{row_html}</table>' if row_html else '')
+                + '<p style="margin:8px 0 0;color:#6b7280;font-size:13px;">This was worked out automatically from your '
+                  'files and is a ballpark only — your quote may be higher or lower once we\u2019ve checked the model.</p></div>'
+            )
+        summary = (f'<p style="color:#4b5563;">{c.get("summary","")}</p>' if context.get('summary') else '')
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">We\u2019ve got your order</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>Thanks for your order — your reference number is <strong>{c.get("document_number","")}</strong>. '
+            f'We\u2019ll review it and send you a quote shortly.</p>'
+            f'{summary}{estimate_block}'
+            f'<p>You can check on it any time using your reference number and email address.</p>'
+            f'{_email_button(context.get("track_link"), "Track your order")}'
+        )
+        return _email_shell(business, f'Order {c.get("document_number","")} received', body)
+
     if template_key == 'order_notification':
         body = (
             f'<h2 style="margin:0 0 16px;color:#111827;">New order request</h2>'

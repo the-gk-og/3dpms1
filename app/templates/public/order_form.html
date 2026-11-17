@@ -50,14 +50,30 @@
         <label>Upload files <span class="optional">(STL, 3MF, OBJ, STEP, GCODE, ZIP)</span>
           <input type="file" name="model_files" multiple accept=".stl,.3mf,.obj,.step,.stp,.gcode,.zip">
         </label>
+        <div class="pub-models" id="model-workspace" hidden aria-live="polite"
+             data-estimate-url="{{ url_for('public.order_estimate') if business.instant_estimate_enabled else '' }}"
+             data-total-url="{{ url_for('public.order_estimate_total') if business.instant_estimate_enabled else '' }}">
+          <div class="pub-models-list"></div>
+        </div>
+        <div class="pub-print-options">
+          <label class="pub-checkbox pub-option">
+            <input type="checkbox" name="multi_material">
+            <span><strong>Multi-material print</strong><small>Print objects in different materials or colours together on one plate.</small></span>
+          </label>
+          <label class="pub-checkbox pub-option">
+            <input type="checkbox" name="clean_supports">
+            <span><strong>Clean supports</strong><small>Support interfaces in a separate break-away material{% if support_filament %} ({{ support_filament.name }}){% endif %}, so supported surfaces come off cleanly.</small></span>
+          </label>
+        </div>
         {% if business.instant_estimate_enabled %}
-        <div class="pub-estimate" id="instant-estimate" hidden aria-live="polite"
-             data-url="{{ url_for('public.order_estimate') }}">
+        <div class="pub-estimate" id="instant-estimate" hidden aria-live="polite">
           <div class="pub-estimate-head">
             <span><i class="fa fa-calculator" aria-hidden="true"></i> Instant estimate</span>
             <span class="pub-estimate-badge">Rough guide</span>
           </div>
-          <div class="pub-estimate-list"></div>
+          <div class="pub-estimate-total"></div>
+          <div class="pub-estimate-breakdown"></div>
+          <div class="pub-estimate-warnings"></div>
           <p class="pub-estimate-note">Automatic ballpark only &mdash; your final quote may be higher or lower once we've checked the model, supports, orientation and finish. Not a price guarantee.</p>
         </div>
         {% endif %}
@@ -129,124 +145,5 @@
     update();
   });
 </script>
-{% if business.instant_estimate_enabled %}
-<script>
-  /* Instant estimate — progressive enhancement; the form works the same without it. */
-  document.addEventListener('DOMContentLoaded', function() {
-    var box = document.getElementById('instant-estimate');
-    var input = document.querySelector('input[name="model_files"]');
-    if (!box || !input || !window.fetch || !window.FormData) return;
-    var list = box.querySelector('.pub-estimate-list');
-    var csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
-    var maxBytes = 15 * 1024 * 1024;  // mirrors MAX_UPLOAD_SIZE_BYTES; the server enforces it regardless
-    var MAX_FILES = 5;
-    var results = [];  // [{name, data|error|pending}]
-    var run = 0;
-
-    function el(tag, cls, text) {
-      var node = document.createElement(tag);
-      if (cls) node.className = cls;
-      if (text != null) node.textContent = text;
-      return node;
-    }
-    function money(n) { return '$' + Number(n).toLocaleString(); }
-    function selectedIds() {
-      return Array.prototype.map.call(
-        document.querySelectorAll('input[name="materials"]:checked'),
-        function(c) { return parseInt(c.dataset.filamentId, 10); });
-    }
-
-    function renderPrice(row, data) {
-      var ests = data.estimates || [];
-      if (!ests.length) return;
-      var ids = selectedIds();
-      var chosen = ests.filter(function(e) { return ids.indexOf(e.filament_id) !== -1; });
-      var price = el('div', 'pub-estimate-price');
-      if (chosen.length) {
-        chosen.forEach(function(e) {
-          var line = el('div', 'pub-estimate-price-line');
-          line.appendChild(el('span', 'pub-estimate-amount', money(e.low) + ' \u2013 ' + money(e.high)));
-          line.appendChild(el('span', 'pub-estimate-material', e.name + ' \u00b7 \u2248' + Math.round(e.grams).toLocaleString() + ' g'));
-          price.appendChild(line);
-        });
-      } else {
-        var low = Math.min.apply(null, ests.map(function(e) { return e.low; }));
-        var high = Math.max.apply(null, ests.map(function(e) { return e.high; }));
-        var line = el('div', 'pub-estimate-price-line');
-        line.appendChild(el('span', 'pub-estimate-amount', money(low) + ' \u2013 ' + money(high)));
-        line.appendChild(el('span', 'pub-estimate-material',
-          ests.length > 1 ? 'depending on material \u2014 pick one below to narrow it down' : ests[0].name));
-        price.appendChild(line);
-      }
-      row.appendChild(price);
-    }
-
-    function render() {
-      list.textContent = '';
-      box.hidden = results.length === 0;
-      results.forEach(function(r) {
-        var row = el('div', 'pub-estimate-item');
-        row.appendChild(el('div', 'pub-estimate-file', r.name));
-        if (r.pending) {
-          row.appendChild(el('div', 'pub-estimate-meta', 'Analysing\u2026'));
-        } else if (r.error) {
-          row.appendChild(el('div', 'pub-estimate-meta pub-estimate-error', r.error));
-        } else {
-          var d = r.data, dm = d.dimensions_mm;
-          row.appendChild(el('div', 'pub-estimate-meta',
-            dm.x + ' \u00d7 ' + dm.y + ' \u00d7 ' + dm.z + ' mm \u00b7 approx. ' +
-            Math.round(d.grams).toLocaleString() + ' g \u00b7 ~' + (d.hours < 1 ? '<1' : Math.round(d.hours)) + ' h print'));
-          renderPrice(row, d);
-          (d.warnings || []).forEach(function(w) {
-            row.appendChild(el('div', 'pub-estimate-warning', w));
-          });
-        }
-        list.appendChild(row);
-      });
-    }
-
-    function estimate(file, slot, myRun) {
-      var body = new FormData();
-      body.append('file', file);
-      fetch(box.dataset.url, {
-        method: 'POST', body: body, credentials: 'same-origin',
-        headers: {'X-CSRFToken': csrf, 'Accept': 'application/json'}
-      }).then(function(resp) {
-        return resp.json().catch(function() { return null; }).then(function(json) {
-          if (resp.status === 429) return {error: 'Too many estimates right now \u2014 try again in a minute.'};
-          if (!json) return {error: 'Estimate unavailable for this file.'};
-          return json.ok ? {data: json} : {error: json.error || 'Estimate unavailable for this file.'};
-        });
-      }).catch(function() {
-        return {error: 'Estimate unavailable right now.'};
-      }).then(function(res) {
-        if (myRun !== run) return;  // the customer picked different files meanwhile
-        results[slot] = {name: file.name, data: res.data, error: res.error};
-        render();
-      });
-    }
-
-    input.addEventListener('change', function() {
-      run += 1;
-      results = [];
-      var files = Array.prototype.filter.call(input.files || [], function(f) {
-        return /\.(stl|obj|3mf)$/i.test(f.name);
-      });
-      files.slice(0, MAX_FILES).forEach(function(f) {
-        var slot = results.length;
-        if (maxBytes && f.size > maxBytes) {
-          results.push({name: f.name, error: 'Too large for an instant estimate \u2014 we\u2019ll price it in your quote.'});
-          return;
-        }
-        results.push({name: f.name, pending: true});
-        estimate(f, slot, run);
-      });
-      render();
-    });
-    document.querySelectorAll('input[name="materials"]').forEach(function(c) {
-      c.addEventListener('change', render);
-    });
-  });
-</script>
-{% endif %}
+{% include 'public/_order_models_script.html' %}
 {% endblock %}

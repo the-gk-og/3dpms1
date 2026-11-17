@@ -22,6 +22,8 @@ from app.helpers import (
 )
 import secrets
 
+from app.estimate import describe_combined
+
 public_bp = Blueprint('public', __name__)
 
 
@@ -161,16 +163,62 @@ def track_order():
     return render_template('public/track_order.html', business=business, order=order, searched=searched)
 
 
+def _order_print_estimate(files, form, business):
+    """Re-price the customer's model files server-side at submission time, using the
+    materials they assigned per object (form fields ``part_material_<file>_<object>``)
+    and the multi-material / clean-supports options. Never trusts client-side numbers.
+    Returns the combined estimate dict, or None when estimates are off / nothing parsed.
+    Each file's stream is rewound afterwards so it can still be saved.
+    """
+    if not business.instant_estimate_enabled:
+        return None
+    from app.estimate import combined_estimate
+    from app.mesh import MeshError, analyse_mesh, SUPPORTED_EXTENSIONS
+
+    parts = []
+    for i, file in enumerate(files):
+        if not file or not file.filename:
+            continue
+        if file.filename.rsplit('.', 1)[-1].lower() not in SUPPORTED_EXTENSIONS:
+            continue
+        data = file.stream.read(MAX_UPLOAD_SIZE_BYTES + 1)
+        file.stream.seek(0)
+        if len(data) > MAX_UPLOAD_SIZE_BYTES:
+            continue
+        try:
+            mesh = analyse_mesh(data, file.filename)
+        except (MeshError, Exception):
+            continue
+        finally:
+            del data
+        for j, obj in enumerate(mesh.objects):
+            parts.append({
+                'name': obj.name, 'file': file.filename, 'volume_cm3': obj.volume_cm3,
+                'filament_id': form.get(f'part_material_{i}_{j}', type=int),
+            })
+    if not parts:
+        return None
+    filaments = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    support = Filament.query.get(business.estimate_support_filament_id) if business.estimate_support_filament_id else None
+    est = combined_estimate(parts, filaments, business,
+                            multi_material=form.get('multi_material') == 'on',
+                            clean_supports=form.get('clean_supports') == 'on',
+                            support_filament=support)
+    return est if est.get('ok') else None
+
+
 @public_bp.route('/order', methods=['GET', 'POST'])
 @limiter.limit('5 per minute', methods=['POST'])
 def order_form():
     business = get_business_settings()
     filaments = Filament.query.order_by(Filament.name).all()
+    support_filament = (Filament.query.get(business.estimate_support_filament_id)
+                        if business.estimate_support_filament_id else None)
 
     if request.method == 'POST':
         if not _turnstile_ok(business):
             flash('Please complete the verification challenge and try again.')
-            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
+            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments, support_filament=support_filament)
 
         name = request.form.get('name', '').strip()
         phone = request.form.get('phone', '').strip()
@@ -183,7 +231,7 @@ def order_form():
 
         if not name or not phone or not email:
             flash('Please fill in your name, phone number, and email.')
-            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
+            return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments, support_filament=support_filament)
 
         client = Client.query.filter_by(email=email).first()
         if not client:
@@ -199,6 +247,8 @@ def order_form():
         materials = request.form.getlist('materials')
         other_material = request.form.get('other_material', '').strip()
 
+        uploaded_models = request.files.getlist('model_files') if model_source == 'has_model' else []
+        print_estimate = _order_print_estimate(uploaded_models, request.form, business)
         model_files = _save_uploaded_files(request.files.getlist('model_files'), request_number)
         reference_images = _save_uploaded_files(request.files.getlist('reference_images'), request_number)
 
@@ -213,7 +263,11 @@ def order_form():
             'materials': materials,
             'other_material': other_material,
             'notes': request.form.get('notes', '').strip(),
+            'multi_material': request.form.get('multi_material') == 'on',
+            'clean_supports': request.form.get('clean_supports') == 'on',
         }
+        if print_estimate:
+            order_details['estimate'] = print_estimate
 
         new_request = Request(
             request_number=request_number,
@@ -236,6 +290,12 @@ def order_form():
                 summary_html_lines.append(f'Description: {order_details["description"]}')
             if materials:
                 summary_html_lines.append(f'Materials: {", ".join(materials)}')
+            if order_details['multi_material']:
+                summary_html_lines.append('Multi-material print')
+            if order_details['clean_supports']:
+                summary_html_lines.append('Clean supports')
+            if print_estimate:
+                summary_html_lines.append(f'Instant estimate: {describe_combined(print_estimate)}')
             context = {
                 'business_name': business.name or '', 'contact_name': name,
                 'contact_email': email, 'document_number': request_number,
@@ -252,9 +312,10 @@ def order_form():
         except Exception:
             pass
 
+        _send_order_confirmation(business, new_request, client, order_details)
         return render_template_mobile_aware('public/order_confirmation.html', business=business, order=new_request)
 
-    return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
+    return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments, support_filament=support_filament)
 
 
 @public_bp.route('/order/estimate', methods=['POST'])
@@ -290,7 +351,82 @@ def order_estimate():
     filament_id = request.form.get('filament_id', type=int)
     if filament_id:
         filaments = [f for f in filaments if f.id == filament_id]
-    return jsonify(estimate_for_mesh(mesh, filaments, business))
+    result = estimate_for_mesh(mesh, filaments, business)
+    result['objects'] = [{
+        'name': o.name, 'volume_cm3': round(o.volume_cm3, 3),
+        'dimensions_mm': {'x': round(o.size_x_mm, 1), 'y': round(o.size_y_mm, 1), 'z': round(o.size_z_mm, 1)},
+    } for o in mesh.objects[:50]]
+    return jsonify(result)
+
+
+def _send_order_confirmation(business, order, client, order_details):
+    """Email the customer that their order arrived (reference number, what they sent,
+    and the rough estimate if there was one). Best-effort: a missing or broken SMTP
+    setup never blocks the order."""
+    if not client or not client.email:
+        return
+    est = order_details.get('estimate')
+    files = [f.split('_', 1)[-1] for f in order_details.get('model_files') or []]
+    summary = []
+    if files:
+        summary.append('Files: ' + ', '.join(files))
+    elif order_details.get('model_source') == 'need_design':
+        summary.append('Design request')
+    if order_details.get('multi_material'):
+        summary.append('Multi-material print')
+    if order_details.get('clean_supports'):
+        summary.append('Clean supports')
+    context = {
+        'client_name': client.name or '', 'business_name': business.name or '',
+        'document_number': order.client_number, 'summary': ' · '.join(summary),
+        'estimate': describe_combined(est),
+        'track_link': url_for('public.track_order', _external=True),
+    }
+    try:
+        subject = (render_email_template(business.order_confirmation_email_subject, context)
+                   or f'We\u2019ve received your order {order.client_number}')
+        custom_html = render_email_template(business.order_confirmation_email_body_html, context, escape_html=True)
+        if custom_html:
+            html_body = custom_html
+        else:
+            context['estimate_lines'] = [(l['name'], l['filament'], l['grams']) for l in (est or {}).get('lines', [])]
+            if est and est.get('support'):
+                context['estimate_lines'].append(('Clean supports', est['support']['filament'], est['support']['grams']))
+            html_body = default_email_html('order_confirmation', context, business)
+        send_plain_email(business, client.email, subject, html_to_text(html_body), html_body=html_body)
+    except EmailNotConfiguredError:
+        pass
+    except Exception:
+        pass
+
+
+@public_bp.route('/order/estimate/total', methods=['POST'])
+@limiter.limit('60 per minute')
+def order_estimate_total():
+    """Live combined price for the order form: per-object materials plus the
+    multi-material / clean-supports options. Volumes come from the browser (they
+    were returned by /order/estimate) and are only used for this display — the
+    estimate stored with an order is recomputed from the uploaded files."""
+    from app.estimate import combined_estimate
+
+    business = get_business_settings()
+    if not business.instant_estimate_enabled:
+        abort(404)
+    payload = request.get_json(silent=True) or {}
+    raw_parts = payload.get('parts')
+    if not isinstance(raw_parts, list):
+        return jsonify(ok=False, error='No parts given.'), 400
+    parts = []
+    for p in raw_parts[:50]:
+        if isinstance(p, dict):
+            parts.append({'name': p.get('name'), 'volume_cm3': p.get('volume_cm3'),
+                          'filament_id': p.get('filament_id') if isinstance(p.get('filament_id'), int) else None})
+    filaments = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    support = Filament.query.get(business.estimate_support_filament_id) if business.estimate_support_filament_id else None
+    return jsonify(combined_estimate(parts, filaments, business,
+                                     multi_material=bool(payload.get('multi_material')),
+                                     clean_supports=bool(payload.get('clean_supports')),
+                                     support_filament=support))
 
 
 @public_bp.route('/q/<token>/upload', methods=['GET', 'POST'])

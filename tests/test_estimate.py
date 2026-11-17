@@ -233,7 +233,7 @@ def test_endpoint_404_when_disabled(client):
     assert _post(client, cube_binary_stl()).status_code == 404
     page = client.get('/order')
     assert page.status_code == 200
-    assert b'instant-estimate' not in page.data
+    assert b'id="instant-estimate"' not in page.data
 
 
 def test_endpoint_returns_estimate_when_enabled(client):
