@@ -696,3 +696,22 @@ class Payment(db.Model):
     created_by = db.Column(db.String(150))
     source = db.Column(db.String(20), nullable=False, default='manual')  # 'manual' | 'stripe'
     stripe_session_id = db.Column(db.String(255), unique=True)
+
+
+class GalleryPhoto(db.Model):
+    """A photo of finished work for the public gallery. Nothing is shown publicly
+    until staff publish it; `featured` photos also appear on the home page. The
+    file lives on disk under gallery_uploads_dir() with a random stored name."""
+    id = db.Column(db.Integer, primary_key=True)
+    stored_filename = db.Column(db.String(100), nullable=False, unique=True)
+    original_filename = db.Column(db.String(300))
+    title = db.Column(db.String(200))
+    caption = db.Column(db.Text)
+    material = db.Column(db.String(100))
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    job = db.relationship('Job', backref=db.backref('gallery_photos', order_by='GalleryPhoto.id'))
+    published = db.Column(db.Boolean, default=False, nullable=False)
+    featured = db.Column(db.Boolean, default=False, nullable=False)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by = db.Column(db.String(150))

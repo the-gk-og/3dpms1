@@ -123,6 +123,7 @@ def create_app(test_config=None):
     from app.printers import printers_bp
     from app.reports import reports_bp
     from app.payments import payments_bp
+    from app.gallery import gallery_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -135,6 +136,7 @@ def create_app(test_config=None):
     app.register_blueprint(printers_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(payments_bp)
+    app.register_blueprint(gallery_bp)
 
     with app.app_context():
         db.create_all()

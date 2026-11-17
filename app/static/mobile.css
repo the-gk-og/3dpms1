@@ -622,3 +622,7 @@ button.m-link-btn { background: none; border: none; padding: 0; cursor: pointer;
 /* ==== Payments (deposits & part payments — app/payments.py) ==== */
 .m-badge-warning { background: rgba(251,191,36,0.15); color: var(--warning); }
 /* ==== /Payments ==== */
+/* ==== Gallery ==== */
+.m-gallery-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; display: block; background: var(--bg-secondary); }
+.m-gallery-actions { flex-wrap: wrap; gap: 0.4rem; }
+.m-gallery-actions form { margin: 0; }

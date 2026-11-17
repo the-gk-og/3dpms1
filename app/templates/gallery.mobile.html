@@ -1,0 +1,82 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Gallery{% endblock %}
+{% block content %}
+
+<div class="m-stats-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Photos</div>
+    <div class="m-stat-value">{{ photos|length }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Published</div>
+    <div class="m-stat-value">{{ published_count }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Home</div>
+    <div class="m-stat-value">{{ [featured_count, max_featured]|min }}/{{ max_featured }}</div>
+  </div>
+</div>
+
+<div class="m-card">
+  <form method="post" action="{{ url_for('gallery.upload') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field">
+      <label>Add photos</label>
+      <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp,image/gif" required>
+    </div>
+    <button type="submit" class="m-btn m-btn-primary">Upload (stays private)</button>
+  </form>
+</div>
+
+{% if photos %}
+  {% for p in photos %}
+  <div class="m-card" id="photo-{{ p.id }}">
+    <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Gallery photo' }}" loading="lazy" class="m-gallery-img">
+    <div class="m-card-row" style="margin-top: 0.6rem;">
+      <div class="m-card-title">{{ p.title or 'Untitled' }}</div>
+      <div>
+        {% if p.published %}<span class="m-badge m-badge-success">Live</span>{% else %}<span class="m-badge m-badge-muted">Private</span>{% endif %}
+        {% if p.featured %}<span class="m-badge">★ Home</span>{% endif %}
+      </div>
+    </div>
+    {% if p.material or p.job %}<div class="m-card-sub">{{ p.material or '' }}{% if p.material and p.job %} · {% endif %}{{ p.job.job_number if p.job else '' }}</div>{% endif %}
+
+    <details style="margin-top: 0.6rem;">
+      <summary style="color: var(--accent); font-size: 0.85rem;">Edit details</summary>
+      <form method="post" action="{{ url_for('gallery.edit', photo_id=p.id) }}" style="margin-top: 0.6rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="m-field"><label>Title</label><input type="text" name="title" value="{{ p.title or '' }}" maxlength="200"></div>
+        <div class="m-field"><label>Material</label><input type="text" name="material" value="{{ p.material or '' }}" maxlength="100"></div>
+        <div class="m-field"><label>Caption</label><textarea name="caption" rows="2" maxlength="2000">{{ p.caption or '' }}</textarea></div>
+        <button type="submit" class="m-btn m-btn-secondary">Save</button>
+      </form>
+    </details>
+
+    <div class="m-card-actions m-gallery-actions">
+      <form method="post" action="{{ url_for('gallery.toggle_publish', photo_id=p.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-sm {{ 'm-btn-secondary' if p.published else 'm-btn-primary' }}">{{ 'Unpublish' if p.published else 'Publish' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.toggle_feature', photo_id=p.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-sm m-btn-secondary">{{ '☆ Unfeature' if p.featured else '★ Feature' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.move', photo_id=p.id, direction='up') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-sm m-btn-secondary" aria-label="Move earlier"{% if loop.first %} disabled{% endif %}>↑</button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.move', photo_id=p.id, direction='down') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-sm m-btn-secondary" aria-label="Move later"{% if loop.last %} disabled{% endif %}>↓</button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.delete', photo_id=p.id) }}" onsubmit="return confirm('Delete this photo permanently?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="m-btn m-btn-sm m-btn-danger" aria-label="Delete photo">🗑</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="m-empty">No photos yet.</div>
+{% endif %}
+{% endblock %}
