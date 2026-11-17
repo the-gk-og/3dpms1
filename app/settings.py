@@ -54,6 +54,15 @@ def save_settings():
         except ValueError:
             pass
         business.about_text = request.form.get('about_text', '')
+        business.instant_estimate_enabled = request.form.get('instant_estimate_enabled') == 'on'
+        for field, lo, hi in (('estimate_fill_factor', 0.05, 1.0), ('estimate_grams_per_hour', 0.5, 500.0),
+                              ('estimate_max_mm', 1.0, 10000.0)):
+            try:
+                value = float(request.form.get(field, '') or 0)
+            except ValueError:
+                continue
+            if value > 0:
+                setattr(business, field, min(hi, max(lo, value)))
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):

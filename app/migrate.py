@@ -51,6 +51,10 @@ def run_migrations(db):
             'about_tagline': 'VARCHAR(300)',
             'about_text': 'TEXT',
             'low_stock_threshold_g': 'FLOAT DEFAULT 200',
+            'instant_estimate_enabled': 'BOOLEAN DEFAULT 0',
+            'estimate_fill_factor': 'FLOAT DEFAULT 0.35',
+            'estimate_grams_per_hour': 'FLOAT DEFAULT 12',
+            'estimate_max_mm': 'FLOAT DEFAULT 256',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
