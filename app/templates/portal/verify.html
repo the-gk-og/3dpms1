@@ -1,6 +1,6 @@
 {% extends 'public/public_base.html' %}
 {% block title %}Sign in — {{ business.name or '3D Printing' }}{% endblock %}
-{% block head %}<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">{% endblock %}
+{% block head %}{# strict-origin: the browser sends only "https://host/" (never the token in the path), which Flask-WTF needs for its HTTPS referrer check on the sign-in POST. "no-referrer" made every sign-in fail with "The referrer header is missing". #}<meta name="referrer" content="strict-origin"><meta name="robots" content="noindex">{% endblock %}
 {% block main_class %} narrow{% endblock %}
 {% block content %}
 <div class="pub-panel portal-auth">
