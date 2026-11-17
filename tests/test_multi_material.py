@@ -251,3 +251,52 @@ def test_request_page_shows_estimate_and_preview(client, monkeypatch):
     html = client.get(f'/dash/requests/{req_id}').get_data(as_text=True)
     assert 'Instant Estimate Shown to Customer' in html and 'Multi-material' in html
     assert 'req-preview-btn' in html and 'model-viewer.js' in html
+
+
+# --- per-part fee ----------------------------------------------------------------------
+
+class _BFee(_B):
+    estimate_per_part_fee = 2.5
+
+
+def test_per_part_fee_is_charged_once_per_object():
+    plain = combined_estimate(PARTS, [PLA, PETG], _B())
+    fee = combined_estimate(PARTS, [PLA, PETG], _BFee())
+    assert plain['part_fee'] is None
+    assert fee['part_fee'] == {'count': 2, 'each': 2.5, 'total': 5.0}
+    assert fee['high'] > plain['high'] and fee['low'] >= plain['low'] + 3  # +$5 before the ±25% range
+    assert '2 × $2.50 per-part fee' in describe_combined(fee)
+
+
+def test_bad_per_part_fee_is_ignored():
+    class _BBad(_B):
+        estimate_per_part_fee = float('nan')
+    assert combined_estimate(PARTS, [PLA, PETG], _BBad())['part_fee'] is None
+
+
+def test_per_part_fee_saved_with_order_and_shown_in_emails(client, monkeypatch):
+    pla, petg = _setup(client)
+    with client.application.app_context():
+        BusinessSettings.query.first().estimate_per_part_fee = 3.0
+        db.session.commit()
+    sent = _submit(client, pla, petg, monkeypatch)
+    with client.application.app_context():
+        est = json.loads(Request.query.one().order_details)['estimate']
+    assert est['part_fee'] == {'count': 3, 'each': 3.0, 'total': 9.0}  # Body, Lid, peg
+    customer_html = [s for s in sent if s[0] == 'ava@example.test'][0][2]
+    assert '3 × $3.00 per-part fee' in customer_html
+
+
+def test_per_part_fee_setting_saves(client):
+    from app.models import User
+    _setup(client)
+    with client.application.app_context():
+        u = User(username='admin', email='admin@example.test')
+        u.set_password('password123')
+        db.session.add(u)
+        db.session.commit()
+    client.post('/dash/auth/login', data={'username': 'admin', 'password': 'password123'})
+    client.post('/dash/settings/save', data={'tab': 'business', 'name': 'Acme 3D', 'estimate_per_part_fee': '4.5',
+                                              'instant_estimate_enabled': 'on'})
+    with client.application.app_context():
+        assert BusinessSettings.query.first().estimate_per_part_fee == 4.5

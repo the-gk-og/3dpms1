@@ -43,3 +43,12 @@ def test_filament_and_settings_creation(client):
     with client.application.app_context():
         assert BusinessSettings.query.count() == 1
         assert Filament.query.count() == 1
+
+
+def test_uploaded_logo_shows_in_public_nav_and_footer(client):
+    with client.application.app_context():
+        db.session.add(BusinessSettings(name='Acme 3D', logo_path='abc123.png'))
+        db.session.commit()
+    html = client.get('/').get_data(as_text=True)
+    assert html.count('/static/uploads/abc123.png') == 2  # header + footer
+    assert 'pub-brand-mark' not in html

@@ -67,6 +67,10 @@ def save_settings():
             if value > 0:
                 setattr(business, field, min(hi, max(lo, value)))
         business.estimate_support_filament_id = request.form.get('estimate_support_filament_id', type=int) or None
+        try:
+            business.estimate_per_part_fee = min(10000.0, max(0.0, float(request.form.get('estimate_per_part_fee', 0) or 0)))
+        except ValueError:
+            pass
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):

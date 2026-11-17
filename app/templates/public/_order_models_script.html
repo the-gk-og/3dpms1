@@ -251,6 +251,13 @@ document.addEventListener('DOMContentLoaded', function () {
           srow.appendChild(el('span', 'num', '≈' + Math.round(est.support.grams) + ' g'));
           breakdown.appendChild(srow);
         }
+        if (est.part_fee) {
+          var frow = el('div', 'pub-estimate-line');
+          frow.appendChild(el('span', 'pub-swatch is-fee'));
+          frow.appendChild(el('span', null, 'Per-part fee · ' + est.part_fee.count + ' × ' + '$' + est.part_fee.each.toFixed(2)));
+          frow.appendChild(el('span', 'num', '$' + est.part_fee.total.toFixed(2)));
+          breakdown.appendChild(frow);
+        }
         if (est.multi_material) {
           breakdown.appendChild(el('div', 'pub-estimate-sub', 'Includes a multi-material allowance for purging and filament changes.'));
         }

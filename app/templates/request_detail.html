@@ -90,6 +90,7 @@
             <tr><td>{{ line.name }}</td><td style="color: var(--text-muted);">{{ line.file }}</td><td>{{ line.filament }}{% if not line.chosen %} <span class="badge badge-muted">default</span>{% endif %}</td><td style="text-align: right;">≈{{ '%.0f'|format(line.grams) }} g</td></tr>
             {% endfor %}
             {% if est.support %}<tr><td>Clean supports</td><td></td><td>{{ est.support.filament }}</td><td style="text-align: right;">≈{{ '%.0f'|format(est.support.grams) }} g</td></tr>{% endif %}
+            {% if est.part_fee %}<tr><td>Per-part fee</td><td></td><td>{{ est.part_fee.count }} × ${{ '%.2f'|format(est.part_fee.each) }}</td><td style="text-align: right;">${{ '%.2f'|format(est.part_fee.total) }}</td></tr>{% endif %}
           </tbody>
         </table>
         <p style="margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--text-muted);">Worked out automatically from the uploaded files at submission. A ballpark for the customer, not a quote.</p>

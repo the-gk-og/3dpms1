@@ -101,6 +101,7 @@ def estimate_for_mesh(mesh, filaments, business):
         grams = mesh.volume_cm3 * density * cfg['fill_factor']
         hours = grams / cfg['grams_per_hour']
         price = calculate_line_price('print', f, grams, 0, hours, hourly_rate)
+        price += per_part_fee(business) * max(1, len(getattr(mesh, 'objects', None) or [1]))
         low, high = price_range(price)
         estimates.append({
             'filament_id': f.id, 'name': f.name, 'material': f.material or '',
@@ -143,6 +144,15 @@ DEFAULT_MM_WASTE_PCT = 10.0
 DEFAULT_MM_TIME_PCT = 15.0
 DEFAULT_SUPPORT_PCT = 5.0
 MAX_PARTS = 50
+
+
+def per_part_fee(business):
+    """Fixed $ charged for every object (part) in an estimate — setup/handling."""
+    try:
+        fee = float(getattr(business, 'estimate_per_part_fee', 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return min(10000.0, fee) if math.isfinite(fee) and fee > 0 else 0.0
 
 
 def multi_material_settings(business):
@@ -229,7 +239,9 @@ def combined_estimate(parts, filaments, business, multi_material=False, clean_su
                         'Tick “multi-material” to print them together.')
 
     total_hours = hours + extra_hours
-    price = material_cost + support_cost + waste_cost + total_hours * hourly_rate
+    fee_each = per_part_fee(business)
+    part_fee = {'count': len(lines), 'each': round(fee_each, 2), 'total': round(fee_each * len(lines), 2)} if fee_each else None
+    price = material_cost + support_cost + waste_cost + total_hours * hourly_rate + (part_fee['total'] if part_fee else 0)
     low, high = price_range(price)
     return {
         'ok': True,
@@ -237,6 +249,7 @@ def combined_estimate(parts, filaments, business, multi_material=False, clean_su
         'multi_material': is_multi,
         'clean_supports': bool(clean_supports),
         'support': support,
+        'part_fee': part_fee,
         'grams': round(model_grams + support_grams, 1),
         'waste_grams': round((model_grams + support_grams) * mm['waste_pct'] / 100.0, 1) if is_multi else 0,
         'hours': round(total_hours, 1),
@@ -257,4 +270,6 @@ def describe_combined(est):
     if est.get('support'):
         parts.append(f'{est["support"]["filament"]} supports ≈{est["support"]["grams"]:.0f} g')
     mode = ' · multi-material' if est.get('multi_material') else ''
-    return f'${est["low"]}–${est["high"]} ({", ".join(parts)}{mode}, ≈{est["hours"]:g} h)'
+    fee = est.get('part_fee')
+    fee_text = f', incl. {fee["count"]} × ${fee["each"]:.2f} per-part fee' if fee else ''
+    return f'${est["low"]}–${est["high"]} ({", ".join(parts)}{mode}, ≈{est["hours"]:g} h{fee_text})'
