@@ -103,6 +103,14 @@ class BusinessSettings(db.Model):
     estimate_fill_factor = db.Column(db.Float, default=0.35)  # shell + infill share of a solid part
     estimate_grams_per_hour = db.Column(db.Float, default=12.0)
     estimate_max_mm = db.Column(db.Float, default=256.0)  # largest build dimension; bigger warns
+    # Multi-material / clean-support allowances (see combined_estimate in app/estimate.py)
+    estimate_mm_waste_pct = db.Column(db.Float, default=10.0)
+    estimate_mm_time_pct = db.Column(db.Float, default=15.0)
+    estimate_support_pct = db.Column(db.Float, default=5.0)
+    estimate_support_filament_id = db.Column(db.Integer, db.ForeignKey('filament.id'))
+    # Customer-facing "we've got your order" email
+    order_confirmation_email_subject = db.Column(db.String(300))
+    order_confirmation_email_body_html = db.Column(db.Text)
     # Customer portal (/account) — off by default; when off every /account route 404s.
     portal_enabled = db.Column(db.Boolean, default=False)
     portal_sign_in_email_subject = db.Column(db.String(300))

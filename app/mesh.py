@@ -30,12 +30,32 @@ class MeshError(ValueError):
 
 
 @dataclass
+class ObjectInfo:
+    """One separately printable object — a whole STL/OBJ file, or one top-level
+    build item in a 3MF (what Bambu Studio / PrusaSlicer call an "object")."""
+    name: str
+    volume_mm3: float
+    size_x_mm: float
+    size_y_mm: float
+    size_z_mm: float
+
+    @property
+    def volume_cm3(self):
+        return self.volume_mm3 / 1000.0
+
+    @property
+    def dimensions(self):
+        return (self.size_x_mm, self.size_y_mm, self.size_z_mm)
+
+
+@dataclass
 class MeshInfo:
     volume_mm3: float
     size_x_mm: float
     size_y_mm: float
     size_z_mm: float
     triangle_count: int
+    objects: list = None  # [ObjectInfo]; always at least one after parsing
 
     @property
     def volume_cm3(self):
@@ -55,6 +75,23 @@ class _Accumulator:
         self._body = 0.0   # signed volume of the body currently being added
         self.min = [math.inf] * 3
         self.max = [-math.inf] * 3
+        self.objects = []      # finished ObjectInfo entries
+        self._obj = None       # [name, volume_at_start, min, max] while an object is open
+
+    def begin_object(self, name):
+        self.end_object()
+        self._obj = [name, self.volume, [math.inf] * 3, [-math.inf] * 3]
+
+    def end_object(self):
+        if self._obj is None:
+            return
+        self.end_body()
+        name, start_volume, lo, hi = self._obj
+        self._obj = None
+        if all(math.isfinite(v) for v in lo + hi):
+            self.objects.append(ObjectInfo(
+                name=name, volume_mm3=self.volume - start_volume,
+                size_x_mm=hi[0] - lo[0], size_y_mm=hi[1] - lo[1], size_z_mm=hi[2] - lo[2]))
 
     def add_point(self, p):
         for i in range(3):
@@ -62,6 +99,13 @@ class _Accumulator:
                 self.min[i] = p[i]
             if p[i] > self.max[i]:
                 self.max[i] = p[i]
+        if self._obj is not None:
+            lo, hi = self._obj[2], self._obj[3]
+            for i in range(3):
+                if p[i] < lo[i]:
+                    lo[i] = p[i]
+                if p[i] > hi[i]:
+                    hi[i] = p[i]
 
     def add_triangle(self, a, b, c):
         self.triangles += 1
@@ -79,7 +123,8 @@ class _Accumulator:
         self.volume += abs(self._body)
         self._body = 0.0
 
-    def result(self):
+    def result(self, default_name='Model'):
+        self.end_object()
         self.end_body()
         if self.triangles == 0 or not all(math.isfinite(v) for v in self.min + self.max):
             raise MeshError('No printable geometry was found in this file.')
@@ -91,6 +136,10 @@ class _Accumulator:
             size_y_mm=self.max[1] - self.min[1],
             size_z_mm=self.max[2] - self.min[2],
             triangle_count=self.triangles,
+            objects=self.objects or [ObjectInfo(
+                name=default_name, volume_mm3=self.volume,
+                size_x_mm=self.max[0] - self.min[0], size_y_mm=self.max[1] - self.min[1],
+                size_z_mm=self.max[2] - self.min[2])],
         )
 
 
@@ -250,6 +299,7 @@ class _ThreeMF:
             raise MeshError('This 3MF file is too large to estimate automatically.')
 
         objects = {}
+        names = {}
         build = []
         scale = 1.0
         current = None  # (object id, kind, payload)
@@ -268,6 +318,8 @@ class _ThreeMF:
                             scale = _UNIT_SCALE.get(el.get('unit', 'millimeter'), 1.0)
                         elif tag == 'object':
                             current = el.get('id')
+                            if el.get('name'):
+                                names[current] = el.get('name')[:120]
                         elif tag == 'mesh':
                             vertices, triangles = [], []
                         continue
@@ -305,13 +357,13 @@ class _ThreeMF:
             raise
         except (ET.ParseError, TypeError, ValueError, zipfile.BadZipFile, OSError):
             raise MeshError('This 3MF file is damaged or uses an unsupported format.') from None
-        self.models[path] = (scale, objects, build)
+        self.models[path] = (scale, objects, build, names)
         return self.models[path]
 
     def _emit(self, acc, path, object_id, transform, depth):
         if depth > MAX_3MF_COMPONENT_DEPTH:
             raise MeshError('This 3MF file nests its parts too deeply.')
-        scale, objects, _ = self._read_model(path)
+        scale, objects, _, _ = self._read_model(path)
         obj = objects.get(object_id)
         if obj is None:
             raise MeshError('This 3MF file references a part that doesn’t exist.')
@@ -336,16 +388,26 @@ class _ThreeMF:
 
     def parse(self):
         root = _root_model_path(self.zf)
-        _, objects, build = self._read_model(root)
+        _, objects, build, _ = self._read_model(root)
         acc = _Accumulator()
         if build:
-            for path, object_id, tf in build:
+            for n, (path, object_id, tf) in enumerate(build, 1):
+                acc.begin_object(self._name(path, object_id) or f'Object {n}')
                 self._emit(acc, path, object_id, tf, 0)
         else:
+            n = 0
             for object_id, (kind, _) in objects.items():
                 if kind == 'mesh':
+                    n += 1
+                    acc.begin_object(self._name(root, object_id) or f'Object {n}')
                     self._emit(acc, root, object_id, _IDENTITY, 0)
         return acc.result()
+
+    def _name(self, path, object_id):
+        try:
+            return self._read_model(path)[3].get(object_id)
+        except MeshError:
+            return None
 
 
 def _component_path(el):
@@ -406,7 +468,11 @@ def analyse_mesh(data, filename):
     if not data:
         raise MeshError('This file is empty.')
     if ext == 'stl':
-        return _parse_stl(data)
-    if ext == 'obj':
-        return _parse_obj(data)
-    return _parse_3mf(data)
+        info = _parse_stl(data)
+    elif ext == 'obj':
+        info = _parse_obj(data)
+    else:
+        info = _parse_3mf(data)
+    if len(info.objects) == 1 and ext != '3mf':
+        info.objects[0].name = filename.rsplit('/', 1)[-1].rsplit('.', 1)[0][:120] or 'Model'
+    return info

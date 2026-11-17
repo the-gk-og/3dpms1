@@ -69,6 +69,32 @@
         <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">{{ order.other_material }}</p>
       </div>
       {% endif %}
+      {% if order.multi_material or order.clean_supports %}
+      <div style="margin-bottom: 0.75rem;">
+        <div class="detail-label">Print Options</div>
+        <p style="margin: 0.35rem 0 0; display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          {% if order.multi_material %}<span class="badge badge-accent">Multi-material</span>{% endif %}
+          {% if order.clean_supports %}<span class="badge badge-accent">Clean supports</span>{% endif %}
+        </p>
+      </div>
+      {% endif %}
+      {% if order.estimate %}
+      {% set est = order.estimate %}
+      <div class="req-estimate" style="margin-bottom: 0.75rem;">
+        <div class="detail-label">Instant Estimate Shown to Customer</div>
+        <div class="req-estimate-total">${{ est.low }} – ${{ est.high }} <small>≈{{ '%.0f'|format(est.grams) }} g · ~{{ '%g'|format(est.hours) }} h{% if est.multi_material %} · incl. multi-material allowance{% endif %}</small></div>
+        <table class="data-table req-estimate-table">
+          <thead><tr><th>Object</th><th>File</th><th>Material</th><th style="text-align: right;">Weight</th></tr></thead>
+          <tbody>
+            {% for line in est.lines %}
+            <tr><td>{{ line.name }}</td><td style="color: var(--text-muted);">{{ line.file }}</td><td>{{ line.filament }}{% if not line.chosen %} <span class="badge badge-muted">default</span>{% endif %}</td><td style="text-align: right;">≈{{ '%.0f'|format(line.grams) }} g</td></tr>
+            {% endfor %}
+            {% if est.support %}<tr><td>Clean supports</td><td></td><td>{{ est.support.filament }}</td><td style="text-align: right;">≈{{ '%.0f'|format(est.support.grams) }} g</td></tr>{% endif %}
+          </tbody>
+        </table>
+        <p style="margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--text-muted);">Worked out automatically from the uploaded files at submission. A ballpark for the customer, not a quote.</p>
+      </div>
+      {% endif %}
       {% if order.model_links %}
       <div style="margin-bottom: 0.75rem;">
         <div class="detail-label">Model Links</div>
@@ -98,9 +124,15 @@
         <div class="detail-label">Uploaded Files</div>
         <p style="margin: 0.25rem 0 0; font-size: 0.9rem;">
           {% for f in order.model_files %}
-          <a href="{{ url_for('main.download_request_file', request_id=req.id, filename=f) }}" style="color: var(--accent); display: block;">📎 {{ f.split('_', 1)[-1] }}</a>
+          <span class="req-file-row">
+            <a href="{{ url_for('main.download_request_file', request_id=req.id, filename=f) }}" style="color: var(--accent);">📎 {{ f.split('_', 1)[-1] }}</a>
+            {% if f.rsplit('.', 1)[-1]|lower in ['stl', 'obj', '3mf'] %}
+            <button type="button" class="btn-sm btn-secondary req-preview-btn" data-url="{{ url_for('main.download_request_file', request_id=req.id, filename=f) }}" data-name="{{ f.split('_', 1)[-1] }}"><i class="fa fa-cube" aria-hidden="true"></i> 3D preview</button>
+            {% endif %}
+          </span>
           {% endfor %}
         </p>
+        <div class="req-preview" hidden></div>
       </div>
       {% endif %}
       {% if order.reference_images %}
@@ -160,4 +192,40 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% set est_colors = {} %}
+{% for line in (order_estimate_lines or []) %}{% set _ = est_colors.setdefault(line.file, []).append(line.color or line.filament) %}{% endfor %}
+<script type="application/json" id="req-preview-colors">{{ est_colors|tojson }}</script>
+<script src="{{ url_for('static', filename='js/model-viewer.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var holder = document.querySelector('.req-preview');
+  if (!holder || !window.ModelViewer) return;
+  var colours = JSON.parse(document.getElementById('req-preview-colors').textContent || '{}');
+  var viewer = null, current = null;
+  document.querySelectorAll('.req-preview-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (current === btn.dataset.url && !holder.hidden) { holder.hidden = true; return; }
+      current = btn.dataset.url;
+      if (viewer) viewer.destroy();
+      holder.hidden = false;
+      holder.innerHTML = '<div class="req-preview-head"></div><div class="mv-wrap"><div class="mv-hint">Drag to rotate · scroll to zoom · double-click to reset</div></div>';
+      holder.querySelector('.req-preview-head').textContent = btn.dataset.name + ' — loading…';
+      viewer = ModelViewer.create(holder.querySelector('.mv-wrap'));
+      var names = colours[btn.dataset.name] || [];
+      fetch(btn.dataset.url, { credentials: 'same-origin' }).then(function (r) {
+        if (!r.ok) throw new Error('Couldn’t load the file.');
+        return r.arrayBuffer();
+      }).then(function (buf) { return ModelViewer.parse(buf, btn.dataset.name); }).then(function (objs) {
+        holder.querySelector('.req-preview-head').textContent = btn.dataset.name + (objs.length > 1 ? ' · ' + objs.length + ' objects' : '');
+        viewer.setObjects(objs.map(function (o, j) { return { positions: o.positions, color: ModelViewer.colorFor(names[j] || '', j) }; }));
+      }).catch(function (err) {
+        holder.querySelector('.req-preview-head').textContent = btn.dataset.name + ' — ' + ((err && err.message) || 'preview unavailable');
+      });
+    });
+  });
+});
+</script>
 {% endblock %}

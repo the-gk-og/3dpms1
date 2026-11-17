@@ -31,7 +31,9 @@ def settings():
     business = get_business_settings()
     tab = request.args.get('tab', 'business')
     users = User.query.order_by(User.username).all() if tab == 'users' else None
-    return render_template('settings.html', business=business, active_tab=tab, users=users)
+    from app.models import Filament
+    filaments = Filament.query.order_by(Filament.name).all()
+    return render_template('settings.html', business=business, active_tab=tab, users=users, filaments=filaments)
 
 
 @settings_bp.route('/save', methods=['POST'])
@@ -56,13 +58,15 @@ def save_settings():
         business.about_text = request.form.get('about_text', '')
         business.instant_estimate_enabled = request.form.get('instant_estimate_enabled') == 'on'
         for field, lo, hi in (('estimate_fill_factor', 0.05, 1.0), ('estimate_grams_per_hour', 0.5, 500.0),
-                              ('estimate_max_mm', 1.0, 10000.0)):
+                              ('estimate_max_mm', 1.0, 10000.0), ('estimate_mm_waste_pct', 0.1, 500.0),
+                              ('estimate_mm_time_pct', 0.1, 500.0), ('estimate_support_pct', 0.1, 100.0)):
             try:
                 value = float(request.form.get(field, '') or 0)
             except ValueError:
                 continue
             if value > 0:
                 setattr(business, field, min(hi, max(lo, value)))
+        business.estimate_support_filament_id = request.form.get('estimate_support_filament_id', type=int) or None
 
         logo = request.files.get('logo')
         if logo and logo.filename and allowed_file(logo.filename):
@@ -128,6 +132,8 @@ def save_settings():
         business.overdue_reminder_email_body_html = request.form.get('overdue_reminder_email_body_html', '')
         business.contact_notification_email_subject = request.form.get('contact_notification_email_subject', '')
         business.contact_notification_email_body_html = request.form.get('contact_notification_email_body_html', '')
+        business.order_confirmation_email_subject = request.form.get('order_confirmation_email_subject', '')
+        business.order_confirmation_email_body_html = request.form.get('order_confirmation_email_body_html', '')
         business.order_notification_email_subject = request.form.get('order_notification_email_subject', '')
         business.order_notification_email_body_html = request.form.get('order_notification_email_body_html', '')
         business.invoice_paid_notification_email_subject = request.form.get('invoice_paid_notification_email_subject', '')
@@ -332,6 +338,18 @@ EMAIL_PREVIEW_SAMPLES = {
             'business_name': '{business_name}', 'contact_name': 'Jamie Smith',
             'contact_email': 'jamie@example.com',
             'message': 'Hi, I\u2019m interested in getting a custom miniature printed \u2014 could you give me a quote?',
+        },
+    },
+    'order_confirmation': {
+        'label': 'Order Confirmation (to customer)',
+        'default_subject': 'We\u2019ve received your order {{document_number}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'document_number': 'REF-2026-0017',
+            'summary': 'Files: dragon.3mf \u00b7 Multi-material print',
+            'estimate': '$38\u2013$64 (PLA Matte Black \u2248120 g, PETG Clear \u224835 g \u00b7 multi-material, \u22489.4 h)',
+            'estimate_lines': [('Body', 'PLA Matte Black', 120), ('Wings', 'PETG Clear', 35)],
+            'track_link': 'https://example.com/track',
         },
     },
     'order_notification': {

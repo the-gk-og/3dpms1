@@ -1556,7 +1556,8 @@ def requests_list():
 @login_required
 def request_detail(request_id):
     req = Request.query.get_or_404(request_id)
-    return render_template('request_detail.html', req=req)
+    estimate = req.order_data.get('estimate') or {}
+    return render_template('request_detail.html', req=req, order_estimate_lines=estimate.get('lines') or [])
 
 
 _REFERENCE_MODELS = {'request': Request, 'quote': Quote, 'job': Job, 'invoice': Invoice}

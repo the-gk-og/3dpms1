@@ -44,6 +44,10 @@
     <div class="m-field"><label>Fill factor (walls + infill share)</label><input type="number" step="0.01" min="0.05" max="1" name="estimate_fill_factor" value="{{ '%g'|format(business.estimate_fill_factor or 0.35) }}" placeholder="0.35"></div>
     <div class="m-field"><label>Print speed (grams per hour)</label><input type="number" step="0.1" min="0.5" name="estimate_grams_per_hour" value="{{ '%g'|format(business.estimate_grams_per_hour or 12) }}" placeholder="12"></div>
     <div class="m-field"><label>Max build size (mm)</label><input type="number" step="1" min="1" name="estimate_max_mm" value="{{ '%g'|format(business.estimate_max_mm or 256) }}" placeholder="256"></div>
+    <div class="m-field"><label>Multi-material waste (% of material)</label><input type="number" step="0.5" min="0" name="estimate_mm_waste_pct" value="{{ '%g'|format(business.estimate_mm_waste_pct or 10) }}"></div>
+    <div class="m-field"><label>Multi-material extra time (%)</label><input type="number" step="0.5" min="0" name="estimate_mm_time_pct" value="{{ '%g'|format(business.estimate_mm_time_pct or 15) }}"></div>
+    <div class="m-field"><label>Clean supports material use (% of model weight)</label><input type="number" step="0.5" min="0" name="estimate_support_pct" value="{{ '%g'|format(business.estimate_support_pct or 5) }}"></div>
+    <div class="m-field"><label>Clean supports material</label><select name="estimate_support_filament_id"><option value="">— Not offered / price in quote —</option>{% for f in filaments %}<option value="{{ f.id }}"{% if business.estimate_support_filament_id == f.id %} selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
 
     <div class="m-section-title">About Page</div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Shown on your public About page. Leave blank to use the default wording.</p>
@@ -206,6 +210,8 @@
     {{ email_template_fields_mobile('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
        '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
 
+    {{ email_template_fields_mobile('order_confirmation', 'Order Confirmation (sent to the customer)', 'We’ve received your order {{document_number}}',
+       '{{client_name}} · {{business_name}} · {{document_number}} · {{summary}} · {{estimate}} · {{track_link}}') }}
     {{ email_template_fields_mobile('portal_sign_in', 'Customer Account Sign-In Link', 'Your sign-in link for {{business_name}}',
        '{{client_name}} · {{business_name}} · {{sign_in_link}} · {{expires_minutes}}') }}
 

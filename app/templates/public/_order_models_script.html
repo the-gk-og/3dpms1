@@ -1,0 +1,228 @@
+{# Order form: 3D preview of uploaded models (always) plus, when instant estimates
+   are on, per-object material pickers and a live combined estimate. Progressive
+   enhancement — the form submits the same without any of this. #}
+{% set filament_data = [] %}
+{% for f in filaments if f.in_stock %}{% set _ = filament_data.append({'id': f.id, 'name': f.name, 'color': f.color or ''}) %}{% endfor %}
+<script type="application/json" id="order-filaments">{{ filament_data|tojson }}</script>
+<script src="{{ url_for('static', filename='js/model-viewer.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var ws = document.getElementById('model-workspace');
+  var input = document.querySelector('input[name="model_files"]');
+  if (!ws || !input || !window.ModelViewer) return;
+  var list = ws.querySelector('.pub-models-list');
+  var estimateUrl = ws.dataset.estimateUrl, totalUrl = ws.dataset.totalUrl;
+  var box = document.getElementById('instant-estimate');
+  var filaments = JSON.parse(document.getElementById('order-filaments').textContent || '[]');
+  var byId = {};
+  filaments.forEach(function (f) { byId[f.id] = f; });
+  var csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+  var MAX_FILES = 5, MAX_BYTES = 15 * 1024 * 1024;
+  var cards = [], run = 0, totalTimer = 0, totalRun = 0;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function money(n) { return '$' + Number(n).toLocaleString(); }
+  function dims(d) { return d.x + ' × ' + d.y + ' × ' + d.z + ' mm'; }
+  function defaultFilament() {
+    var ticked = document.querySelectorAll('input[name="materials"]:checked');
+    return ticked.length === 1 ? parseInt(ticked[0].dataset.filamentId, 10) || null : null;
+  }
+  function colourFor(card, j) {
+    var f = byId[card.materials[j]];
+    return ModelViewer.colorFor(f ? (f.color || f.name) : '', j);
+  }
+
+  function clear() {
+    cards.forEach(function (c) { if (c.viewer) c.viewer.destroy(); });
+    cards = [];
+    list.textContent = '';
+  }
+
+  input.addEventListener('change', function () {
+    run += 1;
+    clear();
+    var myRun = run;
+    Array.prototype.forEach.call(input.files || [], function (file, index) {
+      if (!/\.(stl|obj|3mf)$/i.test(file.name) || cards.length >= MAX_FILES) return;
+      var card = { file: file, index: index, objects: null, materials: [], viewer: null };
+      card.el = el('div', 'pub-model-card');
+      var head = el('div', 'pub-model-head');
+      head.appendChild(el('span', 'pub-model-name', file.name));
+      card.meta = el('span', 'pub-model-meta', file.size > MAX_BYTES ? 'Too large to preview' : 'Loading preview…');
+      head.appendChild(card.meta);
+      card.el.appendChild(head);
+      card.stage = el('div', 'mv-wrap');
+      card.stage.appendChild(el('div', 'mv-hint', 'Drag to rotate · scroll or pinch to zoom · double-click to reset'));
+      card.el.appendChild(card.stage);
+      card.objectsEl = el('div', 'pub-model-objects');
+      card.el.appendChild(card.objectsEl);
+      list.appendChild(card.el);
+      cards.push(card);
+      if (file.size > MAX_BYTES) { card.stage.remove(); return; }
+
+      card.viewer = ModelViewer.create(card.stage);
+      file.arrayBuffer().then(function (buf) { return ModelViewer.parse(buf, file.name); }).then(function (objs) {
+        if (myRun !== run) return;
+        card.preview = objs;
+        card.viewer.setObjects(objs.map(function (o, j) { return { positions: o.positions, color: colourFor(card, j) }; }));
+        if (!estimateUrl) {
+          card.meta.textContent = objs.length > 1 ? objs.length + ' objects' : '';
+          if (objs.length > 1) renderObjectNames(card, objs);
+        }
+      }).catch(function (err) {
+        if (myRun !== run) return;
+        card.stage.classList.add('mv-failed');
+        card.stage.textContent = '';
+        card.stage.appendChild(el('div', 'mv-message', (err && err.message) || 'Couldn’t preview this file.'));
+        if (!estimateUrl) card.meta.textContent = '';
+      });
+
+      if (estimateUrl) analyse(card, myRun);
+    });
+    ws.hidden = cards.length === 0;
+    if (box) box.hidden = cards.length === 0;
+    scheduleTotal();
+  });
+
+  function renderObjectNames(card, objs) {
+    card.objectsEl.textContent = '';
+    objs.forEach(function (o, j) {
+      var row = el('div', 'pub-model-object');
+      var sw = el('span', 'pub-swatch'); sw.style.background = colourFor(card, j);
+      row.appendChild(sw);
+      row.appendChild(el('span', 'pub-model-object-name', o.name));
+      card.objectsEl.appendChild(row);
+    });
+  }
+
+  function analyse(card, myRun) {
+    var body = new FormData();
+    body.append('file', card.file);
+    fetch(estimateUrl, { method: 'POST', body: body, credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrf, 'Accept': 'application/json' } })
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          if (r.status === 429) return { ok: false, error: 'Too many estimates right now — try again in a minute.' };
+          return j || { ok: false, error: 'Estimate unavailable for this file.' };
+        });
+      })
+      .catch(function () { return { ok: false, error: 'Estimate unavailable right now.' }; })
+      .then(function (data) {
+        if (myRun !== run) return;
+        if (!data.ok) { card.meta.textContent = data.error; card.meta.classList.add('is-error'); scheduleTotal(); return; }
+        card.objects = data.objects || [];
+        card.warnings = data.warnings || [];
+        card.meta.textContent = dims(data.dimensions_mm) + (card.objects.length > 1 ? ' · ' + card.objects.length + ' objects' : '');
+        var dflt = defaultFilament();
+        card.materials = card.objects.map(function () { return dflt; });
+        renderObjects(card);
+        if (card.viewer && card.preview) card.objects.forEach(function (_, j) { card.viewer.setColor(j, colourFor(card, j)); });
+        scheduleTotal();
+      });
+  }
+
+  function renderObjects(card) {
+    card.objectsEl.textContent = '';
+    card.objects.forEach(function (o, j) {
+      var row = el('div', 'pub-model-object');
+      var sw = el('span', 'pub-swatch'); sw.style.background = colourFor(card, j);
+      row.appendChild(sw);
+      var label = el('span', 'pub-model-object-name', o.name);
+      label.appendChild(el('small', null, dims(o.dimensions_mm)));
+      row.appendChild(label);
+      var sel = el('select', 'pub-model-material');
+      sel.name = 'part_material_' + card.index + '_' + j;
+      sel.setAttribute('aria-label', 'Material for ' + o.name);
+      var none = el('option', null, 'Not sure — leave it to us'); none.value = ''; sel.appendChild(none);
+      filaments.forEach(function (f) {
+        var opt = el('option', null, f.name); opt.value = f.id;
+        if (card.materials[j] === f.id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', function () {
+        card.materials[j] = parseInt(sel.value, 10) || null;
+        sw.style.background = colourFor(card, j);
+        if (card.viewer) card.viewer.setColor(j, colourFor(card, j));
+        scheduleTotal();
+      });
+      row.appendChild(sel);
+      card.objectsEl.appendChild(row);
+    });
+    (card.warnings || []).forEach(function (w) { card.objectsEl.appendChild(el('div', 'pub-estimate-warning', w)); });
+  }
+
+  ['multi_material', 'clean_supports'].forEach(function (name) {
+    var cb = document.querySelector('input[name="' + name + '"]');
+    if (cb) cb.addEventListener('change', scheduleTotal);
+  });
+
+  function scheduleTotal() {
+    if (!box || !totalUrl) return;
+    clearTimeout(totalTimer);
+    totalTimer = setTimeout(updateTotal, 200);
+  }
+
+  function updateTotal() {
+    var parts = [];
+    cards.forEach(function (c) {
+      (c.objects || []).forEach(function (o, j) {
+        parts.push({ name: o.name, volume_cm3: o.volume_cm3, filament_id: c.materials[j] || null });
+      });
+    });
+    var total = box.querySelector('.pub-estimate-total'), breakdown = box.querySelector('.pub-estimate-breakdown'),
+      warn = box.querySelector('.pub-estimate-warnings');
+    if (!parts.length) {
+      var pending = cards.some(function (c) { return c.objects === null && !c.meta.classList.contains('is-error'); });
+      total.textContent = pending ? 'Analysing…' : 'We’ll price this in your quote.';
+      breakdown.textContent = ''; warn.textContent = '';
+      return;
+    }
+    var myRun = ++totalRun;
+    fetch(totalUrl, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'Accept': 'application/json' },
+      body: JSON.stringify({ parts: parts,
+        multi_material: !!(document.querySelector('input[name="multi_material"]') || {}).checked,
+        clean_supports: !!(document.querySelector('input[name="clean_supports"]') || {}).checked }) })
+      .then(function (r) { return r.json(); })
+      .then(function (est) {
+        if (myRun !== totalRun) return;
+        total.textContent = ''; breakdown.textContent = ''; warn.textContent = '';
+        if (!est.ok) { total.textContent = est.error || 'Estimate unavailable.'; return; }
+        total.appendChild(el('span', 'pub-estimate-amount', money(est.low) + ' – ' + money(est.high)));
+        total.appendChild(el('span', 'pub-estimate-material', '≈' + Math.round(est.grams).toLocaleString() + ' g · ~' +
+          (est.hours < 1 ? '<1' : Math.round(est.hours)) + ' h print'));
+        var mats = {};
+        est.lines.forEach(function (l) {
+          var key = l.filament;
+          mats[key] = mats[key] || { grams: 0, color: l.color, chosen: l.chosen };
+          mats[key].grams += l.grams;
+        });
+        Object.keys(mats).forEach(function (name, i) {
+          var row = el('div', 'pub-estimate-line');
+          var sw = el('span', 'pub-swatch'); sw.style.background = ModelViewer.colorFor(mats[name].color || name, i);
+          row.appendChild(sw);
+          row.appendChild(el('span', null, name + (mats[name].chosen ? '' : ' (until you choose)')));
+          row.appendChild(el('span', 'num', '≈' + Math.round(mats[name].grams) + ' g'));
+          breakdown.appendChild(row);
+        });
+        if (est.support) {
+          var srow = el('div', 'pub-estimate-line');
+          srow.appendChild(el('span', 'pub-swatch is-support'));
+          srow.appendChild(el('span', null, 'Clean supports · ' + est.support.filament));
+          srow.appendChild(el('span', 'num', '≈' + Math.round(est.support.grams) + ' g'));
+          breakdown.appendChild(srow);
+        }
+        if (est.multi_material) {
+          breakdown.appendChild(el('div', 'pub-estimate-sub', 'Includes a multi-material allowance for purging and filament changes.'));
+        }
+        (est.warnings || []).forEach(function (w) { warn.appendChild(el('div', 'pub-estimate-warning', w)); });
+      })
+      .catch(function () { if (myRun === totalRun) total.textContent = 'Estimate unavailable right now.'; });
+  }
+});
+</script>
