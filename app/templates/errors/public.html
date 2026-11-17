@@ -1,0 +1,5 @@
+{% extends 'public/public_base.html' %}
+{% block title %}{{ title }} — {{ business.name or '3D Printing' }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}{% set dash = False %}{% include 'errors/_body.html' %}{% endblock %}
