@@ -19,6 +19,10 @@ document.addEventListener('DOMContentLoaded', function () {
   var csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
   var MAX_FILES = 5, MAX_BYTES = 15 * 1024 * 1024;
   var cards = [], run = 0, totalTimer = 0, totalRun = 0;
+  // Per-file results, kept across re-renders so adding/removing a file doesn't
+  // re-analyse (or re-preview) the others or forget their chosen materials.
+  var cache = {};
+  function fileKey(f) { return f.name + '|' + f.size + '|' + f.lastModified; }
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -43,13 +47,16 @@ document.addEventListener('DOMContentLoaded', function () {
     list.textContent = '';
   }
 
-  input.addEventListener('change', function () {
+  input.addEventListener(input.dataset.accumulate ? 'files-updated' : 'change', function () {
     run += 1;
     clear();
-    var myRun = run;
+    var myRun = run, skipped = 0;
     Array.prototype.forEach.call(input.files || [], function (file, index) {
-      if (!/\.(stl|obj|3mf)$/i.test(file.name) || cards.length >= MAX_FILES) return;
-      var card = { file: file, index: index, objects: null, materials: [], viewer: null };
+      if (!/\.(stl|obj|3mf)$/i.test(file.name)) return;
+      if (cards.length >= MAX_FILES) { skipped += 1; return; }
+      var key = fileKey(file);
+      var cached = cache[key] = cache[key] || {};
+      var card = { file: file, index: index, objects: null, materials: [], viewer: null, cached: cached };
       card.el = el('div', 'pub-model-card');
       var head = el('div', 'pub-model-head');
       head.appendChild(el('span', 'pub-model-name', file.name));
@@ -66,7 +73,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (file.size > MAX_BYTES) { card.stage.remove(); return; }
 
       card.viewer = ModelViewer.create(card.stage);
-      file.arrayBuffer().then(function (buf) { return ModelViewer.parse(buf, file.name); }).then(function (objs) {
+      (cached.preview ? Promise.resolve(cached.preview)
+        : file.arrayBuffer().then(function (buf) { return ModelViewer.parse(buf, file.name); })
+      ).then(function (objs) {
+        cached.preview = objs;
         if (myRun !== run) return;
         card.preview = objs;
         card.viewer.setObjects(objs.map(function (o, j) { return { positions: o.positions, color: colourFor(card, j) }; }));
@@ -84,6 +94,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (estimateUrl) analyse(card, myRun);
     });
+    if (skipped) {
+      list.appendChild(el('p', 'pub-models-note', 'Previews and the instant estimate cover the first ' + MAX_FILES +
+        ' models — the other ' + skipped + ' will still be uploaded and included in your quote.'));
+    }
     ws.hidden = cards.length === 0;
     if (box) box.hidden = cards.length === 0;
     scheduleTotal();
@@ -101,9 +115,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function analyse(card, myRun) {
+    var cached = card.cached;
+    if (cached.data) { applyEstimate(card, cached.data); return; }
+    if (cached.pending) { cached.pending.then(function () { if (myRun === run) applyEstimate(card, cached.data); }); return; }
     var body = new FormData();
     body.append('file', card.file);
-    fetch(estimateUrl, { method: 'POST', body: body, credentials: 'same-origin',
+    var pending = fetch(estimateUrl, { method: 'POST', body: body, credentials: 'same-origin',
       headers: { 'X-CSRFToken': csrf, 'Accept': 'application/json' } })
       .then(function (r) {
         return r.json().catch(function () { return null; }).then(function (j) {
@@ -113,17 +130,34 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .catch(function () { return { ok: false, error: 'Estimate unavailable right now.' }; })
       .then(function (data) {
-        if (myRun !== run) return;
-        if (!data.ok) { card.meta.textContent = data.error; card.meta.classList.add('is-error'); scheduleTotal(); return; }
-        card.objects = data.objects || [];
-        card.warnings = data.warnings || [];
-        card.meta.textContent = dims(data.dimensions_mm) + (card.objects.length > 1 ? ' · ' + card.objects.length + ' objects' : '');
-        var dflt = defaultFilament();
-        card.materials = card.objects.map(function () { return dflt; });
-        renderObjects(card);
-        if (card.viewer && card.preview) card.objects.forEach(function (_, j) { card.viewer.setColor(j, colourFor(card, j)); });
-        scheduleTotal();
+        // Rate-limit / network failures aren't cached, so they're retried next time.
+        var transient = !data.ok && /try again|right now/i.test(data.error || '');
+        if (!transient) cached.data = data;
+        cached.pending = null;
+        if (myRun === run) applyEstimate(card, data);
+        return data;
       });
+    cached.pending = pending;
+  }
+
+  function applyEstimate(card, data) {
+    if (!data || !data.ok) {
+      card.meta.textContent = (data && data.error) || 'Estimate unavailable for this file.';
+      card.meta.classList.add('is-error');
+      scheduleTotal();
+      return;
+    }
+    card.objects = data.objects || [];
+    card.warnings = data.warnings || [];
+    card.meta.textContent = dims(data.dimensions_mm) + (card.objects.length > 1 ? ' · ' + card.objects.length + ' objects' : '');
+    if (!card.cached.materials) {
+      var dflt = defaultFilament();
+      card.cached.materials = card.objects.map(function () { return dflt; });
+    }
+    card.materials = card.cached.materials;  // shared, so picks survive re-renders
+    renderObjects(card);
+    if (card.viewer && card.preview) card.objects.forEach(function (_, j) { card.viewer.setColor(j, colourFor(card, j)); });
+    scheduleTotal();
   }
 
   function renderObjects(card) {

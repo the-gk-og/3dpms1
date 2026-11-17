@@ -144,6 +144,68 @@
     radios.forEach(function(r) { r.addEventListener('change', update); });
     update();
   });
+
+  /* File pickers add to a running list instead of replacing it, with a remove button
+     per file. Dispatches "files-updated" on the input whenever the list changes.
+     Without DataTransfer support the native single-selection behaviour remains. */
+  document.addEventListener('DOMContentLoaded', function() {
+    var MAX_TOTAL = 32 * 1024 * 1024;  // mirrors MAX_CONTENT_LENGTH for the whole form
+    function size(n) { return n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1024 / 1024).toFixed(1) + ' MB'; }
+    document.querySelectorAll('input[type="file"][multiple]').forEach(function(input) {
+      var supported = true;
+      try { new DataTransfer(); } catch (e) { supported = false; }
+      if (!supported) return;
+      input.dataset.accumulate = '1';
+      var kept = [];
+      var list = document.createElement('ul');
+      list.className = 'pub-file-list';
+      (input.closest('label') || input).insertAdjacentElement('afterend', list);
+
+      function sync() {
+        var dt = new DataTransfer();
+        kept.forEach(function(f) { dt.items.add(f); });
+        input.files = dt.files;
+        render();
+        input.dispatchEvent(new CustomEvent('files-updated'));
+      }
+      function render() {
+        list.textContent = '';
+        var total = 0;
+        kept.forEach(function(f, i) {
+          total += f.size;
+          var li = document.createElement('li');
+          var name = document.createElement('span');
+          name.className = 'pub-file-name';
+          name.textContent = f.name;
+          var meta = document.createElement('span');
+          meta.className = 'pub-file-size';
+          meta.textContent = size(f.size);
+          var rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'pub-file-remove';
+          rm.setAttribute('aria-label', 'Remove ' + f.name);
+          rm.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+          rm.addEventListener('click', function() { kept.splice(i, 1); sync(); });
+          li.appendChild(name); li.appendChild(meta); li.appendChild(rm);
+          list.appendChild(li);
+        });
+        if (total > MAX_TOTAL) {
+          var warn = document.createElement('li');
+          warn.className = 'pub-file-warning';
+          warn.textContent = 'These files add up to ' + size(total) + ' — the limit for one order is ' + size(MAX_TOTAL) +
+            '. Remove some, or share large files as a link instead.';
+          list.appendChild(warn);
+        }
+      }
+      input.addEventListener('change', function() {
+        Array.prototype.forEach.call(input.files || [], function(f) {
+          var dup = kept.some(function(k) { return k.name === f.name && k.size === f.size && k.lastModified === f.lastModified; });
+          if (!dup) kept.push(f);
+        });
+        sync();
+      });
+    });
+  });
 </script>
 {% include 'public/_order_models_script.html' %}
 {% endblock %}
