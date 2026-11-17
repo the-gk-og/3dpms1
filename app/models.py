@@ -103,6 +103,10 @@ class BusinessSettings(db.Model):
     estimate_fill_factor = db.Column(db.Float, default=0.35)  # shell + infill share of a solid part
     estimate_grams_per_hour = db.Column(db.Float, default=12.0)
     estimate_max_mm = db.Column(db.Float, default=256.0)  # largest build dimension; bigger warns
+    # Customer portal (/account) — off by default; when off every /account route 404s.
+    portal_enabled = db.Column(db.Boolean, default=False)
+    portal_sign_in_email_subject = db.Column(db.String(300))
+    portal_sign_in_email_body_html = db.Column(db.Text)
 
 
 class Filament(db.Model):
@@ -715,3 +719,32 @@ class GalleryPhoto(db.Model):
     sort_order = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     uploaded_by = db.Column(db.String(150))
+
+
+class PortalLoginToken(db.Model):
+    """A single-use, short-lived magic sign-in link for the customer portal. Only the
+    SHA-256 of the random token is stored, so a database leak can't be replayed into
+    working links. See app/portal.py.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete='CASCADE'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+    requested_ip = db.Column(db.String(64))
+
+
+class PortalSession(db.Model):
+    """Server-side record of a signed-in customer portal session. The browser's Flask
+    session carries the client id plus a random nonce; only the nonce's SHA-256 is
+    kept here, so sign-out (or staff revoking) really ends the session even if the
+    signed cookie was copied somewhere.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete='CASCADE'), nullable=False, index=True)
+    nonce_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime)
+    remember = db.Column(db.Boolean, default=False)

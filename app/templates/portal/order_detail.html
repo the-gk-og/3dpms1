@@ -1,0 +1,50 @@
+{% extends 'public/public_base.html' %}
+{% from 'portal/_macros.html' import progress, status_badge, order_kind, invoice_row, quote_row, job_row %}
+{% block title %}{{ order.client_number }} — {{ business.name or '3D Printing' }}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+<a href="{{ url_for('portal.overview') }}" class="portal-back"><i class="fa fa-angle-left" aria-hidden="true"></i> My account</a>
+
+{% set status = order.tracking_status %}
+<div class="pub-track-result portal-detail">
+  <div class="pub-track-head">
+    <div>
+      <strong>{{ order.client_number }}</strong>
+      <p>{{ order_kind(order) }}</p>
+    </div>
+    {{ status_badge(status) }}
+  </div>
+  {{ progress(status, steps, progress_index) }}
+  <div class="pub-track-meta">
+    <i class="fa fa-calendar-o" aria-hidden="true"></i>
+    Placed {{ order.created_at.strftime('%d %B %Y') if order.created_at else '—' }}
+  </div>
+</div>
+
+{% if quote or invoices or jobs %}
+<section class="portal-section">
+  <h2>Documents</h2>
+  <div class="portal-list">
+    {% if quote %}{{ quote_row(quote, quote_upload_url) }}{% endif %}
+    {% for inv in invoices %}{{ invoice_row(inv, invoice_pay_url) }}{% endfor %}
+    {% for job in jobs %}{{ job_row(job) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="portal-section">
+  <h2>What you sent us</h2>
+  <dl class="pub-summary">
+    {% if data.description %}<div><dt>Description</dt><dd class="v portal-text">{{ data.description }}</dd></div>{% endif %}
+    {% set mats = (data.materials or []) + ([data.other_material] if data.other_material else []) %}
+    {% if mats %}<div><dt>Materials</dt><dd class="v">{{ mats|join(', ') }}</dd></div>{% endif %}
+    {% if data.model_files %}<div><dt>Model files</dt><dd class="v">{{ data.model_files|length }} file{{ 's' if data.model_files|length != 1 }}</dd></div>{% endif %}
+    {% if data.reference_images %}<div><dt>Reference images</dt><dd class="v">{{ data.reference_images|length }}</dd></div>{% endif %}
+    {% if data.model_links %}<div><dt>Model links</dt><dd class="v portal-text">{{ data.model_links }}</dd></div>{% endif %}
+    {% if data.reference_links %}<div><dt>Reference links</dt><dd class="v portal-text">{{ data.reference_links }}</dd></div>{% endif %}
+    {% if data.shipping_address %}<div><dt>Ship to</dt><dd class="v portal-text">{{ data.shipping_address }}</dd></div>{% endif %}
+    {% if data.notes %}<div><dt>Notes</dt><dd class="v portal-text">{{ data.notes }}</dd></div>{% endif %}
+  </dl>
+  <p class="portal-fine">Need to change something? <a href="{{ url_for('public.contact') }}">Send us a message</a> and quote {{ order.client_number }}.</p>
+</section>
+{% endblock %}

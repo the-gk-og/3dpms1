@@ -57,6 +57,9 @@ def run_migrations(db):
             'estimate_max_mm': 'FLOAT DEFAULT 256',
             'auto_survey_enabled': 'BOOLEAN DEFAULT 0',
             'auto_survey_delay_days': 'INTEGER DEFAULT 3',
+            'portal_enabled': 'BOOLEAN DEFAULT 0',
+            'portal_sign_in_email_subject': 'VARCHAR(300)',
+            'portal_sign_in_email_body_html': 'TEXT',
         },
         'filament': {
             'brand': 'VARCHAR(100)',

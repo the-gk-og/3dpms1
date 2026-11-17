@@ -206,6 +206,9 @@
     {{ email_template_fields_mobile('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
        '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
 
+    {{ email_template_fields_mobile('portal_sign_in', 'Customer Account Sign-In Link', 'Your sign-in link for {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{sign_in_link}} · {{expires_minutes}}') }}
+
     <div class="m-section-title">Notifications To You</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
       Sent to your business email when something happens — customizing these is optional.
@@ -290,6 +293,24 @@
       <input type="password" name="google_oauth_client_secret" value="" placeholder="GOCSPX-...">
     </div>
     <button type="submit" class="m-btn m-btn-primary">Save Security Settings</button>
+  </form>
+</div>
+
+<div class="m-card" style="margin-top: 1rem;">
+  <form method="post" action="{{ url_for('settings.save_settings') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="tab" value="security">
+    <input type="hidden" name="portal_form" value="1">
+    <div class="m-section-title" style="margin-top: 0;">Customer Accounts</div>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
+      Customers sign in at <code style="word-break: break-all;">{{ url_for('portal.sign_in', _external=True) }}</code>
+      with a one-time emailed link to see their orders, quotes and invoices. Needs SMTP set up.
+    </p>
+    <label style="display: flex; align-items: center; gap: 0.5rem;">
+      <input type="checkbox" name="portal_enabled" {% if business.portal_enabled %}checked{% endif %} style="width: auto;">
+      Enable customer accounts
+    </label>
+    <button type="submit" class="m-btn m-btn-primary">Save Customer Accounts</button>
   </form>
 </div>
 

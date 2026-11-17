@@ -1,0 +1,72 @@
+{# Shared bits for the customer portal pages. #}
+{% macro progress(status, steps, progress_index) %}
+{% set idx = progress_index(status) %}
+{% if idx >= 0 %}
+<ol class="pub-steps" style="--n: {{ steps|length }};" aria-label="Order progress">
+  {% for label, matches in steps %}
+  <li class="{% if loop.index0 < idx %}done{% elif loop.index0 == idx %}current{% endif %}"{% if loop.index0 == idx %} aria-current="step"{% endif %}>{{ label }}</li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% endmacro %}
+
+{% macro status_badge(status) %}
+{% set tone = 'ok' if status in ('Paid', 'Complete', 'Accepted', 'Invoiced') else ('bad' if status in ('Overdue', 'Cancelled', 'Declined', 'Rejected', 'Expired') else '') %}
+<span class="pub-status-badge portal-badge {{ tone }}">{{ status }}</span>
+{% endmacro %}
+
+{% macro order_kind(order) %}{{ 'Design request' if order.model_source == 'need_design' else 'Print order' }}{% endmacro %}
+
+{% macro money(value) %}${{ '{:,.2f}'.format(value or 0) }}{% endmacro %}
+
+{% macro invoice_row(inv, invoice_pay_url) %}
+{% set pay = invoice_pay_url(inv) %}
+{% set shown = 'Overdue' if inv.is_overdue else inv.status %}
+<div class="portal-row">
+  <div class="portal-row-main">
+    <strong>{{ inv.client_number }}</strong>
+    <span class="portal-row-sub">
+      {% if inv.status == 'Paid' and inv.paid_at %}Paid {{ inv.paid_at.strftime('%d %b %Y') }}
+      {% elif inv.due_date %}Due {{ inv.due_date.strftime('%d %b %Y') }}
+      {% else %}Issued {{ inv.created_at.strftime('%d %b %Y') if inv.created_at else '—' }}{% endif %}
+    </span>
+  </div>
+  {{ status_badge(shown) }}
+  <span class="portal-amount">{{ money(inv.total) }}</span>
+  <div class="portal-row-actions">
+    <a href="{{ url_for('portal.invoice_pdf', invoice_id=inv.id) }}" class="pub-btn pub-btn-secondary portal-btn-sm" target="_blank" rel="noopener"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> PDF</a>
+    {% if pay %}<a href="{{ pay }}" class="pub-btn portal-btn-sm"><i class="fa fa-credit-card" aria-hidden="true"></i> Pay</a>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro quote_row(q, quote_upload_url) %}
+{% set upload = quote_upload_url(q) %}
+{% set shown = 'Expired' if q.is_expired else ('Quote Sent' if q.status == 'Sent' else q.status) %}
+<div class="portal-row">
+  <div class="portal-row-main">
+    <strong>{{ q.client_number }}{% if q.version and q.version != '1' %} <span class="portal-row-sub">v{{ q.version }}</span>{% endif %}</strong>
+    <span class="portal-row-sub">
+      {% if q.signed_copy_uploaded_at %}Signed copy received {{ q.signed_copy_uploaded_at.strftime('%d %b %Y') }}
+      {% elif q.valid_until %}Valid until {{ q.valid_until.strftime('%d %b %Y') }}
+      {% else %}Issued {{ q.created_at.strftime('%d %b %Y') if q.created_at else '—' }}{% endif %}
+    </span>
+  </div>
+  {{ status_badge(shown) }}
+  <span class="portal-amount">{{ money(q.total) }}</span>
+  <div class="portal-row-actions">
+    <a href="{{ url_for('portal.quote_pdf', quote_id=q.id) }}" class="pub-btn pub-btn-secondary portal-btn-sm" target="_blank" rel="noopener"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> PDF</a>
+    {% if upload and not q.is_expired %}<a href="{{ upload }}" class="pub-btn portal-btn-sm"><i class="fa fa-pencil" aria-hidden="true"></i> Accept &amp; sign</a>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro job_row(job) %}
+<div class="portal-row">
+  <div class="portal-row-main">
+    <strong>{{ job.title }}</strong>
+    <span class="portal-row-sub">{{ job.client_number }}</span>
+  </div>
+  {{ status_badge(job.status) }}
+</div>
+{% endmacro %}

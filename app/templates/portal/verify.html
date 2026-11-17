@@ -1,0 +1,24 @@
+{% extends 'public/public_base.html' %}
+{% block title %}Sign in — {{ business.name or '3D Printing' }}{% endblock %}
+{% block head %}<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+<div class="pub-panel portal-auth">
+  {% if valid %}
+  <div class="pub-success"><i class="fa fa-lock" aria-hidden="true"></i></div>
+  <h1>Sign in to your account</h1>
+  <p>Continue to see your orders, quotes and invoices.</p>
+  <form method="post" class="pub-form portal-verify-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="pub-checkbox"><input type="checkbox" name="remember"> Keep me signed in on this device for 30 days</label>
+    <button type="submit" class="pub-btn pub-btn-block">Sign in</button>
+  </form>
+  <p class="portal-fine">Only tick "keep me signed in" on your own device.</p>
+  {% else %}
+  <div class="pub-success portal-icon-warn"><i class="fa fa-clock-o" aria-hidden="true"></i></div>
+  <h1>This link has expired</h1>
+  <p>Sign-in links work once and only for 30 minutes. Request a new one and use the latest email we send.</p>
+  <a href="{{ url_for('portal.sign_in') }}" class="pub-btn">Get a new link</a>
+  {% endif %}
+</div>
+{% endblock %}
