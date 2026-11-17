@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block page_title %}Reports{% endblock %}
+{% macro money(v) -%}{% if v < 0 %}−{% endif %}${{ "{:,.2f}".format(v|abs) }}{%- endmacro %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Reports</h2>
+    <p class="rpt-subtitle">Profit on paid invoices — {{ period_label|lower }}{% if range_label %} · {{ range_label }}{% endif %}</p>
+  </div>
+  <a href="{{ url_for('reports.export_csv', period=period) }}" class="btn btn-secondary btn-sm"><i class="fa fa-download" aria-hidden="true"></i> Export CSV</a>
+</div>
+
+<div class="tabs">
+  {% for key, label in periods %}
+  <a href="{{ url_for('reports.index', period=key) }}" class="tab-link{% if key == period %} active{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="cards">
+  <div class="card metric-card is-success">
+    <div class="metric-label"><i class="fa fa-line-chart" aria-hidden="true"></i> Revenue</div>
+    <div class="metric-value">{{ money(totals.revenue) }}</div>
+    <div class="metric-sub">Paid invoices, by payment date</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-label"><i class="fa fa-circle-o-notch" aria-hidden="true"></i> Material cost</div>
+    <div class="metric-value">{{ money(totals.cost) }}</div>
+    <div class="metric-sub">{{ money(totals.filament_cost) }} filament · {{ money(totals.hardware_cost) }} hardware</div>
+  </div>
+  <div class="card metric-card {{ 'is-danger' if totals.profit < 0 else 'is-accent' }}">
+    <div class="metric-label"><i class="fa fa-money" aria-hidden="true"></i> Estimated profit</div>
+    <div class="metric-value">{{ money(totals.profit) }}</div>
+    <div class="metric-sub">Revenue minus materials</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-label"><i class="fa fa-percent" aria-hidden="true"></i> Margin</div>
+    <div class="metric-value">{{ '%.1f%%'|format(totals.margin) if totals.margin is not none else '—' }}</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-label"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Invoices paid</div>
+    <div class="metric-value">{{ totals.count }}</div>
+    {% if totals.count %}<div class="metric-sub">{{ totals.actual_count }} with actual filament use</div>{% endif %}
+  </div>
+  <div class="card metric-card">
+    <div class="metric-label"><i class="fa fa-file-text-o" aria-hidden="true"></i> Average invoice</div>
+    <div class="metric-value">{{ money(totals.average) if totals.count else '—' }}</div>
+  </div>
+</div>
+
+{% if not rows %}
+<div class="card empty-state">
+  <div class="empty-state-icon"><i class="fa fa-bar-chart" aria-hidden="true"></i></div>
+  <p>No paid invoices {{ 'yet' if period == 'all' else 'in this period' }}.</p>
+  <p class="rpt-note">Invoices count here once they're marked Paid.{% if period != 'all' %} <a href="{{ url_for('reports.index', period='all') }}">See all time</a>{% endif %}</p>
+</div>
+{% else %}
+
+<div class="card rpt-chart-card">
+  <div class="card-head">
+    <h3>Revenue vs. material cost by month</h3>
+    <div class="rpt-legend">
+      <span><i class="rpt-swatch rpt-swatch-rev"></i> Revenue</span>
+      <span><i class="rpt-swatch rpt-swatch-cost"></i> Material cost</span>
+    </div>
+  </div>
+  {% set c = monthly_chart %}
+  <svg class="rpt-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="Monthly revenue and material cost">
+    {% for g in c.gridlines %}
+    <line class="rpt-grid" x1="{{ c.pad_l }}" x2="{{ c.plot_right }}" y1="{{ g.y }}" y2="{{ g.y }}"></line>
+    <text class="rpt-axis" x="{{ c.pad_l - 8 }}" y="{{ g.y + 4 }}" text-anchor="end">{{ g.label }}</text>
+    {% endfor %}
+    {% for b in c.bars %}
+    <g>
+      <title>{{ b.month.strftime('%B %Y') }} — revenue ${{ "{:,.2f}".format(b.revenue) }}, material cost ${{ "{:,.2f}".format(b.cost) }}</title>
+      <rect class="rpt-bar-rev" x="{{ b.rev_x }}" y="{{ b.rev_y }}" width="{{ c.bar_w }}" height="{{ b.rev_h }}" rx="2"></rect>
+      <rect class="rpt-bar-cost" x="{{ b.cost_x }}" y="{{ b.cost_y }}" width="{{ c.bar_w }}" height="{{ b.cost_h }}" rx="2"></rect>
+      {% if b.show_label %}<text class="rpt-axis" x="{{ b.label_x }}" y="{{ c.label_y }}" text-anchor="middle">{{ b.label }}</text>{% endif %}
+    </g>
+    {% endfor %}
+    <line class="rpt-baseline" x1="{{ c.pad_l }}" x2="{{ c.plot_right }}" y1="{{ c.baseline }}" y2="{{ c.baseline }}"></line>
+  </svg>
+</div>
+
+<div class="cards rpt-two-col">
+  <div class="card">
+    <div class="card-head"><h3>Revenue by client</h3><span class="rpt-note">Top {{ by_client|length }}</span></div>
+    {% set peak = by_client[0][1] if by_client else 0 %}
+    <div class="rpt-hbars">
+      {% for name, value in by_client %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-label" title="{{ name }}">{{ name }}</div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill" style="width: {{ (value / peak * 100) if peak > 0 else 0 }}%;"></div></div>
+        <div class="rpt-hbar-value">{{ money(value) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Filament used by material</h3><span class="rpt-note">grams</span></div>
+    {% if by_material %}
+    {% set peak = by_material[0][1] %}
+    <div class="rpt-hbars">
+      {% for name, grams in by_material %}
+      <div class="rpt-hbar-row">
+        <div class="rpt-hbar-label" title="{{ name }}">{{ name }}</div>
+        <div class="rpt-hbar-track"><div class="rpt-hbar-fill rpt-hbar-fill-alt" style="width: {{ (grams / peak * 100) if peak > 0 else 0 }}%;"></div></div>
+        <div class="rpt-hbar-value">{{ "{:,.0f}".format(grams) }}g</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No printed filament on these invoices.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h3>Most profitable invoices</h3><span class="rpt-note">Top {{ top|length }} of {{ rows|length }}</span></div>
+  <div class="rpt-table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Invoice</th><th>Client</th><th>Paid</th>
+          <th class="num">Revenue</th><th class="num">Material cost</th><th class="num">Profit</th><th class="num">Margin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in top %}
+        <tr>
+          <td><a href="{{ url_for('main.invoice_detail', invoice_id=r.invoice.id) }}">{{ r.number }}</a></td>
+          <td>{{ r.client }}</td>
+          <td>{{ r.paid_at.day }} {{ r.paid_at.strftime('%b %Y') }}</td>
+          <td class="num">{{ money(r.revenue) }}</td>
+          <td class="num">
+            {{ money(r.material_cost) }}
+            {% if r.source == 'actual' %}<span class="badge rpt-badge" title="Uses the filament actually deducted for this invoice's job(s)">actual</span>
+            {% elif r.source == 'estimated' %}<span class="badge rpt-badge rpt-badge-est" title="Uses the grams on the invoice's print lines">est.</span>{% endif %}
+          </td>
+          <td class="num {{ 'rpt-neg' if r.profit < 0 else 'rpt-pos' }}">{{ money(r.profit) }}</td>
+          <td class="num">{{ '%.1f%%'|format(r.margin) if r.margin is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<p class="rpt-footnote">
+  Material cost = filament grams × the filament's cost per kg, plus hardware on each line. Grams are the
+  amounts actually taken off the spools when an invoice's job has been completed, otherwise the invoice's
+  estimate. Labour, design time, electricity, machine wear, shipping, payment fees and other overheads are
+  <strong>not</strong> included, so real profit will be lower.
+</p>
+{% endblock %}

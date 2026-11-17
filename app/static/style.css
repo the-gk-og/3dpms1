@@ -1386,3 +1386,138 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .stock-alert strong { display: block; font-size: 0.9rem; }
 .stock-alert span { font-size: 0.825rem; color: var(--text-muted); }
 .stock-alert .stock-alert-cta { color: var(--warning); font-weight: 600; white-space: nowrap; }
+
+/* ==== Jobs: due dates & printer queue ==== */
+.due-soon-card { margin-bottom: 1.25rem; }
+.queue-add-form { margin-bottom: 1.25rem; }
+.queue-add-form.open { display: block; }
+.queue-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 320px);
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  align-items: start;
+}
+.queue-col {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.queue-col.is-unassigned { border-style: dashed; }
+.queue-col-head h3 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; }
+.queue-col-head h3 .fa { color: var(--accent); }
+.queue-col-stats { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.queue-col-head .collapsible-form.open { gap: 0.5rem; }
+.queue-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.75rem;
+  display: grid;
+  gap: 0.3rem;
+  scroll-margin-top: 5rem;
+}
+.queue-card:target { border-color: var(--accent); }
+.queue-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.queue-card-num { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.queue-card-title { font-weight: 600; font-size: 0.9rem; color: var(--text); text-decoration: none; }
+.queue-card-title:hover { color: var(--accent); }
+.queue-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.15rem; }
+.queue-card-actions { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
+.queue-card-actions form { margin: 0; }
+.queue-card-actions .btn-sm { padding: 0.25rem 0.5rem; }
+.queue-card-actions button[disabled] { opacity: 0.35; cursor: default; }
+.queue-assign { flex: 1; min-width: 0; }
+.queue-assign select { width: 100%; padding: 0.25rem 0.4rem; font-size: 0.8rem; margin: 0; }
+.queue-empty { font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1rem 0.5rem; }
+.queue-board .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* ==== Automation: surveys & restock ==== */
+.restock-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.restock-table th.num, .restock-table td.num { text-align: right; }
+.restock-table td { vertical-align: top; }
+.restock-table .badge { margin-left: 0.3rem; }
+.restock-sub { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.15rem; }
+.restock-qty { width: 5rem; text-align: right; }
+.restock-table tfoot td { border-top: 2px solid var(--border); }
+.auto-survey-toggle { display: flex; align-items: center; gap: 0.5rem; align-self: end; min-height: 36px; color: var(--text); }
+.auto-survey-toggle input { min-height: 0; }
+/* ==== end Automation: surveys & restock ==== */
+/* ==== Reports ==== */
+.rpt-subtitle { color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem; }
+.rpt-note { color: var(--text-muted); font-size: 0.8rem; }
+.rpt-footnote { color: var(--text-faint); font-size: 0.78rem; line-height: 1.5; margin: 1.25rem 0 0; max-width: 72ch; }
+.rpt-chart-card { margin-bottom: 1rem; }
+.rpt-chart { display: block; width: 100%; height: auto; }
+.rpt-chart .rpt-grid { stroke: var(--border); stroke-width: 1; }
+.rpt-chart .rpt-baseline { stroke: var(--border-strong); stroke-width: 1; }
+.rpt-chart .rpt-axis { fill: var(--text-muted); font-size: 11px; font-family: var(--font-sans); }
+.rpt-chart .rpt-bar-rev { fill: var(--accent-solid); }
+.rpt-chart .rpt-bar-cost { fill: var(--info); }
+.rpt-chart g:hover rect { opacity: 0.8; }
+.rpt-legend { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+.rpt-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rpt-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.rpt-swatch-rev { background: var(--accent-solid); }
+.rpt-swatch-cost { background: var(--info); }
+.rpt-two-col { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.rpt-hbars { display: flex; flex-direction: column; gap: 0.6rem; }
+.rpt-hbar-row { display: grid; grid-template-columns: minmax(80px, 9rem) 1fr auto; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+.rpt-hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt-hbar-track { background: var(--bg-secondary); border-radius: 4px; height: 10px; overflow: hidden; }
+.rpt-hbar-fill { background: var(--accent-solid); height: 100%; border-radius: 4px; min-width: 2px; }
+.rpt-hbar-fill-alt { background: var(--success); }
+.rpt-hbar-value { font-variant-numeric: tabular-nums; color: var(--text-muted); text-align: right; min-width: 4.5rem; }
+.rpt-table-wrap { overflow-x: auto; margin: 0 -0.25rem; }
+.rpt-badge { font-size: 0.65rem; margin-left: 0.35rem; background: var(--success-soft); color: var(--success); border-color: transparent; }
+.rpt-badge-est { background: var(--bg-hover); color: var(--text-muted); }
+.rpt-pos { color: var(--success); }
+.rpt-neg { color: var(--danger); }
+.rpt-table-wrap .data-table .num { text-align: right; white-space: nowrap; }
+/* ==== Payments (deposits & part payments — app/payments.py) ==== */
+.pay-panel .card-head { margin-bottom: 0.75rem; }
+.pay-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+.pay-totals > div { display: grid; gap: 0.15rem; }
+.pay-totals .detail-value { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.pay-list { margin: 0 -0.5rem 0.75rem; }
+.pay-row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem; }
+.pay-row form { margin: 0; }
+.pay-row .badge { margin-left: 0.3rem; }
+.pay-empty { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
+#record-payment-form { margin-top: 0.75rem; }
+.pay-deposit { display: flex; align-items: flex-end; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.pay-deposit label { flex: 1; margin: 0; }
+.pay-deposit button { margin: 0; }
+.pay-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; }
+.pay-balance-note { font-size: 0.75rem; font-weight: 500; color: var(--warning); }
+/* ==== /Payments ==== */
+/* ==== Gallery ==== */
+.gallery-upload { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.gallery-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+.gallery-admin-item { display: flex; flex-direction: column; gap: 0.75rem; scroll-margin-top: 5rem; }
+.gallery-admin-item:target { box-shadow: 0 0 0 3px var(--accent-ring); }
+.gallery-admin-thumb {
+  display: block;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-hover);
+}
+.gallery-admin-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-admin-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.gallery-admin-badges a.badge { text-decoration: none; }
+.gallery-admin-form { display: grid; gap: 0.5rem; }
+.gallery-admin-form label { display: grid; gap: 0.2rem; font-size: 0.775rem; color: var(--text-muted); }
+.gallery-admin-form button { justify-self: start; }
+.gallery-admin-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: auto; }
+.gallery-job-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 0.4rem; margin-bottom: 0.85rem; }
+.gallery-job-thumbs a { display: block; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--bg-hover); }
+.gallery-job-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }

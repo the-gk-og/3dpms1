@@ -45,6 +45,10 @@ class BusinessSettings(db.Model):
     about_text = db.Column(db.Text)
     # Filament at or below this many grams (summed across spools) is flagged as low stock
     low_stock_threshold_g = db.Column(db.Float, default=200.0)
+    # Automatic feedback surveys — sent by the `flask send-feedback-surveys` CLI
+    # command (run daily from an external cron) this many days after a job is completed.
+    auto_survey_enabled = db.Column(db.Boolean, default=False)
+    auto_survey_delay_days = db.Column(db.Integer, default=3)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))
@@ -94,6 +98,15 @@ class BusinessSettings(db.Model):
     # the app's "no public sign-up" invariant holds regardless of who has a Google account.
     google_oauth_client_id = db.Column(db.String(300))
     google_oauth_client_secret = db.Column(EncryptedString(500))
+    # Instant estimate on the public order form (see app/estimate.py for the model)
+    instant_estimate_enabled = db.Column(db.Boolean, default=False)
+    estimate_fill_factor = db.Column(db.Float, default=0.35)  # shell + infill share of a solid part
+    estimate_grams_per_hour = db.Column(db.Float, default=12.0)
+    estimate_max_mm = db.Column(db.Float, default=256.0)  # largest build dimension; bigger warns
+    # Customer portal (/account) — off by default; when off every /account route 404s.
+    portal_enabled = db.Column(db.Boolean, default=False)
+    portal_sign_in_email_subject = db.Column(db.String(300))
+    portal_sign_in_email_body_html = db.Column(db.Text)
 
 
 class Filament(db.Model):
@@ -296,6 +309,7 @@ class Invoice(db.Model):
     paid_at = db.Column(db.DateTime)
     last_reminder_sent_at = db.Column(db.DateTime)
     archived = db.Column(db.Boolean, default=False)
+    deposit_percent = db.Column(db.Float, default=0.0)  # 0 = no deposit requested (see app/payments.py)
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -332,6 +346,29 @@ class Invoice(db.Model):
         if not self.quote_id:
             return None
         return Request.query.filter_by(quote_id=self.quote_id).first()
+
+    # --- Deposits & part payments (see app/payments.py) ---
+    @property
+    def amount_paid(self):
+        return round(sum(p.amount or 0 for p in self.payments), 2)
+
+    @property
+    def balance_due(self):
+        """What's still owed. An invoice marked Paid by hand (no payment rows) owes nothing;
+        a cancelled one is never owed."""
+        if self.status in ('Paid', 'Cancelled'):
+            return 0.0
+        return max(round((self.total or 0) - self.amount_paid, 2), 0.0)
+
+    @property
+    def is_partially_paid(self):
+        return self.status not in ('Paid', 'Cancelled') and self.amount_paid > 0 and self.balance_due > 0
+
+    @property
+    def deposit_amount(self):
+        if not self.deposit_percent or self.deposit_percent <= 0:
+            return 0.0
+        return round((self.total or 0) * min(self.deposit_percent, 100) / 100, 2)
 
 
 class InvoiceItem(db.Model):
@@ -379,6 +416,15 @@ class Job(db.Model):
     # so the deduction can be shown and undone exactly.
     filament_deducted_at = db.Column(db.DateTime)
     filament_usage = db.Column(db.Text)
+    # Scheduling (see app/job_schedule.py): when the job should be done, which
+    # printer it's queued on, and its place in that printer's queue (lower = sooner).
+    due_date = db.Column(db.Date)
+    printer_id = db.Column(db.Integer, db.ForeignKey('printer.id'))
+    printer = db.relationship('Printer', backref='jobs')
+    queue_position = db.Column(db.Integer)
+    # When the job last moved into 'Complete' (cleared if moved back out) — drives
+    # the delay before the automatic feedback survey goes out.
+    completed_at = db.Column(db.DateTime)
 
     @property
     def display_number(self):
@@ -421,6 +467,17 @@ class Job(db.Model):
         if not self.quote_id:
             return None
         return Request.query.filter_by(quote_id=self.quote_id).first()
+
+
+class Printer(db.Model):
+    """A 3D printer jobs can be queued on (see app/printers.py). Deactivated
+    printers are kept for history but drop off the queue board."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    model = db.Column(db.String(150))
+    notes = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class JobFile(db.Model):
@@ -623,3 +680,71 @@ class AuditLog(db.Model):
     target_id = db.Column(db.String(50))
     detail = db.Column(db.String(500))
     ip_address = db.Column(db.String(64))
+
+
+class Payment(db.Model):
+    """A single payment against an invoice — a deposit, a part payment or the final
+    balance. Recorded by staff ('manual') or by the Stripe webhook ('stripe', keyed on
+    the Checkout Session id so a retried webhook can't record it twice). The invoice's
+    Paid status is derived from these in app/payments.py.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False, index=True)
+    invoice = db.relationship('Invoice', backref=db.backref(
+        'payments', order_by='Payment.paid_at', cascade='all, delete-orphan'))
+    amount = db.Column(db.Float, nullable=False, default=0.0)
+    method = db.Column(db.String(50))
+    paid_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    reference = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(150))
+    source = db.Column(db.String(20), nullable=False, default='manual')  # 'manual' | 'stripe'
+    stripe_session_id = db.Column(db.String(255), unique=True)
+
+
+class GalleryPhoto(db.Model):
+    """A photo of finished work for the public gallery. Nothing is shown publicly
+    until staff publish it; `featured` photos also appear on the home page. The
+    file lives on disk under gallery_uploads_dir() with a random stored name."""
+    id = db.Column(db.Integer, primary_key=True)
+    stored_filename = db.Column(db.String(100), nullable=False, unique=True)
+    original_filename = db.Column(db.String(300))
+    title = db.Column(db.String(200))
+    caption = db.Column(db.Text)
+    material = db.Column(db.String(100))
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    job = db.relationship('Job', backref=db.backref('gallery_photos', order_by='GalleryPhoto.id'))
+    published = db.Column(db.Boolean, default=False, nullable=False)
+    featured = db.Column(db.Boolean, default=False, nullable=False)
+    sort_order = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by = db.Column(db.String(150))
+
+
+class PortalLoginToken(db.Model):
+    """A single-use, short-lived magic sign-in link for the customer portal. Only the
+    SHA-256 of the random token is stored, so a database leak can't be replayed into
+    working links. See app/portal.py.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete='CASCADE'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+    requested_ip = db.Column(db.String(64))
+
+
+class PortalSession(db.Model):
+    """Server-side record of a signed-in customer portal session. The browser's Flask
+    session carries the client id plus a random nonce; only the nonce's SHA-256 is
+    kept here, so sign-out (or staff revoking) really ends the session even if the
+    signed cookie was copied somewhere.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete='CASCADE'), nullable=False, index=True)
+    nonce_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    revoked_at = db.Column(db.DateTime)
+    remember = db.Column(db.Boolean, default=False)

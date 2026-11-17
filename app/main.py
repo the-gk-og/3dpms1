@@ -29,6 +29,7 @@ from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_p
 from app.inventory import (
     deduct_filament_for_job, restore_filament_for_job, describe_deduction, low_stock_filaments,
 )
+from app.job_schedule import parse_due_date, due_soon_jobs, assign_to_printer
 
 main_bp = Blueprint('main', __name__, url_prefix='/dash')
 
@@ -213,6 +214,8 @@ def _invoice_pdf_bytes(invoice):
         due_date=invoice.due_date,
         payment_terms_font_size=business.payment_terms_font_size or 9,
         tos_font_size=business.tos_font_size or 8,
+        amount_paid=invoice.amount_paid if invoice.payments else None,
+        balance_due=invoice.balance_due if invoice.payments else None,
     )
 
 
@@ -330,9 +333,10 @@ def index():
     unpaid_invoices = Invoice.query.filter(
         Invoice.archived.is_(False), Invoice.status.notin_(['Paid', 'Cancelled'])
     ).all()
-    outstanding_total = sum(i.total or 0 for i in unpaid_invoices)
+    # balance_due == total for invoices with no payments; less for part-paid ones.
+    outstanding_total = sum(i.balance_due for i in unpaid_invoices)
     overdue_count = sum(1 for i in unpaid_invoices if i.is_overdue)
-    overdue_total = sum(i.total or 0 for i in unpaid_invoices if i.is_overdue)
+    overdue_total = sum(i.balance_due for i in unpaid_invoices if i.is_overdue)
 
     # Revenue: paid invoices, by when they were actually paid (not when created/sent) —
     # paid_at is set by both the manual status-change path and the Stripe webhook.
@@ -360,6 +364,7 @@ def index():
         revenue_this_year=revenue_this_year,
         low_stock=low_stock_filaments(settings.low_stock_threshold_g),
         low_stock_threshold=settings.low_stock_threshold_g if settings.low_stock_threshold_g is not None else 200,
+        due_soon=due_soon_jobs(today),
     )
 
 
@@ -819,6 +824,7 @@ def new_job():
             status='Queued',
             notes=(request.form.get('notes') or '').strip(),
             internal_notes=(request.form.get('internal_notes') or '').strip(),
+            due_date=parse_due_date(request.form.get('due_date')),
         )
         db.session.add(job)
         db.session.commit()
@@ -1247,8 +1253,14 @@ def jobs():
     if q:
         like = f'%{q}%'
         query = query.filter(db.or_(Job.title.ilike(like), Job.reference_number.ilike(like), Client.name.ilike(like)))
-    jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q)
+    sort = 'due' if request.args.get('sort') == 'due' else 'newest'
+    if sort == 'due':
+        # Soonest due first; jobs without a due date go last, newest first.
+        query = query.order_by(Job.due_date.is_(None), Job.due_date, Job.created_at.desc())
+    else:
+        query = query.order_by(Job.created_at.desc())
+    jobs = query.all()
+    return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q, sort=sort)
 
 
 @main_bp.route('/jobs/<int:job_id>/edit', methods=['POST'])
@@ -1261,9 +1273,14 @@ def edit_job(job_id):
     job.status = new_status
     if 'package_status' in request.form:
         job.package_status = request.form.get('package_status', job.package_status)
+    if 'due_date' in request.form:
+        job.due_date = parse_due_date(request.form.get('due_date'))
+    if 'printer_id' in request.form:
+        assign_to_printer(job, request.form.get('printer_id', type=int))
     # notes/internal_notes are edited via the standalone note editor
     # (main.edit_note / main.save_note) now, not this form.
     filament_note = _deduct_on_complete(job, old_status)
+    _track_completed_at(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1294,6 +1311,15 @@ def _deduct_on_complete(job, old_status):
         log_audit('filament_deducted', target_type='job', target_id=job.id,
                   detail=describe_deduction(result))
     return describe_deduction(result)
+
+
+def _track_completed_at(job, old_status):
+    """Stamp Job.completed_at on the move into Complete; clear it if the job is
+    moved back out (so the automatic feedback survey waits for the real finish)."""
+    if job.status == 'Complete' and (old_status != 'Complete' or not job.completed_at):
+        job.completed_at = datetime.utcnow()
+    elif job.status != 'Complete':
+        job.completed_at = None
 
 
 @main_bp.route('/jobs/<int:job_id>/filament/deduct', methods=['POST'])
@@ -1443,6 +1469,7 @@ def update_job_notes(job_id):
     job.internal_notes = request.form.get('internal_notes', '')
     new_status = job.status
     filament_note = _deduct_on_complete(job, old_status)
+    _track_completed_at(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):

@@ -3,12 +3,15 @@ import os
 from datetime import datetime
 
 import stripe
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, jsonify
 from werkzeug.utils import secure_filename
 
 from app import db, limiter
 from app.models import Client, Filament, Invoice, Job, Quote, Request
 from app.testimonials import public_testimonials, rating_summary
+from app.payments import (
+    payment_choice_needed, checkout_amount, record_stripe_checkout, notify_part_payment,
+)
 from app.helpers import (
     get_business_settings, generate_request_number, generate_reference_number, send_plain_email,
     notify_admin_new_submission, render_email_template, html_to_text,
@@ -254,6 +257,42 @@ def order_form():
     return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
 
 
+@public_bp.route('/order/estimate', methods=['POST'])
+@limiter.limit('10 per minute')
+def order_estimate():
+    """Instant rough estimate for one model file (JSON). Analysed in memory and
+    discarded — nothing from here is ever stored. 404 unless enabled in Settings.
+    """
+    from app.estimate import estimate_for_mesh
+    from app.mesh import MeshError, analyse_mesh
+
+    business = get_business_settings()
+    if not business.instant_estimate_enabled:
+        abort(404)
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify(ok=False, error='Please choose a model file.'), 400
+    data = file.stream.read(MAX_UPLOAD_SIZE_BYTES + 1)
+    if len(data) > MAX_UPLOAD_SIZE_BYTES:
+        return jsonify(ok=False, error=f'That file is too large to estimate '
+                                       f'({MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB max).'), 413
+    try:
+        mesh = analyse_mesh(data, file.filename)
+    except MeshError as exc:
+        return jsonify(ok=False, error=str(exc)), 422
+    except Exception:
+        return jsonify(ok=False, error='We couldn\u2019t read this file automatically.'), 422
+    finally:
+        del data
+
+    filaments = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    filament_id = request.form.get('filament_id', type=int)
+    if filament_id:
+        filaments = [f for f in filaments if f.id == filament_id]
+    return jsonify(estimate_for_mesh(mesh, filaments, business))
+
+
 @public_bp.route('/q/<token>/upload', methods=['GET', 'POST'])
 @limiter.limit('10 per minute', methods=['POST'])
 def upload_signed_quote(token):
@@ -397,6 +436,19 @@ def pay_invoice(token):
             error='Online payment isn\u2019t set up for this invoice yet. Please use one of the other payment methods listed on your invoice.',
         )
 
+    # Deposits & part payments: let the client choose (or see what's already been
+    # paid) before going to Stripe. Invoices with neither redirect straight away.
+    option = request.args.get('option')
+    if option not in ('deposit', 'full') and payment_choice_needed(invoice):
+        return render_template('pay_invoice.html', invoice=invoice, business=business, choose=True)
+    charge, charge_kind = checkout_amount(invoice, option)
+    if charge_kind == 'deposit':
+        charge_label = f'Deposit \u2014 invoice {invoice.client_number}'
+    elif invoice.amount_paid > 0:
+        charge_label = f'Balance of invoice {invoice.client_number}'
+    else:
+        charge_label = f'Invoice {invoice.client_number}'
+
     stripe.api_key = business.stripe_secret_key
 
     # invoice.total already bakes in the surcharge when Stripe was the ONE payment
@@ -412,13 +464,13 @@ def pay_invoice(token):
     line_items = [{
         'price_data': {
             'currency': 'aud',
-            'unit_amount': round(invoice.total * 100),
-            'product_data': {'name': f'Invoice {invoice.client_number}'},
+            'unit_amount': round(charge * 100),
+            'product_data': {'name': charge_label},
         },
         'quantity': 1,
     }]
     if stripe_surcharge_pct:
-        surcharge_amount = round(invoice.total * stripe_surcharge_pct / 100, 2)
+        surcharge_amount = round(charge * stripe_surcharge_pct / 100, 2)
         line_items.append({
             'price_data': {
                 'currency': 'aud',
@@ -434,6 +486,8 @@ def pay_invoice(token):
             payment_method_types=['card'],
             line_items=line_items,
             client_reference_id=invoice.pay_token,
+            # The webhook records exactly this (surcharge excluded) as a Payment.
+            metadata={'invoice_amount': f'{charge:.2f}', 'payment_kind': charge_kind},
             success_url=url_for('public.pay_invoice_success', token=token, _external=True),
             cancel_url=url_for('public.pay_invoice', token=token, _external=True),
         )
@@ -481,11 +535,11 @@ def stripe_webhook():
         session = event['data']['object']
         token = session.get('client_reference_id')
         invoice = Invoice.query.filter_by(pay_token=token).first() if token else None
-        if invoice and invoice.status != 'Paid':
-            invoice.status = 'Paid'
-            invoice.paid_at = datetime.utcnow()
-            db.session.commit()
-
+        was_paid = invoice.status == 'Paid' if invoice else True
+        payment, created = record_stripe_checkout(invoice, session) if invoice else (None, False)
+        if created and not was_paid and invoice.status != 'Paid':
+            notify_part_payment(business, invoice, payment)  # deposit / part payment
+        if created and not was_paid and invoice.status == 'Paid':
             try:
                 client_name = invoice.client.name if invoice.client else 'A client'
                 default_subject = f'Invoice {invoice.display_number} paid \u2014 ${invoice.total:,.2f}'

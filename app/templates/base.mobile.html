@@ -41,7 +41,7 @@
       <a href="{{ url_for('main.jobs') }}" class="m-tab{% if ep.startswith('main.job') %} active{% endif %}">
         <span class="m-tab-icon">🎯</span><span>Jobs</span>
       </a>
-      <a href="#" class="m-tab{% if ep.startswith('main.client') or ep.startswith('main.request') or ep.startswith('filament.') or ep.startswith('settings.') or ep.startswith('feedback.') %} active{% endif %}" onclick="document.getElementById('moreSheet').classList.add('open'); return false;">
+      <a href="#" class="m-tab{% if ep.startswith('main.client') or ep.startswith('main.request') or ep.startswith('filament.') or ep.startswith('settings.') or ep.startswith('feedback.') or ep.startswith('reports.') %} active{% endif %}" onclick="document.getElementById('moreSheet').classList.add('open'); return false;">
         <span class="m-tab-icon">⋯</span><span>More</span>
       </a>
     </nav>
@@ -50,9 +50,12 @@
       <div class="m-more-panel">
         <div class="m-more-handle"></div>
         <a href="{{ url_for('main.requests_list') }}" class="m-more-item"><span>📥</span> Requests</a>
+        <a href="{{ url_for('printers.index') }}" class="m-more-item"><span>🖨️</span> Printers</a>
         <a href="{{ url_for('feedback.dashboard') }}" class="m-more-item"><span>⭐</span> Feedback</a>
+        <a href="{{ url_for('reports.index') }}" class="m-more-item"><span>📊</span> Reports</a>
         <a href="{{ url_for('filament.index') }}" class="m-more-item"><span>🎨</span> Filament</a>
         <a href="{{ url_for('main.clients') }}" class="m-more-item"><span>👥</span> Clients</a>
+        <a href="{{ url_for('gallery.index') }}" class="m-more-item"><span>🖼️</span> Gallery</a>
         <a href="{{ url_for('settings.settings') }}" class="m-more-item"><span>⚙️</span> Settings</a>
         <hr class="m-divider" style="margin: 0.5rem 1.25rem; width: calc(100% - 2.5rem);">
         <a href="{{ url_for('auth.logout') }}" class="m-more-item" style="color: #f87171;"><span>🚪</span> Logout</a>

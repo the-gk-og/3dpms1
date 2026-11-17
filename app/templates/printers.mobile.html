@@ -1,0 +1,103 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Printers{% endblock %}
+{% block content %}
+
+{% for col in columns %}
+{% set printer = col.printer %}
+<div class="m-section-title" style="display: flex; justify-content: space-between; align-items: baseline;">
+  <span>{{ printer.name if printer else 'Unassigned' }}</span>
+  <span style="font-weight: 400; font-size: 0.78rem;">{{ '%g'|format(col.total_hours) }}h{% if col.finish_at %} · done ~{{ col.finish_at.strftime('%a %H:%M') }}{% endif %}</span>
+</div>
+{% if printer %}
+<button type="button" class="m-link-btn" style="font-size: 0.8rem; margin: -0.4rem 0 0.5rem;" onclick="toggleForm('printer-edit-{{ printer.id }}')">Edit {{ printer.name }}</button>
+<div id="printer-edit-{{ printer.id }}" class="collapsible-form m-card">
+  <form method="post" action="{{ url_for('printers.edit_printer', printer_id=printer.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Name</label><input type="text" name="name" value="{{ printer.name }}" required></div>
+    <div class="m-field"><label>Model</label><input type="text" name="model" value="{{ printer.model or '' }}"></div>
+    <div class="m-field"><label>Notes</label><input type="text" name="notes" value="{{ printer.notes or '' }}"></div>
+    <button type="submit" class="m-btn m-btn-primary">Save</button>
+  </form>
+  <form method="post" action="{{ url_for('printers.deactivate_printer', printer_id=printer.id) }}" onsubmit="return confirm('Deactivate {{ printer.name }}? Its queued jobs move to Unassigned.')" style="margin-top: 0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="m-btn m-btn-secondary">Deactivate</button>
+  </form>
+</div>
+{% endif %}
+
+{% for card in col.cards %}
+{% set job = card.job %}
+{% set due = due_badge(job) %}
+<div class="m-card" id="job-{{ job.id }}">
+  <a href="{{ url_for('main.job_detail', job_id=job.id) }}" style="text-decoration: none; color: inherit;">
+    <div class="m-card-sub">{% if printer %}#{{ loop.index }} · {% endif %}{{ job.display_number }}</div>
+    <div class="m-card-title">{{ job.title }}</div>
+    <div class="m-card-sub">{{ job.client.name if job.client else '—' }}</div>
+  </a>
+  <div class="m-card-meta">
+    <span class="m-badge">{{ job.status }}</span>
+    {% if due %}<span class="m-badge m-badge-{{ due[1] }}">{{ due[0] }}</span>{% endif %}
+    <span class="m-badge m-badge-muted">{{ '%g'|format(card.hours) if card.hours else '—' }}h</span>
+  </div>
+  <div class="m-card-actions">
+    <form method="post" action="{{ url_for('printers.move_job', job_id=job.id) }}" style="flex: 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="direction" value="up">
+      <button type="submit" class="m-btn m-btn-secondary m-btn-sm" aria-label="Move up"{% if loop.first %} disabled{% endif %}>↑</button>
+    </form>
+    <form method="post" action="{{ url_for('printers.move_job', job_id=job.id) }}" style="flex: 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="direction" value="down">
+      <button type="submit" class="m-btn m-btn-secondary m-btn-sm" aria-label="Move down"{% if loop.last %} disabled{% endif %}>↓</button>
+    </form>
+    <form method="post" action="{{ url_for('printers.assign_job', job_id=job.id) }}" style="flex: 1;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="printer_id" aria-label="Printer for {{ job.display_number }}" onchange="this.form.submit()" class="m-queue-select">
+        <option value=""{% if not printer %} selected{% endif %}>Unassigned</option>
+        {% for c in columns if c.printer %}
+        <option value="{{ c.printer.id }}"{% if printer and c.printer.id == printer.id %} selected{% endif %}>{{ c.printer.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="m-empty" style="padding: 1rem;">{% if printer %}Nothing queued.{% else %}Every open job is on a printer.{% endif %}</div>
+{% endfor %}
+{% endfor %}
+
+<div class="m-section-title">Add Printer</div>
+<div class="m-card">
+  <form method="post" action="{{ url_for('printers.add_printer') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Name</label><input type="text" name="name" placeholder="e.g. Bambu #1" required></div>
+    <div class="m-field"><label>Model</label><input type="text" name="model" placeholder="e.g. Bambu Lab P1S"></div>
+    <div class="m-field"><label>Notes</label><input type="text" name="notes"></div>
+    <button type="submit" class="m-btn m-btn-primary">Add printer</button>
+  </form>
+</div>
+
+{% if inactive_printers %}
+<div class="m-section-title">Inactive Printers</div>
+{% for p in inactive_printers %}
+<div class="m-card">
+  <div class="m-card-row">
+    <div>
+      <div class="m-card-title">{{ p.name }}</div>
+      <div class="m-card-sub">{{ p.model or '' }}</div>
+    </div>
+    <form method="post" action="{{ url_for('printers.activate_printer', printer_id=p.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary m-btn-sm">Reactivate</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) { document.getElementById(id).classList.toggle('open'); }
+</script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{# Payments panel for invoice_detail.html — deposits & part payments (app/payments.py). #}
+<div class="panel pay-panel" style="margin-top: 1rem;">
+  <div class="card-head">
+    <h3>Payments</h3>
+    {% if invoice.is_partially_paid %}<span class="badge badge-warning">Part paid</span>{% endif %}
+  </div>
+  <div class="pay-totals">
+    <div><span class="detail-label">Total</span><span class="detail-value">${{ "%.2f"|format(invoice.total or 0) }}</span></div>
+    <div><span class="detail-label">Paid</span><span class="detail-value">${{ "%.2f"|format(invoice.amount_paid) }}</span></div>
+    <div><span class="detail-label">Balance due</span><span class="detail-value accent">${{ "%.2f"|format(invoice.balance_due) }}</span></div>
+  </div>
+
+  {% if invoice.payments %}
+  <div class="pay-list">
+    {% for p in invoice.payments %}
+    <div class="list-row pay-row">
+      <div>
+        <div class="list-row-title">${{ "%.2f"|format(p.amount) }} <span class="list-row-sub">· {{ p.method or 'Unspecified' }}</span>
+          {% if p.source == 'stripe' %}<span class="badge badge-accent">Stripe</span>{% endif %}</div>
+        <div class="list-row-sub">{{ p.paid_at.strftime('%d %b %Y') }}{% if p.reference %} · {{ p.reference }}{% endif %}{% if p.created_by and p.source != 'stripe' %} · by {{ p.created_by }}{% endif %}</div>
+      </div>
+      <form method="post" action="{{ url_for('payments.remove_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('Delete this payment of ${{ '%.2f'|format(p.amount) }}?{% if p.source == 'stripe' %} It was taken through Stripe; deleting it here does not refund it.{% endif %}')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-sm btn-secondary">Delete</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="pay-empty">No payments recorded yet.</p>
+  {% endif %}
+
+  {% if invoice.status not in ('Paid', 'Cancelled') and invoice.balance_due > 0 %}
+  <button type="button" class="btn-sm btn-secondary" onclick="toggleForm('record-payment-form')">Record payment</button>
+  <form method="post" action="{{ url_for('payments.add_payment', invoice_id=invoice.id) }}" id="record-payment-form" class="collapsible-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid-2">
+      <label>Amount<input type="number" step="0.01" min="0.01" max="{{ '%.2f'|format(invoice.balance_due) }}" name="amount" value="{{ '%.2f'|format(invoice.balance_due) }}" required></label>
+      <label>Date<input type="date" name="paid_at" value="{{ now_date_iso }}"></label>
+    </div>
+    <label>Method
+      <select name="method">
+        {% for m in payment_method_names %}<option value="{{ m }}"{% if invoice.payment_method and invoice.payment_method.split(', ')[0] == m %} selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Note / reference<input type="text" name="reference" maxlength="300" placeholder="e.g. bank ref, receipt no."></label>
+    <button type="submit" class="btn-sm">Save payment</button>
+  </form>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('payments.set_deposit', invoice_id=invoice.id) }}" class="pay-deposit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Deposit %
+      <input type="number" step="0.1" min="0" max="100" name="deposit_percent" value="{{ '%g'|format(invoice.deposit_percent or 0) }}">
+    </label>
+    <button type="submit" class="btn-sm btn-secondary">Save</button>
+  </form>
+  <div class="pay-hint">
+    {% if invoice.deposit_amount %}Online payers can choose a ${{ "%.2f"|format(invoice.deposit_amount) }} deposit until something has been paid.{% else %}0 = no deposit; the pay link charges the full balance.{% endif %}
+  </div>
+</div>

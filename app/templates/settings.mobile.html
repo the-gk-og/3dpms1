@@ -35,6 +35,16 @@
     <div class="m-field"><label>Upload Logo</label><input type="file" name="logo" accept="image/*"></div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Used on PDF quotes and invoices</p>
 
+    <div class="m-section-title">Instant Estimate</div>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Rough price range on the order form for STL, OBJ and 3MF uploads. Always labelled as an estimate.</p>
+    <div class="m-checkbox-field">
+      <input type="checkbox" name="instant_estimate_enabled" id="instant_estimate_enabled"{% if business.instant_estimate_enabled %} checked{% endif %}>
+      <label for="instant_estimate_enabled" style="margin: 0;">Show instant estimates on the order form</label>
+    </div>
+    <div class="m-field"><label>Fill factor (walls + infill share)</label><input type="number" step="0.01" min="0.05" max="1" name="estimate_fill_factor" value="{{ '%g'|format(business.estimate_fill_factor or 0.35) }}" placeholder="0.35"></div>
+    <div class="m-field"><label>Print speed (grams per hour)</label><input type="number" step="0.1" min="0.5" name="estimate_grams_per_hour" value="{{ '%g'|format(business.estimate_grams_per_hour or 12) }}" placeholder="12"></div>
+    <div class="m-field"><label>Max build size (mm)</label><input type="number" step="1" min="1" name="estimate_max_mm" value="{{ '%g'|format(business.estimate_max_mm or 256) }}" placeholder="256"></div>
+
     <div class="m-section-title">About Page</div>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.75rem;">Shown on your public About page. Leave blank to use the default wording.</p>
     <div class="m-field"><label>Tagline</label><input type="text" name="about_tagline" maxlength="300" value="{{ business.about_tagline or '' }}" placeholder="e.g. Small-batch 3D printing from a home workshop"></div>
@@ -160,6 +170,14 @@
     <div class="m-field"><label>Password</label><input type="password" name="smtp_password" placeholder="Leave blank to keep current"></div>
     <div class="m-field"><label>From Email</label><input type="email" name="smtp_from_email" value="{{ business.smtp_from_email or '' }}"></div>
 
+    <div class="m-section-title">Automatic Feedback Surveys</div>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
+      Emails the client a survey a set number of days after their job is marked Complete (once per job).
+      Needs a daily cron job running <code>docker compose exec web flask send-feedback-surveys</code>.
+    </p>
+    <div class="m-field"><label><input type="checkbox" name="auto_survey_enabled"{% if business.auto_survey_enabled %} checked{% endif %}> Send surveys automatically</label></div>
+    <div class="m-field"><label>Days after completion</label><input type="number" step="1" min="0" name="auto_survey_delay_days" value="{{ business.auto_survey_delay_days if business.auto_survey_delay_days is not none else 3 }}"></div>
+
     <div class="m-section-title">Custom Email Templates</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
       Optional, per email type. Leave blank to use the plain default message. Preview shows what's
@@ -187,6 +205,9 @@
        '{{client_name}} · {{business_name}} · {{document_number}} · {{job_title}}') }}
     {{ email_template_fields_mobile('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
        '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
+
+    {{ email_template_fields_mobile('portal_sign_in', 'Customer Account Sign-In Link', 'Your sign-in link for {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{sign_in_link}} · {{expires_minutes}}') }}
 
     <div class="m-section-title">Notifications To You</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
@@ -272,6 +293,24 @@
       <input type="password" name="google_oauth_client_secret" value="" placeholder="GOCSPX-...">
     </div>
     <button type="submit" class="m-btn m-btn-primary">Save Security Settings</button>
+  </form>
+</div>
+
+<div class="m-card" style="margin-top: 1rem;">
+  <form method="post" action="{{ url_for('settings.save_settings') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="tab" value="security">
+    <input type="hidden" name="portal_form" value="1">
+    <div class="m-section-title" style="margin-top: 0;">Customer Accounts</div>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
+      Customers sign in at <code style="word-break: break-all;">{{ url_for('portal.sign_in', _external=True) }}</code>
+      with a one-time emailed link to see their orders, quotes and invoices. Needs SMTP set up.
+    </p>
+    <label style="display: flex; align-items: center; gap: 0.5rem;">
+      <input type="checkbox" name="portal_enabled" {% if business.portal_enabled %}checked{% endif %} style="width: auto;">
+      Enable customer accounts
+    </label>
+    <button type="submit" class="m-btn m-btn-primary">Save Customer Accounts</button>
   </form>
 </div>
 

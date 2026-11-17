@@ -1,0 +1,88 @@
+{% extends 'public/public_base.html' %}
+{% from 'portal/_macros.html' import progress, status_badge, order_kind, money, invoice_row, quote_row, job_row %}
+{% block title %}My account — {{ business.name or '3D Printing' }}{% endblock %}
+{% block flash_class %}{% endblock %}
+{% block content %}
+{% set first_name = (portal_client.name or '').split()[0] if portal_client.name else '' %}
+<div class="portal-head">
+  <div>
+    <h1>{% if first_name %}Hi {{ first_name }}{% else %}Your account{% endif %}</h1>
+    <p>Signed in as {{ portal_client.email }}</p>
+  </div>
+  <div class="portal-head-actions">
+    <a href="{{ url_for('public.order_form') }}" class="pub-btn"><i class="fa fa-plus" aria-hidden="true"></i> New order</a>
+    <form method="post" action="{{ url_for('portal.sign_out') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="pub-btn pub-btn-secondary">Sign out</button>
+    </form>
+  </div>
+</div>
+
+{% set open_invoices = invoices|rejectattr('status', 'in', ['Paid', 'Cancelled'])|list %}
+{% set active_orders = orders|rejectattr('tracking_status', 'in', ['Complete', 'Paid', 'Declined', 'Rejected', 'Cancelled'])|list %}
+<div class="portal-stats">
+  <div><span class="k">Orders in progress</span><span class="v">{{ active_orders|length }}</span></div>
+  <div><span class="k">Quotes</span><span class="v">{{ quotes|length }}</span></div>
+  <div><span class="k">Balance due</span><span class="v{% if outstanding %} due{% endif %}">{{ money(outstanding) }}</span></div>
+</div>
+
+{% if open_invoices %}
+<section class="portal-section">
+  <h2>To pay</h2>
+  <div class="portal-list">
+    {% for inv in open_invoices %}{{ invoice_row(inv, invoice_pay_url) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="portal-section">
+  <h2>Orders</h2>
+  {% if orders %}
+  <div class="portal-orders">
+    {% for order in orders %}
+    {% set status = order.tracking_status %}
+    <a class="portal-order" href="{{ url_for('portal.order_detail', order_id=order.id) }}">
+      <div class="pub-track-head">
+        <div>
+          <strong>{{ order.client_number }}</strong>
+          <p>{{ order_kind(order) }} · placed {{ order.created_at.strftime('%d %b %Y') if order.created_at else '—' }}</p>
+        </div>
+        {{ status_badge(status) }}
+      </div>
+      {{ progress(status, steps, progress_index) }}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="portal-empty">No orders yet. <a href="{{ url_for('public.order_form') }}">Start one</a> and it'll show up here.</div>
+  {% endif %}
+</section>
+
+{% if quotes %}
+<section class="portal-section">
+  <h2>Quotes</h2>
+  <div class="portal-list">
+    {% for q in quotes %}{{ quote_row(q, quote_upload_url) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% set settled = invoices|selectattr('status', 'in', ['Paid', 'Cancelled'])|list %}
+{% if settled %}
+<section class="portal-section">
+  <h2>Past invoices</h2>
+  <div class="portal-list">
+    {% for inv in settled %}{{ invoice_row(inv, invoice_pay_url) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if jobs %}
+<section class="portal-section">
+  <h2>Print jobs</h2>
+  <div class="portal-list">
+    {% for job in jobs %}{{ job_row(job) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

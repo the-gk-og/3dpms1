@@ -41,6 +41,15 @@
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Used on PDF quotes and invoices</p>
   </div>
   <div class="form-section">
+    <h3>Instant Estimate</h3>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.4rem 0 0.75rem;">Shows customers a rough price range on the order form when they upload an STL, OBJ or 3MF file. Uses your filament prices and hourly rate; always labelled as an estimate.</p>
+    <label class="checkbox-item checkbox-plain"><input type="checkbox" name="instant_estimate_enabled"{% if business.instant_estimate_enabled %} checked{% endif %}> Show instant estimates on the order form</label>
+    <label>Fill factor<input type="number" step="0.01" min="0.05" max="1" name="estimate_fill_factor" value="{{ '%g'|format(business.estimate_fill_factor or 0.35) }}" placeholder="0.35"></label>
+    <label>Print speed (grams per hour)<input type="number" step="0.1" min="0.5" name="estimate_grams_per_hour" value="{{ '%g'|format(business.estimate_grams_per_hour or 12) }}" placeholder="12"></label>
+    <label>Max build size (mm)<input type="number" step="1" min="1" name="estimate_max_mm" value="{{ '%g'|format(business.estimate_max_mm or 256) }}" placeholder="256"></label>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Fill factor is the share of a solid part that actually gets printed (walls + infill) &mdash; 0.35 suits ~15&ndash;20% infill. Models bigger than the max build size get a warning.</p>
+  </div>
+  <div class="form-section">
     <h3>About Page</h3>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.4rem 0 0.75rem;">Shown on your public <a href="{{ url_for('public.about') }}" target="_blank">About</a> page. Leave blank to use the default wording.</p>
     <label>Tagline<input type="text" name="about_tagline" maxlength="300" value="{{ business.about_tagline or '' }}" placeholder="e.g. Small-batch 3D printing from a home workshop in Brisbane"></label>
@@ -181,6 +190,20 @@
   </div>
 
   <div class="form-section">
+    <h3>Automatic Feedback Surveys</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Emails the client a feedback survey a set number of days after their job is marked Complete
+      (once per job — jobs that already have a survey are skipped). This app has no built-in
+      scheduler, so it needs a daily cron job running
+      <code>docker compose exec web flask send-feedback-surveys</code>.
+    </p>
+    <div class="form-grid-2">
+      <label class="auto-survey-toggle"><input type="checkbox" name="auto_survey_enabled"{% if business.auto_survey_enabled %} checked{% endif %}> Send surveys automatically</label>
+      <label>Days after completion<input type="number" step="1" min="0" name="auto_survey_delay_days" value="{{ business.auto_survey_delay_days if business.auto_survey_delay_days is not none else 3 }}"></label>
+    </div>
+  </div>
+
+  <div class="form-section">
     <h3>Custom Email Templates</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
       Optional, per email type. Leave the body blank to use our built-in styled HTML template —
@@ -212,6 +235,9 @@
 
     {{ email_template_fields('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
        '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
+
+    {{ email_template_fields('portal_sign_in', 'Customer Account Sign-In Link', 'Your sign-in link for {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{sign_in_link}} · {{expires_minutes}}') }}
 
     <h3 style="margin-top: 1.5rem;">Notifications To You</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
@@ -298,6 +324,24 @@
     <input type="password" name="google_oauth_client_secret" value="" placeholder="GOCSPX-...">
   </label>
   <button type="submit">Save Security Settings</button>
+</form>
+
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel" style="margin-top: 1.25rem;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="security">
+  <input type="hidden" name="portal_form" value="1">
+  <h3 style="margin-top: 0;">Customer Accounts</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Lets customers sign in at <code>{{ url_for('portal.sign_in', _external=True) }}</code> with a one-time
+    link emailed to the address on their client record, to see their orders, quotes, invoices and jobs in one
+    place. No passwords — they need access to that inbox. Requires email (SMTP) to be set up. Internal notes,
+    markup and cost breakdowns are never shown.
+  </p>
+  <label style="display: flex; align-items: center; gap: 0.5rem;">
+    <input type="checkbox" name="portal_enabled" {% if business.portal_enabled %}checked{% endif %} style="width: auto;">
+    Enable customer accounts
+  </label>
+  <button type="submit">Save Customer Accounts</button>
 </form>
 
 {% elif active_tab == 'users' %}

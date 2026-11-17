@@ -8,7 +8,7 @@
 </div>
 
 {% if low_stock %}
-<a href="{{ url_for('filament.index') }}" class="m-card" style="display: block; margin-bottom: 1.25rem; text-decoration: none; color: inherit; border-color: var(--warning);">
+<a href="{{ url_for('filament.restock') }}" class="m-card" style="display: block; margin-bottom: 1.25rem; text-decoration: none; color: inherit; border-color: var(--warning);">
   <div class="m-card-title" style="color: var(--warning);">⚠ {{ low_stock|length }} filament{{ 's' if low_stock|length != 1 }} running low</div>
   <div class="m-card-sub">{% for f in low_stock[:3] %}{{ f.name }} ({{ '%.0f'|format(f.total_remaining_g) }}g){{ ', ' if not loop.last }}{% endfor %}{% if low_stock|length > 3 %} +{{ low_stock|length - 3 }} more{% endif %}</div>
 </a>
@@ -41,6 +41,27 @@
     <div class="m-stat-value">{{ open_quotes_count }}</div>
   </div>
 </div>
+
+{% if due_soon %}
+<div class="m-section-title">Due Soon</div>
+{% for job in due_soon %}
+{% set due = due_badge(job) %}
+<a href="{{ url_for('main.job_detail', job_id=job.id) }}" style="text-decoration: none; color: inherit;">
+  <div class="m-card">
+    <div class="m-card-row">
+      <div>
+        <div class="m-card-title">{{ job.title }}</div>
+        <div class="m-card-sub">{{ job.display_number }} · {{ job.client.name if job.client else '—' }}</div>
+      </div>
+      <div style="text-align: right;">
+        {% if due %}<span class="m-badge m-badge-{{ due[1] }}">{{ due[0] }}</span>{% endif %}
+        <div class="m-card-sub">{{ job.due_date.strftime('%d %b') }}</div>
+      </div>
+    </div>
+  </div>
+</a>
+{% endfor %}
+{% endif %}
 
 <div class="m-section-title">Recent Quotes</div>
 {% for quote in quotes[:5] %}

@@ -1,0 +1,113 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Reports{% endblock %}
+{% macro money(v) -%}{% if v < 0 %}−{% endif %}${{ "{:,.2f}".format(v|abs) }}{%- endmacro %}
+{% block content %}
+
+<div class="m-subtabs">
+  {% for key, label in periods %}
+  <a href="{{ url_for('reports.index', period=key) }}" class="m-subtab{% if key == period %} active{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="m-stats-grid">
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Revenue</div>
+    <div class="m-stat-value" style="color: var(--success);">{{ money(totals.revenue) }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Material cost</div>
+    <div class="m-stat-value">{{ money(totals.cost) }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Est. profit</div>
+    <div class="m-stat-value"{% if totals.profit < 0 %} style="color: var(--danger);"{% endif %}>{{ money(totals.profit) }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Margin</div>
+    <div class="m-stat-value">{{ '%.1f%%'|format(totals.margin) if totals.margin is not none else '—' }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Invoices paid</div>
+    <div class="m-stat-value">{{ totals.count }}</div>
+  </div>
+  <div class="m-stat-tile">
+    <div class="m-stat-label">Avg invoice</div>
+    <div class="m-stat-value">{{ money(totals.average) if totals.count else '—' }}</div>
+  </div>
+</div>
+
+{% if not rows %}
+<div class="m-empty">
+  <div style="font-size: 2rem;">📊</div>
+  <p>No paid invoices {{ 'yet' if period == 'all' else 'in this period' }}.</p>
+</div>
+{% else %}
+
+<div class="m-section-title">By month</div>
+<div class="m-card">
+  {% set peak = (monthly | map(attribute='revenue') | max) or 0 %}
+  {% for m in monthly %}
+  <div class="m-rpt-row">
+    <div class="m-rpt-label">{{ m.month.strftime('%b %y') }}</div>
+    <div class="m-rpt-bars">
+      <div class="m-rpt-track"><div class="m-rpt-fill" style="width: {{ (m.revenue / peak * 100) if peak > 0 else 0 }}%;"></div></div>
+      <div class="m-rpt-track"><div class="m-rpt-fill m-rpt-fill-cost" style="width: {{ (m.cost / peak * 100) if peak > 0 else 0 }}%;"></div></div>
+    </div>
+    <div class="m-rpt-value">{{ money(m.revenue) }}<br><span>{{ money(m.cost) }}</span></div>
+  </div>
+  {% endfor %}
+  <div class="m-card-meta"><span style="color: var(--accent);">■ Revenue</span><span style="color: var(--info, #60a5fa);">■ Material cost</span></div>
+</div>
+
+<div class="m-section-title">Revenue by client</div>
+<div class="m-card">
+  {% set peak = by_client[0][1] if by_client else 0 %}
+  {% for name, value in by_client %}
+  <div class="m-rpt-row">
+    <div class="m-rpt-label">{{ name }}</div>
+    <div class="m-rpt-bars"><div class="m-rpt-track"><div class="m-rpt-fill" style="width: {{ (value / peak * 100) if peak > 0 else 0 }}%;"></div></div></div>
+    <div class="m-rpt-value">{{ money(value) }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if by_material %}
+<div class="m-section-title">Filament used by material</div>
+<div class="m-card">
+  {% set peak = by_material[0][1] %}
+  {% for name, grams in by_material %}
+  <div class="m-rpt-row">
+    <div class="m-rpt-label">{{ name }}</div>
+    <div class="m-rpt-bars"><div class="m-rpt-track"><div class="m-rpt-fill" style="width: {{ (grams / peak * 100) if peak > 0 else 0 }}%; background: var(--success);"></div></div></div>
+    <div class="m-rpt-value">{{ "{:,.0f}".format(grams) }}g</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="m-section-title">Most profitable invoices</div>
+{% for r in top %}
+<a href="{{ url_for('main.invoice_detail', invoice_id=r.invoice.id) }}" class="m-card" style="display: block; text-decoration: none; color: inherit;">
+  <div class="m-card-row">
+    <div>
+      <div class="m-card-title">{{ r.number }}</div>
+      <div class="m-card-sub">{{ r.client }}</div>
+    </div>
+    <div class="m-card-amount" style="color: {{ 'var(--danger)' if r.profit < 0 else 'var(--success)' }};">{{ money(r.profit) }}</div>
+  </div>
+  <div class="m-card-meta">
+    <span>Revenue {{ money(r.revenue) }}</span>
+    <span>Cost {{ money(r.material_cost) }}{% if r.source == 'estimated' %} (est.){% endif %}</span>
+    <span>{{ '%.1f%%'|format(r.margin) if r.margin is not none else '—' }} margin</span>
+  </div>
+</a>
+{% endfor %}
+{% endif %}
+
+<a href="{{ url_for('reports.export_csv', period=period) }}" class="m-btn m-btn-secondary" style="margin-top: 1rem;">Export CSV</a>
+
+<p class="m-rpt-footnote">
+  Material cost = filament grams × cost per kg (actual grams once a job's filament is deducted, otherwise
+  the invoice estimate) plus hardware. Labour, electricity and other overheads are not included.
+</p>
+{% endblock %}

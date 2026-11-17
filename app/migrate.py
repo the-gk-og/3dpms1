@@ -51,6 +51,15 @@ def run_migrations(db):
             'about_tagline': 'VARCHAR(300)',
             'about_text': 'TEXT',
             'low_stock_threshold_g': 'FLOAT DEFAULT 200',
+            'instant_estimate_enabled': 'BOOLEAN DEFAULT 0',
+            'estimate_fill_factor': 'FLOAT DEFAULT 0.35',
+            'estimate_grams_per_hour': 'FLOAT DEFAULT 12',
+            'estimate_max_mm': 'FLOAT DEFAULT 256',
+            'auto_survey_enabled': 'BOOLEAN DEFAULT 0',
+            'auto_survey_delay_days': 'INTEGER DEFAULT 3',
+            'portal_enabled': 'BOOLEAN DEFAULT 0',
+            'portal_sign_in_email_subject': 'VARCHAR(300)',
+            'portal_sign_in_email_body_html': 'TEXT',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -102,6 +111,10 @@ def run_migrations(db):
             'package_status': "VARCHAR(50) DEFAULT 'Not Packaged'",
             'filament_deducted_at': 'DATETIME',
             'filament_usage': 'TEXT',
+            'due_date': 'DATE',
+            'printer_id': 'INTEGER',
+            'queue_position': 'INTEGER',
+            'completed_at': 'DATETIME',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",
@@ -136,6 +149,8 @@ def run_migrations(db):
             'featured': 'BOOLEAN DEFAULT 0',
         },
     }
+    # Deposits & part payments (the payment table itself comes from db.create_all()).
+    column_migrations['invoice']['deposit_percent'] = 'FLOAT DEFAULT 0'
 
     for table, columns in column_migrations.items():
         if table not in existing_tables:

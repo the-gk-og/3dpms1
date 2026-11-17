@@ -6,6 +6,7 @@
     <h2>🎨 Filament Inventory</h2>
     <p style="color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem;">Manage your filament library, pricing, and spool stock</p>
   </div>
+  <a href="{{ url_for('filament.restock') }}" class="btn btn-secondary"><i class="fa fa-shopping-cart" aria-hidden="true"></i> Restock list{% if low_stock_count %} ({{ low_stock_count }}){% endif %}</a>
 </div>
 
 <div class="cards">

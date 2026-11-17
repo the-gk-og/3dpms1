@@ -13,6 +13,8 @@
         <div>
           <span class="badge badge-accent s-{{ (job.status or "")|lower|replace(" ", "-") }}">{{ job.status }}</span>
           <span class="badge badge-muted">📦 {{ job.package_status or 'Not Packaged' }}</span>
+          {% set due = due_badge(job) %}
+          {% if due %}<span class="badge badge-{{ due[1] }}"><i class="fa fa-clock-o" aria-hidden="true"></i> {{ due[0] }}</span>{% endif %}
           {% if job.archived %}
           <span class="badge badge-muted" style="margin-left: 0.4rem;">Archived</span>
           {% endif %}
@@ -24,6 +26,14 @@
         <div>
           <div class="detail-label">Client</div>
           <div class="detail-value">{{ job.client.name if job.client else '—' }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Due</div>
+          <div class="detail-value">{{ job.due_date.strftime('%d %b %Y') if job.due_date else '—' }}</div>
+        </div>
+        <div>
+          <div class="detail-label">Printer</div>
+          <div class="detail-value"><a href="{{ url_for('printers.index') }}#job-{{ job.id }}" style="color: inherit;">{{ job.printer.name if job.printer else 'Unassigned' }}</a>{% if job_print_hours(job) %} <span style="color: var(--text-muted); font-weight: 400; font-size: 0.85rem;">· ~{{ '%g'|format(job_print_hours(job)) }}h print</span>{% endif %}</div>
         </div>
         {% if job.model_source %}
         <div>
@@ -48,6 +58,18 @@
             {% for s in ['Not Packaged','Packaged','Shipped','Ready for Pickup','Delivered'] %}
             <option value="{{ s }}"{% if (job.package_status or 'Not Packaged') == s %} selected{% endif %}>{{ s }}</option>
             {% endfor %}
+          </select>
+        </label>
+        <label>Due date<input type="date" name="due_date" value="{{ job.due_date.isoformat() if job.due_date else '' }}"></label>
+        <label>Printer
+          <select name="printer_id">
+            <option value="">Unassigned</option>
+            {% for p in active_printers() %}
+            <option value="{{ p.id }}"{% if job.printer_id == p.id %} selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+            {% if job.printer and not job.printer.active %}
+            <option value="{{ job.printer.id }}" selected>{{ job.printer.name }} (inactive)</option>
+            {% endif %}
           </select>
         </label>
         <button type="submit" class="btn-sm">Save</button>
@@ -150,6 +172,30 @@
       {% else %}
       <p style="font-size: 0.85rem; color: var(--text-muted);">No files yet.</p>
       {% endif %}
+    </div>
+
+    <div class="panel">
+      <div class="card-head">
+        <h3><i class="fa fa-picture-o" aria-hidden="true" style="color: var(--accent);"></i> Gallery</h3>
+        <a href="{{ url_for('gallery.index') }}">Manage</a>
+      </div>
+      {% if job.gallery_photos %}
+      <div class="gallery-job-thumbs">
+        {% for p in job.gallery_photos %}
+        <a href="{{ url_for('gallery.index') }}#photo-{{ p.id }}" title="{{ p.title or 'Photo' }}{{ ' (published)' if p.published else ' (private)' }}">
+          <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Gallery photo' }}" loading="lazy">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('gallery.upload') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="job_id" value="{{ job.id }}">
+        <input type="hidden" name="next" value="{{ url_for('main.job_detail', job_id=job.id) }}">
+        <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp,image/gif" required aria-label="Photos for the gallery">
+        <button type="submit" class="btn-sm btn-secondary" style="margin-top: 0.5rem;">Add photos to gallery</button>
+      </form>
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.5rem 0 0;">Photos stay private until you publish them from the Gallery page.</p>
     </div>
   </div>
 </div>

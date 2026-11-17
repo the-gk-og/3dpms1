@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block page_title %}Gallery{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2><i class="fa fa-picture-o" aria-hidden="true" style="color: var(--accent);"></i> Gallery</h2>
+    <p style="color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem;">
+      Photos of past work for the public <a href="{{ url_for('gallery.public_gallery') }}" target="_blank" rel="noopener">gallery page</a>.
+      New uploads stay private until you publish them.
+    </p>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="metric-label">Photos</div>
+    <div class="metric-value">{{ photos|length }}</div>
+  </div>
+  <div class="card">
+    <div class="metric-label">Published</div>
+    <div class="metric-value">{{ published_count }}</div>
+  </div>
+  <div class="card">
+    <div class="metric-label">On home page</div>
+    <div class="metric-value">{{ [featured_count, max_featured]|min }}<span style="font-size: 0.9rem; color: var(--text-muted);"> / {{ max_featured }}</span></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom: 1.25rem;">
+  <h3 style="margin-top: 0;">Add photos</h3>
+  <form method="post" action="{{ url_for('gallery.upload') }}" enctype="multipart/form-data" class="gallery-upload">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" name="photos" multiple accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" required aria-label="Photos to upload">
+    <button type="submit"><i class="fa fa-upload" aria-hidden="true"></i> Upload</button>
+  </form>
+  <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.5rem 0 0;">JPG, PNG, WebP or GIF, up to 15 MB each. Don't include customer names or personal details in photos or captions.</p>
+</div>
+
+{% if photos %}
+<div class="gallery-admin-grid">
+  {% for p in photos %}
+  <div class="panel gallery-admin-item" id="photo-{{ p.id }}">
+    <a href="{{ url_for('gallery.photo_file', photo_id=p.id) }}" target="_blank" rel="noopener" class="gallery-admin-thumb">
+      <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Gallery photo' }}" loading="lazy">
+    </a>
+    <div class="gallery-admin-badges">
+      {% if p.published %}<span class="badge badge-success">Published</span>{% else %}<span class="badge badge-muted">Private</span>{% endif %}
+      {% if p.featured %}<span class="badge badge-accent"><i class="fa fa-star" aria-hidden="true"></i> Home page</span>{% endif %}
+      {% if p.job %}<a href="{{ url_for('main.job_detail', job_id=p.job.id) }}" class="badge badge-muted">{{ p.job.job_number or 'Job' }}</a>{% endif %}
+    </div>
+
+    <form method="post" action="{{ url_for('gallery.edit', photo_id=p.id) }}" class="gallery-admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Title <input type="text" name="title" value="{{ p.title or '' }}" maxlength="200"></label>
+      <label>Material <input type="text" name="material" value="{{ p.material or '' }}" maxlength="100" placeholder="e.g. PETG, Silk PLA"></label>
+      <label>Caption <textarea name="caption" rows="2" maxlength="2000">{{ p.caption or '' }}</textarea></label>
+      <button type="submit" class="btn-secondary btn-sm">Save details</button>
+    </form>
+
+    <div class="gallery-admin-actions">
+      <form method="post" action="{{ url_for('gallery.toggle_publish', photo_id=p.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if p.published %}
+        <button type="submit" class="btn-secondary btn-sm"><i class="fa fa-eye-slash" aria-hidden="true"></i> Unpublish</button>
+        {% else %}
+        <button type="submit" class="btn-sm btn-success"><i class="fa fa-globe" aria-hidden="true"></i> Publish</button>
+        {% endif %}
+      </form>
+      <form method="post" action="{{ url_for('gallery.toggle_feature', photo_id=p.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secondary btn-sm" aria-pressed="{{ 'true' if p.featured else 'false' }}" title="Show in the home page's Recent work strip">
+          <i class="fa {{ 'fa-star' if p.featured else 'fa-star-o' }}" aria-hidden="true"></i> {{ 'Unfeature' if p.featured else 'Feature' }}
+        </button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.move', photo_id=p.id, direction='up') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-sm" aria-label="Move earlier" title="Move earlier"{% if loop.first %} disabled{% endif %}><i class="fa fa-arrow-up" aria-hidden="true"></i></button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.move', photo_id=p.id, direction='down') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-sm" aria-label="Move later" title="Move later"{% if loop.last %} disabled{% endif %}><i class="fa fa-arrow-down" aria-hidden="true"></i></button>
+      </form>
+      <form method="post" action="{{ url_for('gallery.delete', photo_id=p.id) }}" onsubmit="return confirm('Delete this photo permanently?')" style="margin-left: auto;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-danger btn-sm" aria-label="Delete photo" title="Delete"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel" style="text-align: center; color: var(--text-muted); padding: 2.5rem 1rem;">
+  <i class="fa fa-picture-o" aria-hidden="true" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+  No photos yet. Upload some above, or add them from a job's page.
+</div>
+{% endif %}
+{% endblock %}
