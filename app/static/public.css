@@ -1583,3 +1583,145 @@ body.pub-lightbox-open { overflow: hidden; }
 }
 .pub-models-note { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
 /* ==== /Order form file list ==== */
+
+/* ==== Order form layout (compact, two columns on desktop) ==== */
+.pub-main.order-page { max-width: 1120px; padding-top: 2rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.order-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+form.pub-form.order-layout { gap: 1.5rem; }
+
+.order-head { margin-bottom: 1rem; }
+.order-head h1 { font-size: clamp(1.6rem, 3vw, 2rem); margin: 0 0 0.2rem; }
+.order-head p { margin: 0; color: var(--text-muted); }
+
+.order-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.order-section { display: grid; gap: 0.85rem; padding: 1.25rem 1.5rem; }
+.order-section + .order-section { border-top: 1px solid var(--border); }
+.order-section-title { display: flex; align-items: center; gap: 0.55rem; margin: 0; font-size: 0.95rem; font-weight: 700; }
+.order-section-title .num {
+  width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center;
+  font-size: 0.72rem; background: var(--accent-soft); color: var(--accent);
+}
+
+.order-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.order-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: start; }
+.pub-form .order-compact-label textarea { min-height: 42px; }
+.pub-form textarea[rows="1"] { min-height: 42px; resize: vertical; }
+
+/* Optional bits tucked away */
+.order-inline { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; }
+.order-disclosure { flex: 1 1 260px; }
+.order-disclosure summary {
+  display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; list-style: none;
+  font-size: 0.85rem; font-weight: 600; color: var(--accent); padding: 0.25rem 0;
+}
+.order-disclosure summary::-webkit-details-marker { display: none; }
+.order-disclosure[open] summary .fa-plus { transform: rotate(45deg); }
+.order-disclosure summary .fa { transition: transform 0.15s; font-size: 0.75rem; }
+.order-disclosure textarea { margin-top: 0.4rem; }
+
+/* Small toggle switches instead of big checkbox cards */
+.pub-form label.order-switch {
+  display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer;
+  font-size: 0.875rem; font-weight: 500; position: relative;
+}
+.order-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.order-switch-track {
+  flex: none; width: 34px; height: 20px; border-radius: 999px; position: relative;
+  background: var(--border-strong); transition: background 0.15s;
+}
+.order-switch-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform 0.15s;
+}
+.order-switch input:checked + .order-switch-track { background: var(--accent-solid); }
+.order-switch input:checked + .order-switch-track::after { transform: translateX(14px); }
+.order-switch input:focus-visible + .order-switch-track { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.order-switch small { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; margin-left: 0.25rem; }
+.order-options { display: flex; flex-wrap: wrap; gap: 0.6rem 1.5rem; }
+
+/* Segmented "have a model / need one" switch */
+.order-segmented {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px;
+}
+.order-segmented label { position: relative; cursor: pointer; }
+.order-segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.order-segmented span {
+  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+  padding: 0.55rem 0.75rem; border-radius: 9px; font-size: 0.875rem; font-weight: 600;
+  color: var(--text-muted); transition: background 0.15s, color 0.15s, box-shadow 0.15s; text-align: center;
+}
+.order-segmented input:checked + span { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm); }
+.order-segmented input:checked + span .fa { color: var(--accent); }
+.order-segmented input:focus-visible + span { outline: 2px solid var(--accent-solid); outline-offset: 1px; }
+
+/* Drop zone: the real file input covers it, so drag-and-drop works natively */
+.pub-form label.order-dropzone {
+  position: relative; display: block; border: 1.5px dashed var(--border-strong); border-radius: 12px;
+  background: var(--bg-secondary); transition: border-color 0.15s, background 0.15s; cursor: pointer;
+}
+.pub-form label.order-dropzone:hover, .order-dropzone:focus-within { border-color: var(--accent-solid); background: var(--accent-soft); }
+.pub-form .order-dropzone input[type="file"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0;
+  opacity: 0; cursor: pointer; border: 0;
+}
+.order-dropzone-body {
+  display: grid; justify-items: center; gap: 0.2rem; padding: 1.1rem 1rem; text-align: center;
+  font-weight: 400; font-size: 0.9rem; pointer-events: none;
+}
+.order-dropzone-body > .fa { font-size: 1.5rem; color: var(--accent); }
+.order-dropzone-body u { color: var(--accent); text-underline-offset: 2px; }
+.order-dropzone-body small { color: var(--text-muted); font-size: 0.78rem; }
+.order-dropzone-sm .order-dropzone-body { padding: 0.65rem 0.75rem; grid-auto-flow: column; justify-content: start; gap: 0.6rem; font-size: 0.85rem; }
+.order-dropzone-sm .order-dropzone-body > .fa { font-size: 1.1rem; }
+.pub-file-list { margin-top: -0.35rem; }
+
+/* Model preview cards a little shorter in this layout */
+.order-page .mv-wrap { height: 230px; }
+.order-page .pub-model-head { padding: 0.6rem 0.9rem; }
+.order-page .pub-model-objects { padding: 0.3rem 0.9rem 0.6rem; }
+
+/* Sticky summary */
+.order-side { position: sticky; top: 84px; }
+.order-summary {
+  display: grid; gap: 0.9rem; padding: 1.25rem;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.order-summary h2 { margin: 0; font-size: 1rem; }
+.order-summary .pub-estimate { background: var(--bg-secondary); }
+.order-next { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; counter-reset: next; }
+.order-next li { display: grid; grid-template-columns: auto 1fr; column-gap: 0.65rem; font-size: 0.85rem; counter-increment: next; }
+.order-next li::before {
+  content: counter(next); grid-row: span 2; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.72rem; font-weight: 700;
+  background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-muted);
+}
+.order-next span { color: var(--text-muted); }
+.order-terms { margin: 0; text-align: center; font-size: 0.78rem; color: var(--text-muted); }
+.order-summary .pub-estimate:not([hidden]) + .order-next { display: none; }
+
+@media (max-width: 900px) {
+  .order-layout { grid-template-columns: 1fr; }
+  .order-side { position: static; }
+}
+@media (max-width: 640px) {
+  .order-grid-3, .order-grid-2 { grid-template-columns: 1fr; }
+  .order-section { padding: 1.1rem 1rem; }
+  .order-segmented { grid-template-columns: 1fr; }
+}
+/* ==== /Order form layout ==== */
+.pub-swatch.is-fee { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pub-footer .pub-brand img.pub-footer-logo { max-height: 30px; max-width: 120px; }

@@ -2,104 +2,88 @@
 {% from '_turnstile.html' import turnstile_widget, turnstile_script %}
 {% block title %}Start an Order — {{ business.name or '3D Printing' }}{% endblock %}
 {% block head %}{{ turnstile_script(business) }}{% endblock %}
-{% block main_class %} narrow{% endblock %}
+{% block main_class %} order-page{% endblock %}
 {% block content %}
-<div class="pub-page-head">
-  <h1>Start an order</h1>
-  <p>Tell us what you need and we'll follow up with a quote.</p>
-</div>
+<form method="post" class="pub-form order-layout" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-<div class="pub-panel">
-  <form method="post" class="pub-form" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="order-main">
+    <header class="order-head">
+      <h1>Start an order</h1>
+      <p>Tell us what you need and we'll follow up with a quote.</p>
+    </header>
 
-    <section class="pub-form-section">
-      <h2 class="pub-form-section-title"><span class="num">1</span> Your details</h2>
-      <div class="pub-form-row">
-        <label>Name<input type="text" name="name" autocomplete="name" required></label>
-        <label>Phone number<input type="tel" name="phone" autocomplete="tel" required></label>
-      </div>
-      <label>Email<input type="email" name="email" autocomplete="email" required></label>
-      <label>Shipping address <span class="optional">(optional)</span><textarea name="shipping_address" rows="2" autocomplete="street-address"></textarea></label>
-      <label class="pub-checkbox">
-        <input type="checkbox" name="notify_me" checked> Notify me about my order status
-      </label>
-    </section>
-
-    <section class="pub-form-section">
-      <h2 class="pub-form-section-title"><span class="num">2</span> What do you need?</h2>
-      <div class="pub-radio-group">
-        <div class="pub-radio-card">
-          <label>
-            <input type="radio" name="model_source" value="has_model" checked>
-            I already have a model
-          </label>
-          <p>Upload your STL/3MF/OBJ file or share a link to it.</p>
+    <div class="order-card">
+      <section class="order-section">
+        <h2 class="order-section-title"><span class="num">1</span> Your details</h2>
+        <div class="order-grid-3">
+          <label>Name<input type="text" name="name" autocomplete="name" required></label>
+          <label>Email<input type="email" name="email" autocomplete="email" required></label>
+          <label>Phone<input type="tel" name="phone" autocomplete="tel" required></label>
         </div>
-        <div class="pub-radio-card">
-          <label>
-            <input type="radio" name="model_source" value="need_design">
-            I need one designed or found
-          </label>
-          <p>Describe what you're after and we'll take it from there.</p>
-        </div>
-      </div>
-
-      <!-- Has a model -->
-      <div class="pub-field-group active" data-group="has_model">
-        <label>Upload files <span class="optional">(STL, 3MF, OBJ, STEP, GCODE, ZIP)</span>
-          <input type="file" name="model_files" multiple accept=".stl,.3mf,.obj,.step,.stp,.gcode,.zip">
-        </label>
-        <div class="pub-models" id="model-workspace" hidden aria-live="polite"
-             data-estimate-url="{{ url_for('public.order_estimate') if business.instant_estimate_enabled else '' }}"
-             data-total-url="{{ url_for('public.order_estimate_total') if business.instant_estimate_enabled else '' }}">
-          <div class="pub-models-list"></div>
-        </div>
-        <div class="pub-print-options">
-          <label class="pub-checkbox pub-option">
-            <input type="checkbox" name="multi_material">
-            <span><strong>Multi-material print</strong><small>Print objects in different materials or colours together on one plate.</small></span>
-          </label>
-          <label class="pub-checkbox pub-option">
-            <input type="checkbox" name="clean_supports">
-            <span><strong>Clean supports</strong><small>Support interfaces in a separate break-away material{% if support_filament %} ({{ support_filament.name }}){% endif %}, so supported surfaces come off cleanly.</small></span>
+        <div class="order-inline">
+          <details class="order-disclosure">
+            <summary><i class="fa fa-plus" aria-hidden="true"></i> Add a shipping address</summary>
+            <label class="sr-only" for="shipping_address">Shipping address</label>
+            <textarea id="shipping_address" name="shipping_address" rows="2" autocomplete="street-address" placeholder="Street, suburb, state, postcode"></textarea>
+          </details>
+          <label class="order-switch">
+            <input type="checkbox" name="notify_me" checked>
+            <span class="order-switch-track" aria-hidden="true"></span>
+            Email me status updates
           </label>
         </div>
-        {% if business.instant_estimate_enabled %}
-        <div class="pub-estimate" id="instant-estimate" hidden aria-live="polite">
-          <div class="pub-estimate-head">
-            <span><i class="fa fa-calculator" aria-hidden="true"></i> Instant estimate</span>
-            <span class="pub-estimate-badge">Rough guide</span>
+      </section>
+
+      <section class="order-section">
+        <h2 class="order-section-title"><span class="num">2</span> Your model</h2>
+        <div class="order-segmented" role="radiogroup" aria-label="Do you have a model?">
+          <label><input type="radio" name="model_source" value="has_model" checked><span><i class="fa fa-cube" aria-hidden="true"></i> I have a model</span></label>
+          <label><input type="radio" name="model_source" value="need_design"><span><i class="fa fa-pencil" aria-hidden="true"></i> Design or find one for me</span></label>
+        </div>
+
+        <!-- Has a model -->
+        <div class="pub-field-group active" data-group="has_model">
+          <label class="order-dropzone">
+            <input type="file" name="model_files" multiple accept=".stl,.3mf,.obj,.step,.stp,.gcode,.zip">
+            <span class="order-dropzone-body">
+              <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+              <span><strong>Drop model files here</strong> or <u>browse</u></span>
+              <small>STL, 3MF, OBJ, STEP, GCODE or ZIP · add as many as you need</small>
+            </span>
+          </label>
+          <div class="pub-models" id="model-workspace" hidden aria-live="polite"
+               data-estimate-url="{{ url_for('public.order_estimate') if business.instant_estimate_enabled else '' }}"
+               data-total-url="{{ url_for('public.order_estimate_total') if business.instant_estimate_enabled else '' }}">
+            <div class="pub-models-list"></div>
           </div>
-          <div class="pub-estimate-total"></div>
-          <div class="pub-estimate-breakdown"></div>
-          <div class="pub-estimate-warnings"></div>
-          <p class="pub-estimate-note">Automatic ballpark only &mdash; your final quote may be higher or lower once we've checked the model, supports, orientation and finish. Not a price guarantee.</p>
+          <label class="order-compact-label">Or paste links <span class="optional">(one per line)</span>
+            <textarea name="model_links" rows="1" placeholder="https://www.printables.com/model/…"></textarea>
+          </label>
         </div>
-        {% endif %}
-        <label>Or share links <span class="optional">(one per line)</span>
-          <textarea name="model_links" rows="2" placeholder="https://..."></textarea>
-        </label>
-      </div>
 
-      <!-- Needs design -->
-      <div class="pub-field-group" data-group="need_design">
-        <label>Describe what you need<textarea name="description" rows="4" placeholder="What are you trying to make? Dimensions, function, style..."></textarea></label>
-        <label>Reference links <span class="optional">(optional, one per line)</span>
-          <textarea name="reference_links" rows="2" placeholder="https://..."></textarea>
-        </label>
-        <label>Reference images <span class="optional">(optional)</span>
-          <input type="file" name="reference_images" multiple accept=".png,.jpg,.jpeg,.pdf">
-        </label>
-      </div>
-    </section>
+        <!-- Needs design -->
+        <div class="pub-field-group" data-group="need_design">
+          <label>Describe what you need<textarea name="description" rows="3" placeholder="What are you trying to make? Dimensions, function, style…"></textarea></label>
+          <div class="order-grid-2">
+            <label>Reference links <span class="optional">(optional)</span>
+              <textarea name="reference_links" rows="1" placeholder="https://…"></textarea>
+            </label>
+            <label class="order-dropzone order-dropzone-sm">
+              <input type="file" name="reference_images" multiple accept=".png,.jpg,.jpeg,.pdf">
+              <span class="order-dropzone-body">
+                <i class="fa fa-picture-o" aria-hidden="true"></i>
+                <span><strong>Reference images</strong> <span class="optional">(optional)</span></span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
 
-    <section class="pub-form-section">
-      <h2 class="pub-form-section-title"><span class="num">3</span> Materials</h2>
-      {% if filaments %}
-      <div>
-        <span style="display: block; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.6rem;">Pick any you'd like — or leave it to us.</span>
-        <div class="pub-material-grid">
+      <section class="order-section">
+        <h2 class="order-section-title"><span class="num">3</span> Material &amp; finish</h2>
+        {% if filaments %}
+        <div class="pub-material-grid" aria-label="Preferred materials">
           {% for f in filaments %}
           <label class="pub-material-item">
             <input type="checkbox" name="materials" value="{{ f.name }}" data-filament-id="{{ f.id }}"{% if not f.in_stock %} disabled{% endif %}>
@@ -107,25 +91,57 @@
           </label>
           {% endfor %}
         </div>
+        {% endif %}
+        <div class="order-options">
+          <label class="order-switch">
+            <input type="checkbox" name="multi_material">
+            <span class="order-switch-track" aria-hidden="true"></span>
+            <span>Multi-material print <small>different materials or colours on one plate</small></span>
+          </label>
+          <label class="order-switch">
+            <input type="checkbox" name="clean_supports">
+            <span class="order-switch-track" aria-hidden="true"></span>
+            <span>Clean supports <small>break-away interface{% if support_filament %} in {{ support_filament.name }}{% endif %}</small></span>
+          </label>
+        </div>
+        <div class="order-grid-2">
+          <label class="order-compact-label">Other material <span class="optional">(optional)</span>
+            <input type="text" name="other_material" placeholder="e.g. Carbon fibre nylon">
+          </label>
+          <label class="order-compact-label">Notes <span class="optional">(optional)</span>
+            <textarea name="notes" rows="1" placeholder="Deadline, quantity, colours, finish…"></textarea>
+          </label>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <aside class="order-side">
+    <div class="order-summary">
+      <h2>Order summary</h2>
+      {% if business.instant_estimate_enabled %}
+      <div class="pub-estimate" id="instant-estimate" hidden aria-live="polite">
+        <div class="pub-estimate-head">
+          <span><i class="fa fa-calculator" aria-hidden="true"></i> Instant estimate</span>
+          <span class="pub-estimate-badge">Rough guide</span>
+        </div>
+        <div class="pub-estimate-total"></div>
+        <div class="pub-estimate-breakdown"></div>
+        <div class="pub-estimate-warnings"></div>
+        <p class="pub-estimate-note">Automatic ballpark only &mdash; your final quote may be higher or lower once we've checked the model, supports, orientation and finish.</p>
       </div>
       {% endif %}
-      <label>Request a different material <span class="optional">(optional)</span>
-        <input type="text" name="other_material" placeholder="e.g. Carbon fibre nylon">
-      </label>
-    </section>
-
-    <section class="pub-form-section">
-      <h2 class="pub-form-section-title"><span class="num">4</span> Anything else?</h2>
-      <label>Notes / special instructions <span class="optional">(optional)</span><textarea name="notes" rows="3" placeholder="Deadlines, colours, finish, quantities..."></textarea></label>
-    </section>
-
-    {{ turnstile_widget(business) }}
-    <button type="submit" class="pub-btn pub-btn-lg pub-btn-block">Submit order <i class="fa fa-arrow-right" aria-hidden="true"></i></button>
-    <p style="margin: 0; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
-      By submitting you agree to our <a href="{{ url_for('public.terms') }}">terms</a> and <a href="{{ url_for('public.privacy') }}">privacy policy</a>.
-    </p>
-  </form>
-</div>
+      <ol class="order-next">
+        <li><strong>We review your order</strong><span>and check the model.</span></li>
+        <li><strong>You get a quote</strong><span>by email, before anything is printed.</span></li>
+        <li><strong>We print it</strong><span>and let you know when it's ready.</span></li>
+      </ol>
+      {{ turnstile_widget(business) }}
+      <button type="submit" class="pub-btn pub-btn-lg pub-btn-block">Submit order <i class="fa fa-arrow-right" aria-hidden="true"></i></button>
+      <p class="order-terms">By submitting you agree to our <a href="{{ url_for('public.terms') }}">terms</a> and <a href="{{ url_for('public.privacy') }}">privacy policy</a>.</p>
+    </div>
+  </aside>
+</form>
 {% endblock %}
 
 {% block scripts %}
