@@ -132,6 +132,11 @@ def save_settings():
         business.order_notification_email_body_html = request.form.get('order_notification_email_body_html', '')
         business.invoice_paid_notification_email_subject = request.form.get('invoice_paid_notification_email_subject', '')
         business.invoice_paid_notification_email_body_html = request.form.get('invoice_paid_notification_email_body_html', '')
+        business.auto_survey_enabled = request.form.get('auto_survey_enabled') == 'on'
+        try:
+            business.auto_survey_delay_days = max(0, int(request.form.get('auto_survey_delay_days', 3) or 0))
+        except ValueError:
+            pass
 
     elif tab == 'security':
         business.turnstile_site_key = request.form.get('turnstile_site_key', '').strip()

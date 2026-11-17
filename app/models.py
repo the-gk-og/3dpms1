@@ -45,6 +45,10 @@ class BusinessSettings(db.Model):
     about_text = db.Column(db.Text)
     # Filament at or below this many grams (summed across spools) is flagged as low stock
     low_stock_threshold_g = db.Column(db.Float, default=200.0)
+    # Automatic feedback surveys — sent by the `flask send-feedback-surveys` CLI
+    # command (run daily from an external cron) this many days after a job is completed.
+    auto_survey_enabled = db.Column(db.Boolean, default=False)
+    auto_survey_delay_days = db.Column(db.Integer, default=3)
     hourly_rate = db.Column(db.Float, default=0.0)
     # Payment details
     pay_id = db.Column(db.String(200))
@@ -390,6 +394,9 @@ class Job(db.Model):
     printer_id = db.Column(db.Integer, db.ForeignKey('printer.id'))
     printer = db.relationship('Printer', backref='jobs')
     queue_position = db.Column(db.Integer)
+    # When the job last moved into 'Complete' (cleared if moved back out) — drives
+    # the delay before the automatic feedback survey goes out.
+    completed_at = db.Column(db.DateTime)
 
     @property
     def display_number(self):

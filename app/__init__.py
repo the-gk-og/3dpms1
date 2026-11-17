@@ -286,3 +286,103 @@ def _register_cli(app):
                 )
             except Exception:
                 pass  # best-effort — the reminders themselves already went out
+
+    @app.cli.command('send-feedback-surveys')
+    @click.option('--dry-run', is_flag=True, help='List what would be sent without actually emailing anyone.')
+    @click.option('--base-url', envvar='PUBLIC_BASE_URL', default=None,
+                  help='Public address used for the survey link, e.g. https://print.example.com '
+                       '(defaults to SERVER_NAME, then the Website in Settings).')
+    def send_feedback_surveys(dry_run, base_url):
+        """Email clients a feedback survey once their job has been Complete for the
+        number of days set under Settings > Email (only when automatic surveys are
+        turned on there). Intended to run daily via an external cron job (e.g.
+        `docker compose exec web flask send-feedback-surveys`) — this app has no
+        built-in scheduler, so nothing runs this automatically on its own.
+
+        Each job gets at most one automatic survey: jobs that already have any
+        FeedbackSurvey (sent by hand or by an earlier run) are skipped, so running
+        this daily is safe. Jobs completed before Job.completed_at existed have no
+        completion time and are never picked up. Jobs with no client email on file
+        are skipped and reported in the summary rather than erroring the whole run.
+        """
+        from contextlib import nullcontext
+        from datetime import datetime, timedelta
+        from app.models import Job, FeedbackSurvey
+        from app.helpers import get_business_settings, EmailNotConfiguredError
+        from app import helpers
+
+        business = get_business_settings()
+        if not business.auto_survey_enabled:
+            click.echo('Automatic feedback surveys are turned off (Settings > Email) — nothing to do.')
+            return
+
+        delay = business.auto_survey_delay_days if business.auto_survey_delay_days is not None else 3
+        cutoff = datetime.utcnow() - timedelta(days=max(delay, 0))
+        surveyed_job_ids = {
+            row[0] for row in db.session.query(FeedbackSurvey.job_id).filter(FeedbackSurvey.job_id.isnot(None))
+        }
+        due = [
+            job for job in Job.query.filter(
+                Job.archived.isnot(True),
+                Job.status == 'Complete',
+                Job.completed_at.isnot(None),
+                Job.completed_at <= cutoff,
+            ).order_by(Job.completed_at).all()
+            if job.id not in surveyed_job_ids
+        ]
+
+        sent, skipped_no_email, failed = [], [], []
+
+        # Survey links are absolute URLs, which Flask can only build outside a
+        # request when it knows the public address.
+        base_url = (base_url or '').strip() or None
+        if not base_url and not app.config.get('SERVER_NAME'):
+            base_url = (business.website or '').strip() or None
+            if base_url and '://' not in base_url:
+                base_url = 'https://' + base_url
+        if not dry_run and not base_url and not app.config.get('SERVER_NAME') and due:
+            click.echo('Cannot build survey links — pass --base-url (or set PUBLIC_BASE_URL) '
+                       'or fill in Website under Settings > Business.')
+            return
+        url_context = app.test_request_context(base_url=base_url) if base_url else nullcontext()
+
+        with url_context:
+            for job in due:
+                if not job.client or not job.client.email:
+                    skipped_no_email.append(job.display_number)
+                    continue
+
+                if dry_run:
+                    sent.append(job.display_number)
+                    continue
+
+                try:
+                    helpers.send_feedback_survey_email(job, business)
+                    sent.append(job.display_number)
+                except EmailNotConfiguredError:
+                    _discard_unsent_surveys(job)
+                    click.echo('SMTP is not configured — set it up in Settings before running this command.')
+                    return
+                except Exception as e:
+                    # Drop the survey row created for this attempt so the job is
+                    # retried on the next run instead of being skipped forever.
+                    _discard_unsent_surveys(job)
+                    failed.append(f'{job.display_number} ({e})')
+
+        if dry_run:
+            click.echo(f'Would send {len(sent)} survey(s): {", ".join(sent) or "none"}')
+            if skipped_no_email:
+                click.echo(f'Skipped (no client email): {", ".join(skipped_no_email)}')
+            return
+
+        click.echo(f'Sent {len(sent)} survey(s).')
+        if skipped_no_email:
+            click.echo(f'Skipped (no client email): {", ".join(skipped_no_email)}')
+        if failed:
+            click.echo(f'Failed: {", ".join(failed)}')
+
+    def _discard_unsent_surveys(job):
+        from app.models import FeedbackSurvey
+        db.session.rollback()
+        FeedbackSurvey.query.filter_by(job_id=job.id, responded_at=None).delete()
+        db.session.commit()

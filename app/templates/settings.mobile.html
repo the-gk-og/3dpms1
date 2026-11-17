@@ -170,6 +170,14 @@
     <div class="m-field"><label>Password</label><input type="password" name="smtp_password" placeholder="Leave blank to keep current"></div>
     <div class="m-field"><label>From Email</label><input type="email" name="smtp_from_email" value="{{ business.smtp_from_email or '' }}"></div>
 
+    <div class="m-section-title">Automatic Feedback Surveys</div>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
+      Emails the client a survey a set number of days after their job is marked Complete (once per job).
+      Needs a daily cron job running <code>docker compose exec web flask send-feedback-surveys</code>.
+    </p>
+    <div class="m-field"><label><input type="checkbox" name="auto_survey_enabled"{% if business.auto_survey_enabled %} checked{% endif %}> Send surveys automatically</label></div>
+    <div class="m-field"><label>Days after completion</label><input type="number" step="1" min="0" name="auto_survey_delay_days" value="{{ business.auto_survey_delay_days if business.auto_survey_delay_days is not none else 3 }}"></div>
+
     <div class="m-section-title">Custom Email Templates</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: -0.5rem;">
       Optional, per email type. Leave blank to use the plain default message. Preview shows what's

@@ -26,6 +26,17 @@ def index():
     )
 
 
+@filament_bp.route('/restock')
+@login_required
+def restock():
+    from app.restock import restock_list
+    threshold = get_business_settings().low_stock_threshold_g
+    threshold = threshold if threshold is not None else 200
+    lines, grand_total = restock_list(threshold)
+    return render_template('filament_restock.html', lines=lines, grand_total=grand_total,
+                           low_stock_threshold=threshold)
+
+
 @filament_bp.route('/add', methods=['POST'])
 @login_required
 def add_filament():

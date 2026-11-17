@@ -1,0 +1,35 @@
+{% extends 'base.mobile.html' %}
+{% block page_title %}Restock List{% endblock %}
+{% block content %}
+<p style="color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1rem;">
+  Filament at or below {{ '%g'|format(low_stock_threshold) }}g, with enough spools to get back above it.
+</p>
+
+{% if lines %}
+{% for line in lines %}{% set f = line.filament %}
+<div class="m-card m-restock-card" data-restock-row data-name="{{ f.name }}{% if f.brand %} ({{ f.brand }}){% endif %}" data-spool="{{ '%g'|format(line.spool_g) }}" data-unit-cost="{{ line.unit_cost }}">
+  <div class="m-card-row">
+    <div>
+      <div class="m-card-title">{{ f.name }}</div>
+      <div class="m-card-sub">{{ '%.0f'|format(line.current_g) }}g left · {{ '%g'|format(line.spool_g) }}g spools · ${{ '%.2f'|format(line.unit_cost) }} each</div>
+    </div>
+    <div class="m-restock-total" data-restock-line>${{ '%.2f'|format(line.line_total) }}</div>
+  </div>
+  <div class="m-field" style="margin: 0.6rem 0 0;"><label>Spools to buy</label>
+    <input type="number" min="0" step="1" value="{{ line.quantity }}" data-restock-qty>
+  </div>
+</div>
+{% endfor %}
+<div class="m-card">
+  <div class="m-card-row">
+    <div class="m-card-title">Estimated total</div>
+    <div class="m-restock-total" id="restock-grand-total">${{ '%.2f'|format(grand_total) }}</div>
+  </div>
+  <button type="button" id="restock-copy" class="m-btn m-btn-primary" style="width: 100%; margin-top: 0.75rem;">Copy list</button>
+</div>
+{% include '_restock_script.html' %}
+{% else %}
+<div class="m-card"><div class="m-card-sub">Nothing to restock — every filament is above {{ '%g'|format(low_stock_threshold) }}g.</div></div>
+{% endif %}
+<a href="{{ url_for('filament.index') }}" class="m-btn m-btn-secondary" style="display: block; text-align: center; margin-top: 0.5rem;">Back to inventory</a>
+{% endblock %}

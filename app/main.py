@@ -1277,6 +1277,7 @@ def edit_job(job_id):
     # notes/internal_notes are edited via the standalone note editor
     # (main.edit_note / main.save_note) now, not this form.
     filament_note = _deduct_on_complete(job, old_status)
+    _track_completed_at(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):
@@ -1307,6 +1308,15 @@ def _deduct_on_complete(job, old_status):
         log_audit('filament_deducted', target_type='job', target_id=job.id,
                   detail=describe_deduction(result))
     return describe_deduction(result)
+
+
+def _track_completed_at(job, old_status):
+    """Stamp Job.completed_at on the move into Complete; clear it if the job is
+    moved back out (so the automatic feedback survey waits for the real finish)."""
+    if job.status == 'Complete' and (old_status != 'Complete' or not job.completed_at):
+        job.completed_at = datetime.utcnow()
+    elif job.status != 'Complete':
+        job.completed_at = None
 
 
 @main_bp.route('/jobs/<int:job_id>/filament/deduct', methods=['POST'])
@@ -1456,6 +1466,7 @@ def update_job_notes(job_id):
     job.internal_notes = request.form.get('internal_notes', '')
     new_status = job.status
     filament_note = _deduct_on_complete(job, old_status)
+    _track_completed_at(job, old_status)
     db.session.commit()
 
     if new_status == 'Complete' and job_should_notify(job):

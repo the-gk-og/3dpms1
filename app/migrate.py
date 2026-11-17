@@ -55,6 +55,8 @@ def run_migrations(db):
             'estimate_fill_factor': 'FLOAT DEFAULT 0.35',
             'estimate_grams_per_hour': 'FLOAT DEFAULT 12',
             'estimate_max_mm': 'FLOAT DEFAULT 256',
+            'auto_survey_enabled': 'BOOLEAN DEFAULT 0',
+            'auto_survey_delay_days': 'INTEGER DEFAULT 3',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -109,6 +111,7 @@ def run_migrations(db):
             'due_date': 'DATE',
             'printer_id': 'INTEGER',
             'queue_position': 'INTEGER',
+            'completed_at': 'DATETIME',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",

@@ -1,0 +1,62 @@
+<script>
+(function () {
+  const rows = Array.from(document.querySelectorAll('[data-restock-row]'));
+  const totalEl = document.getElementById('restock-grand-total');
+  const copyBtn = document.getElementById('restock-copy');
+  const money = (n) => '$' + n.toFixed(2);
+
+  function qtyOf(row) {
+    const v = parseInt(row.querySelector('[data-restock-qty]').value, 10);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+  function recalc() {
+    let total = 0;
+    rows.forEach((row) => {
+      const line = qtyOf(row) * parseFloat(row.dataset.unitCost || '0');
+      row.querySelector('[data-restock-line]').textContent = money(line);
+      total += line;
+    });
+    if (totalEl) totalEl.textContent = money(total);
+    return total;
+  }
+  function listText() {
+    const lines = ['Filament restock list'];
+    rows.forEach((row) => {
+      const q = qtyOf(row);
+      if (!q) return;
+      const unit = parseFloat(row.dataset.unitCost || '0');
+      lines.push(`- ${q} × ${row.dataset.name} (${row.dataset.spool}g spool) — ~${money(q * unit)}`);
+    });
+    lines.push(`Estimated total: ${money(recalc())}`);
+    return lines.join('\n');
+  }
+  function flash(text) {
+    const original = copyBtn.dataset.label || copyBtn.innerHTML;
+    copyBtn.dataset.label = original;
+    copyBtn.textContent = text;
+    setTimeout(() => { copyBtn.innerHTML = original; }, 1800);
+  }
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  rows.forEach((row) => row.querySelector('[data-restock-qty]').addEventListener('input', recalc));
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const text = listText();
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => flash('Copied!'), () => flash(fallbackCopy(text) ? 'Copied!' : 'Copy failed'));
+      } else {
+        flash(fallbackCopy(text) ? 'Copied!' : 'Copy failed');
+      }
+    });
+  }
+  recalc();
+})();
+</script>

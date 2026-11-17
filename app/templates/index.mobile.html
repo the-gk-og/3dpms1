@@ -8,7 +8,7 @@
 </div>
 
 {% if low_stock %}
-<a href="{{ url_for('filament.index') }}" class="m-card" style="display: block; margin-bottom: 1.25rem; text-decoration: none; color: inherit; border-color: var(--warning);">
+<a href="{{ url_for('filament.restock') }}" class="m-card" style="display: block; margin-bottom: 1.25rem; text-decoration: none; color: inherit; border-color: var(--warning);">
   <div class="m-card-title" style="color: var(--warning);">⚠ {{ low_stock|length }} filament{{ 's' if low_stock|length != 1 }} running low</div>
   <div class="m-card-sub">{% for f in low_stock[:3] %}{{ f.name }} ({{ '%.0f'|format(f.total_remaining_g) }}g){{ ', ' if not loop.last }}{% endfor %}{% if low_stock|length > 3 %} +{{ low_stock|length - 3 }} more{% endif %}</div>
 </a>
