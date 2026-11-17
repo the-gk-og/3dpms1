@@ -600,3 +600,8 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
   padding: 0.35em 0.6em;
   text-align: left;
 }
+
+/* ==== Gallery ==== */
+.m-gallery-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; display: block; background: var(--bg-secondary); }
+.m-gallery-actions { flex-wrap: wrap; gap: 0.4rem; }
+.m-gallery-actions form { margin: 0; }

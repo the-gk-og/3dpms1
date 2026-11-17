@@ -54,6 +54,23 @@
   </div>
 </section>
 
+{% set recent_work = gallery_featured_photos() %}
+{% if recent_work %}
+<section class="pub-section">
+  <h2 class="pub-section-title">Recent work</h2>
+  <p class="pub-section-subtitle">A few things that have come off our printers lately.</p>
+  <div class="pub-recent-work">
+    {% for p in recent_work %}
+    <a href="{{ url_for('gallery.public_gallery') }}#photo-{{ p.id }}" class="pub-recent-work-item">
+      <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Printed part' }}" loading="lazy">
+      {% if p.title %}<span>{{ p.title }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <p style="text-align: center; margin: 0;"><a href="{{ url_for('gallery.public_gallery') }}" class="pub-btn pub-btn-secondary">See the full gallery <i class="fa fa-arrow-right" aria-hidden="true"></i></a></p>
+</section>
+{% endif %}
+
 {% include 'public/_testimonials.html' %}
 
 <div class="pub-cta">

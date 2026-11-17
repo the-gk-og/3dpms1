@@ -1,0 +1,68 @@
+{% extends 'public/public_base.html' %}
+{% block title %}Our work — {{ business.name or '3D Printing' }}{% endblock %}
+{% block content %}
+<section class="pub-section">
+  <h1 class="pub-section-title">Our work</h1>
+  <p class="pub-section-subtitle">A few of the things we've printed recently.</p>
+
+  {% if photos %}
+  <ul class="pub-gallery" role="list">
+    {% for p in photos %}
+    <li class="pub-gallery-item" id="photo-{{ p.id }}">
+      <button type="button" class="pub-gallery-open"
+              data-gallery-index="{{ loop.index0 }}"
+              data-src="{{ url_for('gallery.photo_file', photo_id=p.id) }}"
+              data-title="{{ p.title or '' }}"
+              data-caption="{{ p.caption or '' }}"
+              data-material="{{ p.material or '' }}"
+              aria-label="View larger{% if p.title %}: {{ p.title }}{% endif %}">
+        <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Printed part' }}" loading="lazy">
+      </button>
+      {% if p.title or p.caption or p.material %}
+      <div class="pub-gallery-meta">
+        {% if p.title %}<h3>{{ p.title }}</h3>{% endif %}
+        {% if p.material %}<span class="pub-gallery-material">{{ p.material }}</span>{% endif %}
+        {% if p.caption %}<p>{{ p.caption }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="pub-panel" style="text-align: center; margin-top: 2rem;">
+    <p style="margin: 0; color: var(--text-muted);">Photos of our work are coming soon.</p>
+  </div>
+  {% endif %}
+</section>
+
+<div class="pub-cta">
+  <div>
+    <h3>Got something you'd like printed?</h3>
+    <p>Send us your model or idea and we'll quote it before we start.</p>
+  </div>
+  <a href="{{ url_for('public.order_form') }}" class="pub-btn">Start an order <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+</div>
+
+{% if photos %}
+<div class="pub-lightbox" id="pub-lightbox" role="dialog" aria-modal="true" aria-labelledby="pub-lightbox-title" hidden>
+  <div class="pub-lightbox-inner">
+    <button type="button" class="pub-lightbox-btn pub-lightbox-close" data-lightbox="close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+    <button type="button" class="pub-lightbox-btn pub-lightbox-prev" data-lightbox="prev" aria-label="Previous photo"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>
+    <figure>
+      <img id="pub-lightbox-img" alt="">
+      <figcaption>
+        <strong id="pub-lightbox-title"></strong>
+        <span class="pub-gallery-material" id="pub-lightbox-material"></span>
+        <p id="pub-lightbox-caption"></p>
+        <small id="pub-lightbox-count" aria-live="polite"></small>
+      </figcaption>
+    </figure>
+    <button type="button" class="pub-lightbox-btn pub-lightbox-next" data-lightbox="next" aria-label="Next photo"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='gallery.js') }}"></script>
+{% endblock %}

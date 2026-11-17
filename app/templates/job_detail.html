@@ -151,6 +151,30 @@
       <p style="font-size: 0.85rem; color: var(--text-muted);">No files yet.</p>
       {% endif %}
     </div>
+
+    <div class="panel">
+      <div class="card-head">
+        <h3><i class="fa fa-picture-o" aria-hidden="true" style="color: var(--accent);"></i> Gallery</h3>
+        <a href="{{ url_for('gallery.index') }}">Manage</a>
+      </div>
+      {% if job.gallery_photos %}
+      <div class="gallery-job-thumbs">
+        {% for p in job.gallery_photos %}
+        <a href="{{ url_for('gallery.index') }}#photo-{{ p.id }}" title="{{ p.title or 'Photo' }}{{ ' (published)' if p.published else ' (private)' }}">
+          <img src="{{ url_for('gallery.photo_file', photo_id=p.id) }}" alt="{{ p.title or 'Gallery photo' }}" loading="lazy">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('gallery.upload') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="job_id" value="{{ job.id }}">
+        <input type="hidden" name="next" value="{{ url_for('main.job_detail', job_id=job.id) }}">
+        <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp,image/gif" required aria-label="Photos for the gallery">
+        <button type="submit" class="btn-sm btn-secondary" style="margin-top: 0.5rem;">Add photos to gallery</button>
+      </form>
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0.5rem 0 0;">Photos stay private until you publish them from the Gallery page.</p>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -14,6 +14,7 @@
   </head>
   <body>
     {% set ep = request.endpoint or '' %}
+    {% set show_gallery_link = gallery_has_published() %}
     <nav class="pub-nav" id="pub-nav">
       <div class="pub-nav-inner">
         <a href="{{ url_for('public.home') }}" class="pub-brand">
@@ -31,6 +32,7 @@
         <div class="pub-nav-links" id="pub-nav-links">
           <a href="{{ url_for('public.home') }}"{% if ep == 'public.home' %} class="active" aria-current="page"{% endif %}>Home</a>
           <a href="{{ url_for('public.about') }}"{% if ep == 'public.about' %} class="active" aria-current="page"{% endif %}>About</a>
+          {% if show_gallery_link %}<a href="{{ url_for('gallery.public_gallery') }}"{% if ep == 'gallery.public_gallery' %} class="active" aria-current="page"{% endif %}>Gallery</a>{% endif %}
           <a href="{{ url_for('public.contact') }}"{% if ep == 'public.contact' %} class="active" aria-current="page"{% endif %}>Contact</a>
           <a href="{{ url_for('public.track_order') }}"{% if ep == 'public.track_order' %} class="active" aria-current="page"{% endif %}>Track an order</a>
           <a href="{{ url_for('public.order_form') }}" class="pub-nav-cta">Start an order</a>
@@ -71,6 +73,7 @@
           <ul>
             <li><a href="{{ url_for('public.order_form') }}">Start an order</a></li>
             <li><a href="{{ url_for('public.track_order') }}">Track an order</a></li>
+            {% if show_gallery_link %}<li><a href="{{ url_for('gallery.public_gallery') }}">Gallery</a></li>{% endif %}
             <li><a href="{{ url_for('public.terms') }}">Terms &amp; payment</a></li>
             <li><a href="{{ url_for('public.privacy') }}">Privacy policy</a></li>
           </ul>
