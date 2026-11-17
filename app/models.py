@@ -94,6 +94,11 @@ class BusinessSettings(db.Model):
     # the app's "no public sign-up" invariant holds regardless of who has a Google account.
     google_oauth_client_id = db.Column(db.String(300))
     google_oauth_client_secret = db.Column(EncryptedString(500))
+    # Instant estimate on the public order form (see app/estimate.py for the model)
+    instant_estimate_enabled = db.Column(db.Boolean, default=False)
+    estimate_fill_factor = db.Column(db.Float, default=0.35)  # shell + infill share of a solid part
+    estimate_grams_per_hour = db.Column(db.Float, default=12.0)
+    estimate_max_mm = db.Column(db.Float, default=256.0)  # largest build dimension; bigger warns
 
 
 class Filament(db.Model):

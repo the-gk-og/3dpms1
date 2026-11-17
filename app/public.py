@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 import stripe
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, jsonify
 from werkzeug.utils import secure_filename
 
 from app import db, limiter
@@ -252,6 +252,42 @@ def order_form():
         return render_template_mobile_aware('public/order_confirmation.html', business=business, order=new_request)
 
     return render_template_mobile_aware('public/order_form.html', business=business, filaments=filaments)
+
+
+@public_bp.route('/order/estimate', methods=['POST'])
+@limiter.limit('10 per minute')
+def order_estimate():
+    """Instant rough estimate for one model file (JSON). Analysed in memory and
+    discarded — nothing from here is ever stored. 404 unless enabled in Settings.
+    """
+    from app.estimate import estimate_for_mesh
+    from app.mesh import MeshError, analyse_mesh
+
+    business = get_business_settings()
+    if not business.instant_estimate_enabled:
+        abort(404)
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify(ok=False, error='Please choose a model file.'), 400
+    data = file.stream.read(MAX_UPLOAD_SIZE_BYTES + 1)
+    if len(data) > MAX_UPLOAD_SIZE_BYTES:
+        return jsonify(ok=False, error=f'That file is too large to estimate '
+                                       f'({MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB max).'), 413
+    try:
+        mesh = analyse_mesh(data, file.filename)
+    except MeshError as exc:
+        return jsonify(ok=False, error=str(exc)), 422
+    except Exception:
+        return jsonify(ok=False, error='We couldn\u2019t read this file automatically.'), 422
+    finally:
+        del data
+
+    filaments = [f for f in Filament.query.order_by(Filament.name).all() if f.in_stock]
+    filament_id = request.form.get('filament_id', type=int)
+    if filament_id:
+        filaments = [f for f in filaments if f.id == filament_id]
+    return jsonify(estimate_for_mesh(mesh, filaments, business))
 
 
 @public_bp.route('/q/<token>/upload', methods=['GET', 'POST'])

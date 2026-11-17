@@ -1142,3 +1142,75 @@ form.pub-form { display: grid; gap: 1.1rem; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .pub-printer-object span { opacity: 1; }
 }
+
+/* ==== Instant estimate ==== */
+/* Rough price card on the order form (app/estimate.py, POST /order/estimate). */
+.pub-estimate {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.pub-estimate[hidden] { display: none; }
+.pub-estimate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.pub-estimate-head .fa { color: var(--accent); margin-right: 0.35rem; }
+.pub-estimate-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+.pub-estimate-list { display: grid; gap: 0.6rem; }
+.pub-estimate-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.75rem 0.9rem;
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.pub-estimate-file {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.pub-estimate-meta { font-size: 0.82rem; color: var(--text-muted); }
+.pub-estimate-error { color: var(--danger); }
+.pub-estimate-price { display: grid; gap: 0.2rem; margin-top: 0.15rem; }
+.pub-estimate-price-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+}
+.pub-estimate-amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pub-estimate-material { font-size: 0.8rem; color: var(--text-muted); }
+.pub-estimate-warning {
+  font-size: 0.8rem;
+  color: var(--warning);
+  padding-left: 1.1rem;
+  position: relative;
+}
+.pub-estimate-warning::before { content: '!'; position: absolute; left: 0.3rem; font-weight: 700; }
+.pub-estimate-note { margin: 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
