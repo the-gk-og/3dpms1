@@ -626,6 +626,18 @@ def default_email_html(template_key, context, business):
         )
         return _email_shell(business, preheader, body)
 
+    if template_key == 'portal_sign_in':
+        body = (
+            f'<h2 style="margin:0 0 16px;color:#111827;">Sign in to your account</h2>'
+            f'<p>Hi {client_name},</p>'
+            f'<p>Use the button below to sign in to your {c.get("business_name","")} account. '
+            f'The link works once and expires in {c.get("expires_minutes","30")} minutes.</p>'
+            f'{_email_button(context.get("sign_in_link"), "Sign in")}'
+            f'<p style="color:#6b7280;font-size:13px;margin-top:24px;">If you didn\u2019t ask to sign in, '
+            f'you can ignore this email \u2014 nobody can get into your account without this link.</p>'
+        )
+        return _email_shell(business, f'Your sign-in link for {c.get("business_name","")}', body)
+
     return _email_shell(business, '', '<p>Notification</p>')
 
 

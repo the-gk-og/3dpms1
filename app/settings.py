@@ -123,6 +123,11 @@ def save_settings():
         business.order_notification_email_body_html = request.form.get('order_notification_email_body_html', '')
         business.invoice_paid_notification_email_subject = request.form.get('invoice_paid_notification_email_subject', '')
         business.invoice_paid_notification_email_body_html = request.form.get('invoice_paid_notification_email_body_html', '')
+        business.portal_sign_in_email_subject = request.form.get('portal_sign_in_email_subject', '')
+        business.portal_sign_in_email_body_html = request.form.get('portal_sign_in_email_body_html', '')
+
+    elif tab == 'security' and request.form.get('portal_form'):
+        business.portal_enabled = request.form.get('portal_enabled') == 'on'
 
     elif tab == 'security':
         business.turnstile_site_key = request.form.get('turnstile_site_key', '').strip()
@@ -333,6 +338,15 @@ EMAIL_PREVIEW_SAMPLES = {
             'document_number': 'INV-2026-0091', 'total': '184.50',
             'paid_at': '24 July 2026, 09:14 AM UTC',
             'dashboard_link': 'https://example.com/dash/invoices/91',
+        },
+    },
+    'portal_sign_in': {
+        'label': 'Customer Account Sign-In Link',
+        'default_subject': 'Your sign-in link for {{business_name}}',
+        'context': {
+            'client_name': 'Jamie Smith', 'business_name': '{business_name}',
+            'sign_in_link': 'https://example.com/account/verify/sample-token',
+            'expires_minutes': '30',
         },
     },
 }

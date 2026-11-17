@@ -1,0 +1,32 @@
+{% extends 'public/public_base.html' %}
+{% from '_turnstile.html' import turnstile_widget, turnstile_script %}
+{% block title %}Sign in — {{ business.name or '3D Printing' }}{% endblock %}
+{% block head %}{% if not sent %}{{ turnstile_script(business) }}{% endif %}{% endblock %}
+{% block main_class %} narrow{% endblock %}
+{% block content %}
+{% if sent %}
+<div class="pub-panel portal-auth">
+  <div class="pub-success"><i class="fa fa-envelope-o" aria-hidden="true"></i></div>
+  <h1>Check your email</h1>
+  <p>If we have an account for that address, we've sent it a sign-in link. It works once and expires in 30 minutes.</p>
+  <p class="portal-fine">Nothing arrived after a few minutes? Check your spam folder, make sure you used the email you order with, or <a href="{{ url_for('public.contact') }}">get in touch</a>.</p>
+  <a href="{{ url_for('portal.sign_in') }}" class="pub-btn pub-btn-secondary">Use a different email</a>
+</div>
+{% else %}
+<div class="pub-page-head">
+  <h1>Your account</h1>
+  <p>See your orders, quotes and invoices in one place. Enter the email you order with and we'll send you a sign-in link. No password needed.</p>
+</div>
+<div class="pub-panel">
+  <form method="post" class="pub-form" action="{{ url_for('portal.sign_in') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Email<input type="email" name="email" required autocomplete="email" placeholder="you@example.com" maxlength="254" value="{{ request.form.get('email', '') }}"></label>
+    {{ turnstile_widget(business) }}
+    <button type="submit" class="pub-btn pub-btn-block"><i class="fa fa-paper-plane-o" aria-hidden="true"></i> Email me a sign-in link</button>
+  </form>
+  <p class="portal-fine" style="text-align: center; margin: 1.25rem 0 0;">
+    Haven't ordered yet? <a href="{{ url_for('public.order_form') }}">Start an order</a>. Your account is created with it.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

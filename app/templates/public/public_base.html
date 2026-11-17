@@ -33,6 +33,9 @@
           <a href="{{ url_for('public.about') }}"{% if ep == 'public.about' %} class="active" aria-current="page"{% endif %}>About</a>
           <a href="{{ url_for('public.contact') }}"{% if ep == 'public.contact' %} class="active" aria-current="page"{% endif %}>Contact</a>
           <a href="{{ url_for('public.track_order') }}"{% if ep == 'public.track_order' %} class="active" aria-current="page"{% endif %}>Track an order</a>
+          {% if business.portal_enabled %}{% set _pc = portal_current_client() %}
+          <a href="{{ url_for('portal.overview') if _pc else url_for('portal.sign_in') }}"{% if ep.startswith('portal.') %} class="active" aria-current="page"{% endif %}><i class="fa fa-user-circle-o" aria-hidden="true"></i> {{ (_pc.name.split()[0] if _pc.name else 'My account') if _pc else 'Sign in' }}</a>
+          {% endif %}
           <a href="{{ url_for('public.order_form') }}" class="pub-nav-cta">Start an order</a>
         </div>
       </div>
@@ -71,6 +74,7 @@
           <ul>
             <li><a href="{{ url_for('public.order_form') }}">Start an order</a></li>
             <li><a href="{{ url_for('public.track_order') }}">Track an order</a></li>
+            {% if business.portal_enabled %}<li><a href="{{ url_for('portal.overview') }}">My account</a></li>{% endif %}
             <li><a href="{{ url_for('public.terms') }}">Terms &amp; payment</a></li>
             <li><a href="{{ url_for('public.privacy') }}">Privacy policy</a></li>
           </ul>

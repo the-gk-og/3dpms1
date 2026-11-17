@@ -51,6 +51,9 @@ def run_migrations(db):
             'about_tagline': 'VARCHAR(300)',
             'about_text': 'TEXT',
             'low_stock_threshold_g': 'FLOAT DEFAULT 200',
+            'portal_enabled': 'BOOLEAN DEFAULT 0',
+            'portal_sign_in_email_subject': 'VARCHAR(300)',
+            'portal_sign_in_email_body_html': 'TEXT',
         },
         'filament': {
             'brand': 'VARCHAR(100)',

@@ -213,6 +213,9 @@
     {{ email_template_fields('overdue_reminder', 'Overdue Reminder', 'Overdue: Invoice {{document_number}} from {{business_name}}',
        '{{client_name}} · {{business_name}} · {{document_number}} · {{total}} · {{due_date}} · {{days_overdue}}') }}
 
+    {{ email_template_fields('portal_sign_in', 'Customer Account Sign-In Link', 'Your sign-in link for {{business_name}}',
+       '{{client_name}} · {{business_name}} · {{sign_in_link}} · {{expires_minutes}}') }}
+
     <h3 style="margin-top: 1.5rem;">Notifications To You</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
       Sent to your business email when something happens — customizing these is optional, the
@@ -298,6 +301,24 @@
     <input type="password" name="google_oauth_client_secret" value="" placeholder="GOCSPX-...">
   </label>
   <button type="submit">Save Security Settings</button>
+</form>
+
+<form method="post" action="{{ url_for('settings.save_settings') }}" class="panel" style="margin-top: 1.25rem;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tab" value="security">
+  <input type="hidden" name="portal_form" value="1">
+  <h3 style="margin-top: 0;">Customer Accounts</h3>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+    Lets customers sign in at <code>{{ url_for('portal.sign_in', _external=True) }}</code> with a one-time
+    link emailed to the address on their client record, to see their orders, quotes, invoices and jobs in one
+    place. No passwords — they need access to that inbox. Requires email (SMTP) to be set up. Internal notes,
+    markup and cost breakdowns are never shown.
+  </p>
+  <label style="display: flex; align-items: center; gap: 0.5rem;">
+    <input type="checkbox" name="portal_enabled" {% if business.portal_enabled %}checked{% endif %} style="width: auto;">
+    Enable customer accounts
+  </label>
+  <button type="submit">Save Customer Accounts</button>
 </form>
 
 {% elif active_tab == 'users' %}
