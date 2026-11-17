@@ -59,6 +59,7 @@ def run_migrations(db):
             'estimate_mm_time_pct': 'FLOAT DEFAULT 15',
             'estimate_support_pct': 'FLOAT DEFAULT 5',
             'estimate_support_filament_id': 'INTEGER',
+            'estimate_per_part_fee': 'FLOAT DEFAULT 0',
             'order_confirmation_email_subject': 'VARCHAR(300)',
             'order_confirmation_email_body_html': 'TEXT',
             'auto_survey_enabled': 'BOOLEAN DEFAULT 0',

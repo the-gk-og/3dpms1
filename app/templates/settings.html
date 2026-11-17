@@ -47,7 +47,8 @@
     <label>Fill factor<input type="number" step="0.01" min="0.05" max="1" name="estimate_fill_factor" value="{{ '%g'|format(business.estimate_fill_factor or 0.35) }}" placeholder="0.35"></label>
     <label>Print speed (grams per hour)<input type="number" step="0.1" min="0.5" name="estimate_grams_per_hour" value="{{ '%g'|format(business.estimate_grams_per_hour or 12) }}" placeholder="12"></label>
     <label>Max build size (mm)<input type="number" step="1" min="1" name="estimate_max_mm" value="{{ '%g'|format(business.estimate_max_mm or 256) }}" placeholder="256"></label>
-    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Fill factor is the share of a solid part that actually gets printed (walls + infill) &mdash; 0.35 suits ~15&ndash;20% infill. Models bigger than the max build size get a warning.</p>
+    <label>Per-part fee ($ per object)<input type="number" step="0.01" min="0" name="estimate_per_part_fee" value="{{ '%.2f'|format(business.estimate_per_part_fee or 0) }}" placeholder="0.00"></label>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Fill factor is the share of a solid part that actually gets printed (walls + infill) &mdash; 0.35 suits ~15&ndash;20% infill. Models bigger than the max build size get a warning. The per-part fee is added once for every object (each STL/OBJ file, or each object in a 3MF) — e.g. for setup, plate prep and removal. Leave at 0 for none.</p>
     <h4 style="margin: 1rem 0 0.25rem; font-size: 0.85rem;">Multi-material &amp; clean supports</h4>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.5rem;">Customers can give each object its own material, ask for a multi-material print (objects in different materials on one plate) and ask for clean supports (support interfaces in a separate break-away material). These allowances are added to the estimate; tune them to your printer.</p>
     <div class="form-grid-2">

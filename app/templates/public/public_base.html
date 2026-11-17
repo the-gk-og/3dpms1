@@ -58,7 +58,11 @@
       <div class="pub-footer-inner">
         <div>
           <a href="{{ url_for('public.home') }}" class="pub-brand">
+            {% if business.logo_path %}
+            <img src="{{ url_for('static', filename='uploads/' + business.logo_path) }}" alt="" class="pub-footer-logo">
+            {% else %}
             <span class="pub-brand-mark" aria-hidden="true"></span>
+            {% endif %}
             <span>{{ business.name or 'Our workshop' }}</span>
           </a>
           <p>Custom 3D printing — quoted before we start, and you'll know the moment it's done.</p>

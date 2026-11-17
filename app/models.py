@@ -108,6 +108,7 @@ class BusinessSettings(db.Model):
     estimate_mm_time_pct = db.Column(db.Float, default=15.0)
     estimate_support_pct = db.Column(db.Float, default=5.0)
     estimate_support_filament_id = db.Column(db.Integer, db.ForeignKey('filament.id'))
+    estimate_per_part_fee = db.Column(db.Float, default=0.0)  # $ added per object in an estimate
     # Customer-facing "we've got your order" email
     order_confirmation_email_subject = db.Column(db.String(300))
     order_confirmation_email_body_html = db.Column(db.Text)
