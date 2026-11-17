@@ -600,3 +600,14 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
   padding: 0.35em 0.6em;
   text-align: left;
 }
+
+/* ==== Reports ==== */
+.m-rpt-row { display: grid; grid-template-columns: 5.5rem 1fr auto; align-items: center; gap: 0.6rem; padding: 0.35rem 0; font-size: 0.82rem; }
+.m-rpt-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.m-rpt-bars { display: flex; flex-direction: column; gap: 3px; }
+.m-rpt-track { background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden; }
+.m-rpt-fill { background: var(--accent-solid); height: 100%; border-radius: 4px; }
+.m-rpt-fill-cost { background: var(--info, #60a5fa); }
+.m-rpt-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.78rem; }
+.m-rpt-value span { color: var(--text-muted); }
+.m-rpt-footnote { color: var(--text-muted); font-size: 0.72rem; line-height: 1.5; margin: 1rem 0 0; }

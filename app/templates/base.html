@@ -72,6 +72,10 @@
             <i class="nav-icon fa fa-circle-o-notch" aria-hidden="true"></i>
             <span class="nav-label">Filament</span>
           </a>
+          <a href="{{ url_for('reports.index') }}" class="nav-item{% if ep.startswith('reports.') %} active{% endif %}">
+            <i class="nav-icon fa fa-bar-chart" aria-hidden="true"></i>
+            <span class="nav-label">Reports</span>
+          </a>
           <a href="{{ url_for('feedback.dashboard') }}" class="nav-item{% if ep.startswith('feedback.') %} active{% endif %}">
             <i class="nav-icon fa fa-star-o" aria-hidden="true"></i>
             <span class="nav-label">Feedback</span>
