@@ -1447,3 +1447,34 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .auto-survey-toggle { display: flex; align-items: center; gap: 0.5rem; align-self: end; min-height: 36px; color: var(--text); }
 .auto-survey-toggle input { min-height: 0; }
 /* ==== end Automation: surveys & restock ==== */
+/* ==== Reports ==== */
+.rpt-subtitle { color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem; }
+.rpt-note { color: var(--text-muted); font-size: 0.8rem; }
+.rpt-footnote { color: var(--text-faint); font-size: 0.78rem; line-height: 1.5; margin: 1.25rem 0 0; max-width: 72ch; }
+.rpt-chart-card { margin-bottom: 1rem; }
+.rpt-chart { display: block; width: 100%; height: auto; }
+.rpt-chart .rpt-grid { stroke: var(--border); stroke-width: 1; }
+.rpt-chart .rpt-baseline { stroke: var(--border-strong); stroke-width: 1; }
+.rpt-chart .rpt-axis { fill: var(--text-muted); font-size: 11px; font-family: var(--font-sans); }
+.rpt-chart .rpt-bar-rev { fill: var(--accent-solid); }
+.rpt-chart .rpt-bar-cost { fill: var(--info); }
+.rpt-chart g:hover rect { opacity: 0.8; }
+.rpt-legend { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+.rpt-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rpt-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.rpt-swatch-rev { background: var(--accent-solid); }
+.rpt-swatch-cost { background: var(--info); }
+.rpt-two-col { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.rpt-hbars { display: flex; flex-direction: column; gap: 0.6rem; }
+.rpt-hbar-row { display: grid; grid-template-columns: minmax(80px, 9rem) 1fr auto; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+.rpt-hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt-hbar-track { background: var(--bg-secondary); border-radius: 4px; height: 10px; overflow: hidden; }
+.rpt-hbar-fill { background: var(--accent-solid); height: 100%; border-radius: 4px; min-width: 2px; }
+.rpt-hbar-fill-alt { background: var(--success); }
+.rpt-hbar-value { font-variant-numeric: tabular-nums; color: var(--text-muted); text-align: right; min-width: 4.5rem; }
+.rpt-table-wrap { overflow-x: auto; margin: 0 -0.25rem; }
+.rpt-badge { font-size: 0.65rem; margin-left: 0.35rem; background: var(--success-soft); color: var(--success); border-color: transparent; }
+.rpt-badge-est { background: var(--bg-hover); color: var(--text-muted); }
+.rpt-pos { color: var(--success); }
+.rpt-neg { color: var(--danger); }
+.rpt-table-wrap .data-table .num { text-align: right; white-space: nowrap; }
