@@ -305,6 +305,7 @@ class Invoice(db.Model):
     paid_at = db.Column(db.DateTime)
     last_reminder_sent_at = db.Column(db.DateTime)
     archived = db.Column(db.Boolean, default=False)
+    deposit_percent = db.Column(db.Float, default=0.0)  # 0 = no deposit requested (see app/payments.py)
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
 
     @property
@@ -341,6 +342,29 @@ class Invoice(db.Model):
         if not self.quote_id:
             return None
         return Request.query.filter_by(quote_id=self.quote_id).first()
+
+    # --- Deposits & part payments (see app/payments.py) ---
+    @property
+    def amount_paid(self):
+        return round(sum(p.amount or 0 for p in self.payments), 2)
+
+    @property
+    def balance_due(self):
+        """What's still owed. An invoice marked Paid by hand (no payment rows) owes nothing;
+        a cancelled one is never owed."""
+        if self.status in ('Paid', 'Cancelled'):
+            return 0.0
+        return max(round((self.total or 0) - self.amount_paid, 2), 0.0)
+
+    @property
+    def is_partially_paid(self):
+        return self.status not in ('Paid', 'Cancelled') and self.amount_paid > 0 and self.balance_due > 0
+
+    @property
+    def deposit_amount(self):
+        if not self.deposit_percent or self.deposit_percent <= 0:
+            return 0.0
+        return round((self.total or 0) * min(self.deposit_percent, 100) / 100, 2)
 
 
 class InvoiceItem(db.Model):
@@ -652,3 +676,23 @@ class AuditLog(db.Model):
     target_id = db.Column(db.String(50))
     detail = db.Column(db.String(500))
     ip_address = db.Column(db.String(64))
+
+
+class Payment(db.Model):
+    """A single payment against an invoice — a deposit, a part payment or the final
+    balance. Recorded by staff ('manual') or by the Stripe webhook ('stripe', keyed on
+    the Checkout Session id so a retried webhook can't record it twice). The invoice's
+    Paid status is derived from these in app/payments.py.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False, index=True)
+    invoice = db.relationship('Invoice', backref=db.backref(
+        'payments', order_by='Payment.paid_at', cascade='all, delete-orphan'))
+    amount = db.Column(db.Float, nullable=False, default=0.0)
+    method = db.Column(db.String(50))
+    paid_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    reference = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.String(150))
+    source = db.Column(db.String(20), nullable=False, default='manual')  # 'manual' | 'stripe'
+    stripe_session_id = db.Column(db.String(255), unique=True)

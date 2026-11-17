@@ -1214,3 +1214,8 @@ form.pub-form { display: grid; gap: 1.1rem; }
 }
 .pub-estimate-warning::before { content: '!'; position: absolute; left: 0.3rem; font-weight: 700; }
 .pub-estimate-note { margin: 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+/* ==== Payments (deposit / part-payment choice on /pay/<token>) ==== */
+.pub-pay-options { display: grid; gap: 0.6rem; margin-top: 1.25rem; }
+.pub-pay-options .pub-btn, .pub-pay-options .pub-btn-secondary { width: 100%; text-align: center; justify-content: center; }
+.pub-pay-note { color: var(--text-muted); font-size: 0.85rem; margin: 0.75rem 0 0; }
+/* ==== /Payments ==== */

@@ -1478,3 +1478,20 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .rpt-pos { color: var(--success); }
 .rpt-neg { color: var(--danger); }
 .rpt-table-wrap .data-table .num { text-align: right; white-space: nowrap; }
+/* ==== Payments (deposits & part payments — app/payments.py) ==== */
+.pay-panel .card-head { margin-bottom: 0.75rem; }
+.pay-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+.pay-totals > div { display: grid; gap: 0.15rem; }
+.pay-totals .detail-value { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.pay-list { margin: 0 -0.5rem 0.75rem; }
+.pay-row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem; }
+.pay-row form { margin: 0; }
+.pay-row .badge { margin-left: 0.3rem; }
+.pay-empty { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
+#record-payment-form { margin-top: 0.75rem; }
+.pay-deposit { display: flex; align-items: flex-end; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.pay-deposit label { flex: 1; margin: 0; }
+.pay-deposit button { margin: 0; }
+.pay-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; }
+.pay-balance-note { font-size: 0.75rem; font-weight: 500; color: var(--warning); }
+/* ==== /Payments ==== */

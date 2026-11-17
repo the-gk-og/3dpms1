@@ -1,0 +1,46 @@
+{# Payments section for invoice_detail.mobile.html — deposits & part payments (app/payments.py). #}
+<div class="m-section-title">Payments{% if invoice.is_partially_paid %} <span class="m-badge m-badge-warning">Part paid</span>{% endif %}</div>
+<div class="m-card">
+  <div class="m-card-row" style="margin-bottom: 0.4rem;"><span class="m-card-sub">Total</span><span>${{ "%.2f"|format(invoice.total or 0) }}</span></div>
+  <div class="m-card-row" style="margin-bottom: 0.4rem;"><span class="m-card-sub">Paid</span><span>${{ "%.2f"|format(invoice.amount_paid) }}</span></div>
+  <div class="m-card-row"><span class="m-card-sub">Balance due</span><span class="m-card-amount">${{ "%.2f"|format(invoice.balance_due) }}</span></div>
+
+  {% for p in invoice.payments %}
+  {% if loop.first %}<hr class="m-divider">{% endif %}
+  <div class="m-card-row" style="margin-bottom: 0.5rem; gap: 0.5rem;">
+    <div>
+      <strong>${{ "%.2f"|format(p.amount) }}</strong> <span class="m-card-sub">{{ p.method or 'Unspecified' }}{% if p.source == 'stripe' %} · Stripe{% endif %}</span>
+      <div class="m-card-sub">{{ p.paid_at.strftime('%d %b %Y') }}{% if p.reference %} · {{ p.reference }}{% endif %}</div>
+    </div>
+    <form method="post" action="{{ url_for('payments.remove_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('Delete this payment of ${{ '%.2f'|format(p.amount) }}?{% if p.source == 'stripe' %} It was taken through Stripe; deleting it here does not refund it.{% endif %}')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="m-btn m-btn-secondary m-btn-sm">Delete</button>
+    </form>
+  </div>
+  {% endfor %}
+
+  {% if invoice.status not in ('Paid', 'Cancelled') and invoice.balance_due > 0 %}
+  <hr class="m-divider">
+  <button type="button" class="m-btn m-btn-secondary m-btn-sm" onclick="toggleForm('record-payment-form')">Record payment</button>
+  <form method="post" action="{{ url_for('payments.add_payment', invoice_id=invoice.id) }}" id="record-payment-form" class="collapsible-form" style="margin-top: 0.75rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Amount</label><input type="number" step="0.01" min="0.01" max="{{ '%.2f'|format(invoice.balance_due) }}" name="amount" value="{{ '%.2f'|format(invoice.balance_due) }}" required></div>
+    <div class="m-field"><label>Date</label><input type="date" name="paid_at" value="{{ now_date_iso }}"></div>
+    <div class="m-field"><label>Method</label>
+      <select name="method">
+        {% for m in payment_method_names %}<option value="{{ m }}"{% if invoice.payment_method and invoice.payment_method.split(', ')[0] == m %} selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="m-field"><label>Note / reference</label><input type="text" name="reference" maxlength="300"></div>
+    <button type="submit" class="m-btn m-btn-primary">Save payment</button>
+  </form>
+  {% endif %}
+
+  <hr class="m-divider">
+  <form method="post" action="{{ url_for('payments.set_deposit', invoice_id=invoice.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="m-field"><label>Deposit % (0 = none)</label>
+      <input type="number" step="0.1" min="0" max="100" name="deposit_percent" value="{{ '%g'|format(invoice.deposit_percent or 0) }}"></div>
+    <button type="submit" class="m-btn m-btn-secondary m-btn-sm">Save deposit</button>
+  </form>
+</div>

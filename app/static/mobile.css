@@ -619,3 +619,6 @@ button.m-link-btn { background: none; border: none; padding: 0; cursor: pointer;
 .m-rpt-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.78rem; }
 .m-rpt-value span { color: var(--text-muted); }
 .m-rpt-footnote { color: var(--text-muted); font-size: 0.72rem; line-height: 1.5; margin: 1rem 0 0; }
+/* ==== Payments (deposits & part payments — app/payments.py) ==== */
+.m-badge-warning { background: rgba(251,191,36,0.15); color: var(--warning); }
+/* ==== /Payments ==== */

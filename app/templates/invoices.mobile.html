@@ -24,11 +24,13 @@
         </div>
         <div style="text-align: right;">
           <div class="m-card-amount" style="color: var(--success);">${{ "%.2f"|format(invoice.total) }}</div>
+          {% if invoice.is_partially_paid %}<div class="m-card-sub">${{ "%.2f"|format(invoice.balance_due) }} due</div>{% endif %}
         </div>
       </div>
       <div class="m-card-meta">
         {% if invoice.archived %}<span class="m-badge m-badge-muted">Archived</span>{% endif %}
         {% if invoice.is_overdue %}<span class="m-badge m-badge-danger">Overdue</span>{% else %}<span class="m-badge">{{ invoice.status }}</span>{% endif %}
+        {% if invoice.is_partially_paid %}<span class="m-badge m-badge-warning">Part paid</span>{% endif %}
         <span>{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</span>
       </div>
       <div class="m-card-actions" onclick="event.preventDefault(); event.stopPropagation();">

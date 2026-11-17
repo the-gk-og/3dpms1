@@ -16,6 +16,7 @@
     {% else %}
     <span class="m-badge m-badge-success">{{ invoice.status }}</span>
     {% endif %}
+    {% if invoice.is_partially_paid %}<span class="m-badge m-badge-warning">Part paid</span>{% endif %}
   </div>
 
   {{ pipeline_chain(quote=invoice.quote, current='invoice', current_id=invoice.id) }}
@@ -94,6 +95,8 @@
     </form>
   {% endif %}
 </div>
+
+{% include '_invoice_payments.mobile.html' %}
 
 <div class="m-section-title">Line Items</div>
 {% if invoice.items %}

@@ -44,8 +44,9 @@
           {% else %}
           <span class="badge badge-success s-{{ (invoice.status or "")|lower|replace(" ", "-") }}">{{ invoice.status }}</span>
           {% endif %}
+          {% if invoice.is_partially_paid %}<span class="badge badge-warning">Part paid</span>{% endif %}
         </td>
-        <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}</td>
+        <td style="color: var(--success); font-weight: 600;">${{ "%.2f"|format(invoice.total) }}{% if invoice.is_partially_paid %}<div class="pay-balance-note">${{ "%.2f"|format(invoice.balance_due) }} due</div>{% endif %}</td>
         <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}</td>
         <td style="color: var(--text-muted); font-size: 0.85rem;">{{ invoice.created_at.strftime('%d %b %Y') if invoice.created_at else '—' }}</td>
         <td style="white-space: nowrap;">
