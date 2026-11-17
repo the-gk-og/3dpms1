@@ -136,6 +136,8 @@ def run_migrations(db):
             'featured': 'BOOLEAN DEFAULT 0',
         },
     }
+    # Deposits & part payments (the payment table itself comes from db.create_all()).
+    column_migrations['invoice']['deposit_percent'] = 'FLOAT DEFAULT 0'
 
     for table, columns in column_migrations.items():
         if table not in existing_tables:

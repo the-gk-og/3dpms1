@@ -41,7 +41,8 @@ def build_pdf(document_title, business, client, items, total, footer_text,
               document_number='', subtotal=0, surcharge_percent=0,
               notes='', logo_path=None, valid_until=None, due_date=None,
               markup_percent=0, markup_amount=0, surcharge_notes=None,
-              payment_terms_font_size=9, tos_font_size=8):
+              payment_terms_font_size=9, tos_font_size=8,
+              amount_paid=None, balance_due=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
@@ -227,6 +228,20 @@ def build_pdf(document_title, business, client, items, total, footer_text,
         ('PADDING', (0, 0), (-1, -1), 4),
     ]))
     story.append(totals_table)
+
+    # Deposits / part payments: shown under the total only when payments exist.
+    if amount_paid is not None and balance_due is not None:
+        paid_table = Table([
+            ['', '', 'Paid to date:', _money(amount_paid)],
+            ['', '', 'Balance due:', _money(balance_due)],
+        ], colWidths=col_widths)
+        paid_table.setStyle(TableStyle([
+            ('ALIGN', (2, 0), (3, -1), 'RIGHT'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTNAME', (2, -1), (3, -1), 'Helvetica-Bold'),
+            ('PADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(paid_table)
 
     if notes:
         story.append(Spacer(1, 0.15 * inch))

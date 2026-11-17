@@ -213,6 +213,8 @@ def _invoice_pdf_bytes(invoice):
         due_date=invoice.due_date,
         payment_terms_font_size=business.payment_terms_font_size or 9,
         tos_font_size=business.tos_font_size or 8,
+        amount_paid=invoice.amount_paid if invoice.payments else None,
+        balance_due=invoice.balance_due if invoice.payments else None,
     )
 
 
@@ -330,9 +332,10 @@ def index():
     unpaid_invoices = Invoice.query.filter(
         Invoice.archived.is_(False), Invoice.status.notin_(['Paid', 'Cancelled'])
     ).all()
-    outstanding_total = sum(i.total or 0 for i in unpaid_invoices)
+    # balance_due == total for invoices with no payments; less for part-paid ones.
+    outstanding_total = sum(i.balance_due for i in unpaid_invoices)
     overdue_count = sum(1 for i in unpaid_invoices if i.is_overdue)
-    overdue_total = sum(i.total or 0 for i in unpaid_invoices if i.is_overdue)
+    overdue_total = sum(i.balance_due for i in unpaid_invoices if i.is_overdue)
 
     # Revenue: paid invoices, by when they were actually paid (not when created/sent) —
     # paid_at is set by both the manual status-change path and the Stripe webhook.

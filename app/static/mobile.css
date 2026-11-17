@@ -600,3 +600,7 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
   padding: 0.35em 0.6em;
   text-align: left;
 }
+
+/* ==== Payments (deposits & part payments — app/payments.py) ==== */
+.m-badge-warning { background: rgba(251,191,36,0.15); color: var(--warning); }
+/* ==== /Payments ==== */

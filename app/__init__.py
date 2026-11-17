@@ -120,6 +120,7 @@ def create_app(test_config=None):
     from app.export import export_bp
     from app.feedback import feedback_bp
     from app.imports import import_bp
+    from app.payments import payments_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -129,6 +130,7 @@ def create_app(test_config=None):
     app.register_blueprint(export_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(import_bp)
+    app.register_blueprint(payments_bp)
 
     with app.app_context():
         db.create_all()
