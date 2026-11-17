@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block page_title %}Restock List{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2><i class="fa fa-shopping-cart" aria-hidden="true"></i> Restock List</h2>
+    <p style="color: var(--text-muted); margin: 0.35rem 0 0; font-size: 0.9rem;">
+      Filament at or below {{ '%g'|format(low_stock_threshold) }}g, with enough spools to get back above it
+    </p>
+  </div>
+  <div class="restock-actions">
+    <a href="{{ url_for('filament.index') }}" class="btn btn-secondary"><i class="fa fa-angle-left" aria-hidden="true"></i> Inventory</a>
+    {% if lines %}<button type="button" id="restock-copy" class="btn"><i class="fa fa-clipboard" aria-hidden="true"></i> Copy list</button>{% endif %}
+  </div>
+</div>
+
+{% if lines %}
+<div class="panel">
+  <table class="data-table restock-table">
+    <thead>
+      <tr>
+        <th>Filament</th>
+        <th class="num">In stock</th>
+        <th class="num">Spool size</th>
+        <th class="num">Spools to buy</th>
+        <th class="num">Per spool</th>
+        <th class="num">Est. cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}{% set f = line.filament %}
+      <tr data-restock-row data-name="{{ f.name }}{% if f.brand %} ({{ f.brand }}){% endif %}" data-spool="{{ '%g'|format(line.spool_g) }}" data-unit-cost="{{ line.unit_cost }}">
+        <td>
+          <strong>{{ f.name }}</strong>
+          {% if line.current_g <= 0 %}<span class="badge badge-danger">Out of stock</span>{% else %}<span class="badge badge-warning">Low stock</span>{% endif %}
+          <div class="restock-sub">{{ f.brand or '' }}{% if f.brand and f.material %} · {% endif %}{{ f.material or '' }}{% if f.color %} · {{ f.color }}{% endif %}</div>
+        </td>
+        <td class="num">{{ '%.0f'|format(line.current_g) }}g</td>
+        <td class="num">{{ '%g'|format(line.spool_g) }}g</td>
+        <td class="num"><input type="number" min="0" step="1" value="{{ line.quantity }}" class="restock-qty" data-restock-qty aria-label="Spools of {{ f.name }} to buy"></td>
+        <td class="num">${{ '%.2f'|format(line.unit_cost) }}<div class="restock-sub">{{ line.cost_source }}</div></td>
+        <td class="num" data-restock-line>${{ '%.2f'|format(line.line_total) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" class="num"><strong>Estimated total</strong></td>
+        <td class="num"><strong id="restock-grand-total">${{ '%.2f'|format(grand_total) }}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+  <p class="restock-sub" style="margin: 0.75rem 0 0;">
+    Spool size and price come from each filament's most recently added spool (1000g at its cost per kg when it has none).
+  </p>
+</div>
+{% include '_restock_script.html' %}
+{% else %}
+<div class="panel empty-state">
+  <p>Nothing to restock — every filament is above {{ '%g'|format(low_stock_threshold) }}g.</p>
+</div>
+{% endif %}
+{% endblock %}

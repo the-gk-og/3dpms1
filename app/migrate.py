@@ -51,6 +51,8 @@ def run_migrations(db):
             'about_tagline': 'VARCHAR(300)',
             'about_text': 'TEXT',
             'low_stock_threshold_g': 'FLOAT DEFAULT 200',
+            'auto_survey_enabled': 'BOOLEAN DEFAULT 0',
+            'auto_survey_delay_days': 'INTEGER DEFAULT 3',
         },
         'filament': {
             'brand': 'VARCHAR(100)',
@@ -102,6 +104,7 @@ def run_migrations(db):
             'package_status': "VARCHAR(50) DEFAULT 'Not Packaged'",
             'filament_deducted_at': 'DATETIME',
             'filament_usage': 'TEXT',
+            'completed_at': 'DATETIME',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",

@@ -181,6 +181,20 @@
   </div>
 
   <div class="form-section">
+    <h3>Automatic Feedback Surveys</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
+      Emails the client a feedback survey a set number of days after their job is marked Complete
+      (once per job — jobs that already have a survey are skipped). This app has no built-in
+      scheduler, so it needs a daily cron job running
+      <code>docker compose exec web flask send-feedback-surveys</code>.
+    </p>
+    <div class="form-grid-2">
+      <label class="auto-survey-toggle"><input type="checkbox" name="auto_survey_enabled"{% if business.auto_survey_enabled %} checked{% endif %}> Send surveys automatically</label>
+      <label>Days after completion<input type="number" step="1" min="0" name="auto_survey_delay_days" value="{{ business.auto_survey_delay_days if business.auto_survey_delay_days is not none else 3 }}"></label>
+    </div>
+  </div>
+
+  <div class="form-section">
     <h3>Custom Email Templates</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -0.25rem;">
       Optional, per email type. Leave the body blank to use our built-in styled HTML template —

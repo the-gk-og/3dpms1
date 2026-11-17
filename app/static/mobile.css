@@ -600,3 +600,8 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
   padding: 0.35em 0.6em;
   text-align: left;
 }
+
+/* ==== Automation: surveys & restock ==== */
+.m-restock-total { font-weight: 700; white-space: nowrap; }
+.m-restock-card .m-card-row { align-items: flex-start; }
+/* ==== end Automation: surveys & restock ==== */

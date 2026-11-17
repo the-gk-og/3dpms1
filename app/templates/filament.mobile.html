@@ -17,6 +17,8 @@
   </div>
 </div>
 
+<a href="{{ url_for('filament.restock') }}" class="m-btn m-btn-secondary" style="display: block; text-align: center; margin-bottom: 1rem;">🛒 Restock list{% if low_stock_count %} ({{ low_stock_count }}){% endif %}</a>
+
 {% if filaments %}
   {% for f in filaments %}
   <div class="m-card">

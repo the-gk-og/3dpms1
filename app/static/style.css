@@ -1386,3 +1386,15 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .stock-alert strong { display: block; font-size: 0.9rem; }
 .stock-alert span { font-size: 0.825rem; color: var(--text-muted); }
 .stock-alert .stock-alert-cta { color: var(--warning); font-weight: 600; white-space: nowrap; }
+
+/* ==== Automation: surveys & restock ==== */
+.restock-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.restock-table th.num, .restock-table td.num { text-align: right; }
+.restock-table td { vertical-align: top; }
+.restock-table .badge { margin-left: 0.3rem; }
+.restock-sub { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.15rem; }
+.restock-qty { width: 5rem; text-align: right; }
+.restock-table tfoot td { border-top: 2px solid var(--border); }
+.auto-survey-toggle { display: flex; align-items: center; gap: 0.5rem; align-self: end; min-height: 36px; color: var(--text); }
+.auto-survey-toggle input { min-height: 0; }
+/* ==== end Automation: surveys & restock ==== */

@@ -16,7 +16,7 @@
 </div>
 
 {% if low_stock %}
-<a href="{{ url_for('filament.index') }}" class="card stock-alert">
+<a href="{{ url_for('filament.restock') }}" class="card stock-alert">
   <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
   <div>
     <strong>{{ low_stock|length }} filament{{ 's are' if low_stock|length != 1 else ' is' }} running low</strong>
