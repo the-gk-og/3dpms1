@@ -102,6 +102,9 @@ def run_migrations(db):
             'package_status': "VARCHAR(50) DEFAULT 'Not Packaged'",
             'filament_deducted_at': 'DATETIME',
             'filament_usage': 'TEXT',
+            'due_date': 'DATE',
+            'printer_id': 'INTEGER',
+            'queue_position': 'INTEGER',
         },
         'quote_item': {
             'item_type': "VARCHAR(20) DEFAULT 'print'",

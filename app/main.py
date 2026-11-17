@@ -29,6 +29,7 @@ from app.pdf_utils import build_pdf, build_payment_details, build_packing_slip_p
 from app.inventory import (
     deduct_filament_for_job, restore_filament_for_job, describe_deduction, low_stock_filaments,
 )
+from app.job_schedule import parse_due_date, due_soon_jobs, assign_to_printer
 
 main_bp = Blueprint('main', __name__, url_prefix='/dash')
 
@@ -360,6 +361,7 @@ def index():
         revenue_this_year=revenue_this_year,
         low_stock=low_stock_filaments(settings.low_stock_threshold_g),
         low_stock_threshold=settings.low_stock_threshold_g if settings.low_stock_threshold_g is not None else 200,
+        due_soon=due_soon_jobs(today),
     )
 
 
@@ -819,6 +821,7 @@ def new_job():
             status='Queued',
             notes=(request.form.get('notes') or '').strip(),
             internal_notes=(request.form.get('internal_notes') or '').strip(),
+            due_date=parse_due_date(request.form.get('due_date')),
         )
         db.session.add(job)
         db.session.commit()
@@ -1247,8 +1250,14 @@ def jobs():
     if q:
         like = f'%{q}%'
         query = query.filter(db.or_(Job.title.ilike(like), Job.reference_number.ilike(like), Client.name.ilike(like)))
-    jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q)
+    sort = 'due' if request.args.get('sort') == 'due' else 'newest'
+    if sort == 'due':
+        # Soonest due first; jobs without a due date go last, newest first.
+        query = query.order_by(Job.due_date.is_(None), Job.due_date, Job.created_at.desc())
+    else:
+        query = query.order_by(Job.created_at.desc())
+    jobs = query.all()
+    return render_template('jobs.html', jobs=jobs, show_archived=show_archived, q=q, sort=sort)
 
 
 @main_bp.route('/jobs/<int:job_id>/edit', methods=['POST'])
@@ -1261,6 +1270,10 @@ def edit_job(job_id):
     job.status = new_status
     if 'package_status' in request.form:
         job.package_status = request.form.get('package_status', job.package_status)
+    if 'due_date' in request.form:
+        job.due_date = parse_due_date(request.form.get('due_date'))
+    if 'printer_id' in request.form:
+        assign_to_printer(job, request.form.get('printer_id', type=int))
     # notes/internal_notes are edited via the standalone note editor
     # (main.edit_note / main.save_note) now, not this form.
     filament_note = _deduct_on_complete(job, old_status)

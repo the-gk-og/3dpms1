@@ -69,6 +69,28 @@
   </a>
 </div>
 
+{% if due_soon %}
+<div class="card due-soon-card">
+  <div class="card-head">
+    <h3><i class="fa fa-clock-o" aria-hidden="true" style="color: var(--warning);"></i> Due soon</h3>
+    <a href="{{ url_for('main.jobs', sort='due') }}">All jobs by due date <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+  </div>
+  {% for job in due_soon %}
+  {% set due = due_badge(job) %}
+  <a class="list-row" href="{{ url_for('main.job_detail', job_id=job.id) }}">
+    <div>
+      <div class="list-row-title">{{ job.display_number }} · {{ job.title }}</div>
+      <div class="list-row-sub">{{ job.client.name if job.client else '—' }} · {{ job.status }}{% if job.printer %} · {{ job.printer.name }}{% endif %}</div>
+    </div>
+    <div class="list-row-end">
+      {% if due %}<span class="badge badge-{{ due[1] }}">{{ due[0] }}</span>{% endif %}
+      <span class="list-row-sub">{{ job.due_date.strftime('%d %b') }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
   <div class="card">
     <div class="card-head">

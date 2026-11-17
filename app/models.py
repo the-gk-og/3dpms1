@@ -379,6 +379,12 @@ class Job(db.Model):
     # so the deduction can be shown and undone exactly.
     filament_deducted_at = db.Column(db.DateTime)
     filament_usage = db.Column(db.Text)
+    # Scheduling (see app/job_schedule.py): when the job should be done, which
+    # printer it's queued on, and its place in that printer's queue (lower = sooner).
+    due_date = db.Column(db.Date)
+    printer_id = db.Column(db.Integer, db.ForeignKey('printer.id'))
+    printer = db.relationship('Printer', backref='jobs')
+    queue_position = db.Column(db.Integer)
 
     @property
     def display_number(self):
@@ -421,6 +427,17 @@ class Job(db.Model):
         if not self.quote_id:
             return None
         return Request.query.filter_by(quote_id=self.quote_id).first()
+
+
+class Printer(db.Model):
+    """A 3D printer jobs can be queued on (see app/printers.py). Deactivated
+    printers are kept for history but drop off the queue board."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    model = db.Column(db.String(150))
+    notes = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class JobFile(db.Model):

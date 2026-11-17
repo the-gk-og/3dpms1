@@ -13,6 +13,11 @@
   <input type="checkbox" name="archived" value="1" onchange="window.location = '{{ url_for('main.jobs') }}?archived=' + (this.checked ? '1' : '0') + '&q={{ q }}'"{% if show_archived %} checked{% endif %}>
   <label style="margin: 0;">Show archived</label>
 </div>
+<div class="m-card-meta" style="margin: 0 0 0.75rem;">
+  <span style="font-size: 0.8rem; color: var(--text-muted);">Sort:</span>
+  <a href="{{ url_for('main.jobs', q=q or None, archived='1' if show_archived else None) }}" class="m-badge{% if sort == 'due' %} m-badge-muted{% endif %}" style="text-decoration: none;">Newest</a>
+  <a href="{{ url_for('main.jobs', q=q or None, archived='1' if show_archived else None, sort='due') }}" class="m-badge{% if sort != 'due' %} m-badge-muted{% endif %}" style="text-decoration: none;">Due soonest</a>
+</div>
 
 {% if jobs %}
   {% for job in jobs %}
@@ -28,6 +33,8 @@
     <div class="m-card-meta">
       {% if job.archived %}<span class="m-badge m-badge-muted">Archived</span>{% endif %}
       <span class="m-badge">{{ job.status }}</span>
+      {% set due = due_badge(job) %}
+      {% if due %}<span class="m-badge m-badge-{{ due[1] }}">{{ due[0] }}</span>{% endif %}
       {% if job.notify_me %}<span class="m-badge m-badge-muted">🔔{% if job.notify_sent_at %} Sent{% endif %}</span>{% endif %}
       {% if job.feedback_surveys %}
       {% set latest_survey = job.feedback_surveys|sort(attribute='sent_at')|last %}
@@ -116,6 +123,7 @@
             {% endfor %}
           </select>
         </div>
+        <div class="m-field"><label>Due date</label><input type="date" name="due_date" value="{{ job.due_date.isoformat() if job.due_date else '' }}"></div>
         <div class="m-field"><label>Notes</label><textarea class="md-editor" data-placeholder="Visible to the client..." name="notes" rows="2">{{ job.notes or '' }}</textarea></div>
         <div class="m-field"><label>Internal Notes<span class="internal-note-badge">🔒 staff only</span></label><textarea class="md-editor" data-placeholder="Never shown to the client..." name="internal_notes" rows="2">{{ job.internal_notes or '' }}</textarea></div>
         <button type="submit" class="m-btn m-btn-primary">Save</button>

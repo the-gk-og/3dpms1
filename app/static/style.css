@@ -1386,3 +1386,53 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .stock-alert strong { display: block; font-size: 0.9rem; }
 .stock-alert span { font-size: 0.825rem; color: var(--text-muted); }
 .stock-alert .stock-alert-cta { color: var(--warning); font-weight: 600; white-space: nowrap; }
+
+/* ==== Jobs: due dates & printer queue ==== */
+.due-soon-card { margin-bottom: 1.25rem; }
+.queue-add-form { margin-bottom: 1.25rem; }
+.queue-add-form.open { display: block; }
+.queue-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 320px);
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  align-items: start;
+}
+.queue-col {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.queue-col.is-unassigned { border-style: dashed; }
+.queue-col-head h3 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; }
+.queue-col-head h3 .fa { color: var(--accent); }
+.queue-col-stats { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.queue-col-head .collapsible-form.open { gap: 0.5rem; }
+.queue-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.75rem;
+  display: grid;
+  gap: 0.3rem;
+  scroll-margin-top: 5rem;
+}
+.queue-card:target { border-color: var(--accent); }
+.queue-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.queue-card-num { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.queue-card-title { font-weight: 600; font-size: 0.9rem; color: var(--text); text-decoration: none; }
+.queue-card-title:hover { color: var(--accent); }
+.queue-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.15rem; }
+.queue-card-actions { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
+.queue-card-actions form { margin: 0; }
+.queue-card-actions .btn-sm { padding: 0.25rem 0.5rem; }
+.queue-card-actions button[disabled] { opacity: 0.35; cursor: default; }
+.queue-assign { flex: 1; min-width: 0; }
+.queue-assign select { width: 100%; padding: 0.25rem 0.4rem; font-size: 0.8rem; margin: 0; }
+.queue-empty { font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1rem 0.5rem; }
+.queue-board .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
