@@ -52,3 +52,19 @@ def test_uploaded_logo_shows_in_public_nav_and_footer(client):
     html = client.get('/').get_data(as_text=True)
     assert html.count('/static/uploads/abc123.png') == 2  # header + footer
     assert 'pub-brand-mark' not in html
+
+
+def test_legal_pages_hide_builtin_date_when_custom_text_is_set(client):
+    with client.application.app_context():
+        db.session.add(BusinessSettings(name='Acme 3D'))
+        db.session.commit()
+    assert 'Last updated: 29 July 2026' in client.get('/privacy').get_data(as_text=True)
+    with client.application.app_context():
+        s = BusinessSettings.query.first()
+        s.privacy_policy = '*Last updated: 1 Jan 2027*\n\nOur policy.'
+        s.terms_of_service = 'Our terms.'
+        db.session.commit()
+    for path in ('/privacy', '/terms'):
+        html = client.get(path).get_data(as_text=True)
+        assert '29 July 2026' not in html
+    assert 'Last updated: 1 Jan 2027' in client.get('/privacy').get_data(as_text=True)

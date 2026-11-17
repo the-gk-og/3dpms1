@@ -43,7 +43,8 @@ We may update this Privacy Policy from time to time to reflect changes in our pr
 {% endset %}
 
 <h1 style="text-align: center;">Privacy Policy</h1>
-<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Last updated: 29 July 2026</p>
+{# The built-in policy carries this date; custom text from Settings → Legal states its own. #}
+{% if not business.privacy_policy %}<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Last updated: 29 July 2026</p>{% endif %}
 
 <div class="pub-panel legal-content" style="margin-top: 2rem;">
   {{ (business.privacy_policy or default_privacy)|markdown }}
