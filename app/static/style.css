@@ -1540,3 +1540,17 @@ body.md-editor-fullscreen-lock { overflow: hidden; }
 .req-estimate-table { font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .req-estimate-table td, .req-estimate-table th { padding: 0.45rem 0.65rem; }
 /* ==== /Request page preview ==== */
+
+/* ==== Error pages (dashboard) ==== */
+.error-page { text-align: center; padding: 3rem 1rem; max-width: 560px; margin: 0 auto; }
+.error-code { display: flex; justify-content: center; gap: 0.08em; margin-bottom: 0.75rem; font-size: clamp(4rem, 12vw, 6.5rem); font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.error-code span {
+  color: transparent;
+  background: repeating-linear-gradient(0deg, var(--accent-solid) 0 5px, color-mix(in srgb, var(--accent-solid) 75%, #000) 5px 7px);
+  -webkit-background-clip: text; background-clip: text;
+  animation: err-print 0.55s ease both;
+}
+@keyframes err-print { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+.error-page h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+.error-message { margin: 0 auto 1.5rem; color: var(--text-muted); }
+.error-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }

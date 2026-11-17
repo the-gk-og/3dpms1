@@ -147,6 +147,8 @@ def create_app(test_config=None):
 
     _register_cli(app)
     _register_security_headers(app)
+    from app.errors import register_error_handlers
+    register_error_handlers(app)
 
     from app.helpers import is_mobile_request, render_markdown
     app.jinja_env.globals['is_mobile_request'] = is_mobile_request
